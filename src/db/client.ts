@@ -11,7 +11,7 @@ export interface BalStoreSpec {
 }
 
 export const BAL_DB_NAME = 'svelp';
-export const BAL_DB_VERSION = 3;
+export const BAL_DB_VERSION = 4;
 
 export const PSTU_CDI_STORES: Record<number, BalStoreSpec[]> = {
   1: [
@@ -55,6 +55,42 @@ export const PSTU_CDI_STORES: Record<number, BalStoreSpec[]> = {
       indexes: [
         { name: 'projectId', keyPath: 'projectId' },
         { name: 'questionnaireId', keyPath: 'questionnaireId' },
+        { name: 'createdAt', keyPath: 'createdAt' }
+      ]
+    }
+  ],
+  4: [
+    {
+      name: 'scanBatches',
+      keyPath: 'id',
+      indexes: [
+        { name: 'projectId', keyPath: 'projectId' },
+        { name: 'createdAt', keyPath: 'createdAt' }
+      ]
+    },
+    {
+      name: 'scanPages',
+      keyPath: 'id',
+      indexes: [
+        { name: 'batchId', keyPath: 'batchId' },
+        { name: 'projectId', keyPath: 'projectId' },
+        { name: 'status', keyPath: 'status' },
+        { name: 'updatedAt', keyPath: 'updatedAt' }
+      ]
+    },
+    {
+      name: 'scanAssets',
+      keyPath: 'id',
+      indexes: [
+        { name: 'batchId', keyPath: 'batchId' },
+        { name: 'pageId', keyPath: 'pageId' }
+      ]
+    },
+    {
+      name: 'scanAuditEvents',
+      keyPath: 'id',
+      indexes: [
+        { name: 'batchId', keyPath: 'batchId' },
         { name: 'createdAt', keyPath: 'createdAt' }
       ]
     }
