@@ -3,6 +3,96 @@
 All notable changes to Svelp are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.4.0 - Phase 4: offline batch ingestion and page recovery
+
+Scanned or photographed paper pages can now be imported in any order and turned into
+correctly identified, geometrically normalized, quality-assessed pages that stay on the
+device, ready for a future response-reading phase.
+
+### Added
+
+- Scan workspace on the project Scan tab: add photos or PDFs from file selection or
+  desktop drag-and-drop, stage them with cached thumbnails, remove or clear the
+  selection, and begin processing; staged selections survive processing.
+- A dedicated scanning worker keeps the interface responsive: adaptive binarization,
+  connected-component analysis, and a square filter find the four printed 7 mm corner
+  markers; rotation-hypothesis search, homography solving, and bilinear warping recover
+  the page into fixed canonical dimensions (150 dpi: A4 1240 x 1754, Letter 1275 x 1650,
+  about 5.9 px/mm). Nothing is downloaded and nothing is uploaded; all computation is
+  local.
+- Page identification by decoding the Phase 3 QR payload locally (jsQR) and matching
+  study code, questionnaire version, and page number against stored print layouts.
+  Impossible page numbers, unknown formats, and malformed payloads are rejected with
+  specific reasons; photos containing several codes are flagged as possible two-sheet
+  photographs instead of guessing. Orientation is confirmed from the decoded code
+  because corner markers alone cannot distinguish 90/270.
+- Recovery modes that degrade honestly: four markers give a high-confidence homography;
+  exactly three infer the fourth corner with reduced confidence and a review flag; fewer
+  than three send the page to an alignment-failure queue with a full-screen, touch-first
+  four-corner correction editor (drag large handles, save, and the page re-transforms
+  with manual confidence).
+- Deterministic quality assessment with status words, never fabricated percentages:
+  blur from calibrated gradient energy on a downscaled page, exposure from downscaled
+  mean gray with normal shadows accepted, glare detected only where it destroys ink in
+  marker or code regions, resolution from effective pixels per millimetre, cropping from
+  recovered page coverage, and alignment status from the recovery confidence.
+- Grouping and duplicate handling: pages group by questionnaire, version, and
+  respondent regardless of import order; expected page counts from print metadata drive
+  missing-page detection; two different photos of the same page mark both copies as
+  duplicates with a side-by-side comparison sheet offering keep A, keep B, keep both, or
+  reject both - the suggestion data is recovery quality only, never page contents.
+  Identical files are deduplicated by SHA-256 hash at import time. Version mismatches
+  never merge into one questionnaire.
+- Manual identification sheet for pages without a readable code, validating
+  questionnaire, version, page range, and respondent, warning when the respondent
+  already has that page, and writing an audit event for the action.
+- Persistence and resumability: IndexedDB schema v4 adds scanBatches, scanPages,
+  scanAssets, and scanAuditEvents. Pages move through explicit states (queued, decoding,
+  identifying, aligning, normalizing, ready, needs-review, duplicate, unsupported,
+  failed), failures are isolated per page with specific messages, and batches can be
+  cancelled, reopened, and resumed without re-importing finished pages. Original photos
+  are kept by default; removing them requires confirmation and is recorded in the audit
+  log.
+- Honest progress and ETA: real per-page stage timing feeds a rolling, stage-aware
+  estimator that shows "Estimating..." until enough samples exist and then rounds to
+  plain phrases like "About 3 minutes remaining". The estimate is never forced to move
+  backwards smoothly and freezes on pause or cancel. Failed and review pages count as
+  processed.
+- Storage awareness: the batch shows source, normalized, and total sizes, and a
+  keep-originals switch with a clear traceability warning. A viewer compares the
+  original photo and the normalized page side by side or with a draggable swipe on
+  mobile. Batches can be deleted with confirmation, removing pages, assets, and audit
+  events.
+- PDF ingestion: locally rendered with pdf.js, every page re-identified after rendering,
+  page order never trusted.
+- Review queue grouped by issue category with mobile-first stacked cards, large touch
+  targets, bottom sheets, and no hover-only interactions.
+- Performance: a 200-image deterministic batch test runs through the real recovery
+  engine with stable per-page timing (about 350 ms per page in the test environment),
+  correct grouping of 40 respondents, and no memory exhaustion by rendering fixtures
+  lazily.
+
+### Not in this phase
+
+Answer recognition, bubble or checkbox reading, handwriting OCR, and any
+answer-confidence scoring do not exist and will not be inferred here; only page-recovery
+geometry confidence is computed. Camera capture is not wired in. External-PDF
+overlaying remains a future release. Data export of responses remains Phase 5 work.
+
+### Validation
+
+- svelte-check: 0 errors, 0 warnings
+- ESLint: 0 errors, 0 warnings
+- Vitest: 217 tests passing across 28 files, including payload decoding and malformed
+  rejection, layout resolution, rotation, homography round-trip, marker ordering,
+  normalized dimensions, quality, grouping, version separation, duplicate and missing
+  detection, hash deduplication, manual assignment validation, cancel and resume, PDF
+  ingestion, audit events, schema v4 migration, and the 200-image performance batch
+- Production build: successful, service worker precaching 24 entries
+- Browser flow verified end to end in Chromium (desktop 1280 px and mobile 360 px):
+  shuffled photo import, auto-identification of three code pages, correct review flagging
+  of a blank photo, viewer, identify sheet, corner editor, and storage controls
+
 ## 0.3.0 - Phase 3: native print system
 
 The questionnaire definition can now produce professional, deterministic,

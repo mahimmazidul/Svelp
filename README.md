@@ -40,10 +40,17 @@ network dependency after the first load.
   consent splitting, QR page identifiers, scanner-readable mode with alignment markers,
   a print-readiness report, geometry overlays, respondent batch generation with unique
   coded copies, and offline vector PDF export.
+- **Offline batch scanning** that imports photos and PDFs of printed pages in any
+  order, decodes their QR identifiers locally, recovers each page to fixed canonical
+  dimensions from the printed corner markers, assesses quality deterministically,
+  groups pages by respondent, flags duplicates and missing pages, and stores
+  everything on the device with resumable batches and honest progress - never reading
+  or interpreting answers.
 - **PWA installation and offline operation** after the first load.
 
-Scanning, QR decoding, computer vision, and OCR are intentionally not part of the current
-phase. Placeholder screens describe what Scan, Responses, Export, and Settings will do
+Answer reading, OCR, and response data export are intentionally not part of the
+current phase. The Scan pipeline stops at recovered, identified, quality-assessed
+pages; Responses, Export, and Settings placeholders describe planned behavior
 instead of pretending to work.
 
 ## Running Svelp
@@ -73,9 +80,11 @@ npm run test
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — application structure, database schema and
   migrations, questionnaire schema, response-scale model, validation architecture,
   variable naming, matrix and consent/signature architecture, responsive strategy,
-  versioning strategy, offline behavior, and the native print system: coordinate model,
+  versioning strategy, offline behavior, the native print system (coordinate model,
   pagination engine, matrix splitting, scanner-safe rules, page identifiers, respondent
-  batches, scanner geometry schema, and PDF generation.
+  batches, scanner geometry schema, and PDF generation), and the scan ingestion
+  pipeline (local computer vision, QR identification, canonical normalization, quality
+  model, worker strategy, and privacy).
 - [CHANGELOG.md](./CHANGELOG.md) — release history.
 
 ## Source code policy

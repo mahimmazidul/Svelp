@@ -91,7 +91,7 @@ without server rewrites.
 | `#/project/:id/build` | Builder |
 | `#/project/:id/preview` | Participant preview with test mode |
 | `#/project/:id/print` | Print placeholder |
-| `#/project/:id/scan` | Scan placeholder |
+| `#/project/:id/scan` | Scan workspace (batch ingestion and page recovery) |
 | `#/project/:id/responses` | Responses placeholder |
 | `#/project/:id/export` | Export placeholder |
 | `#/project/:id/settings` | Project settings placeholder |
@@ -509,6 +509,54 @@ without touching this pipeline; only the page backdrop source changes.
 The preview can toggle overlay layers (content bounds, scanner-safe bounds, answer
 regions, item bounds, QR quiet zone) drawn only in SVG — they never appear in the PDF.
 This exists to verify scanner geometry by eye before committing to a print run.
+
+## 18. Scan ingestion and page recovery
+
+The Scan area turns unordered photos and PDFs of printed pages into identified,
+normalized, quality-assessed pages stored locally, without reading any answers.
+
+### Pipeline
+
+Each page moves through explicit stages, never one giant function: decode source
+(EXIF orientation honored via createImageBitmap), identify (local QR decode of the
+Phase 3 payload, matched against stored print layouts), align (marker detection and
+homography), normalize (canonical warp and rotation), assess quality, associate,
+deduplicate, and persist. A page sits in exactly one state at a time
+(queued/decoding/identifying/aligning/normalizing/ready/needs-review/duplicate/
+unsupported/failed) and every transition is persisted, so a batch can be cancelled,
+reopened, and resumed.
+
+### Computer vision
+
+The recovery engine is hand-rolled and deterministic: adaptive binarization via an
+integral image, connected components with a square filter calibrated to the 7 mm
+marker geometry, rotation-hypothesis search over all residual-valid corner labelings,
+direct linear transformation to solve the homography, and a bilinear warp into
+canonical dimensions. OpenCV was deliberately not added; the needed operations are
+small, testable, and dependency-free.
+
+### Workers and performance
+
+All CV and QR work runs in a dedicated module worker; the page's pixels are
+transferred (never copied) to and from it. The main thread handles file decoding, PDF
+rendering through pdf.js, JPEG encoding, thumbnails, hashing, and IndexedDB writes.
+A long-running estimator module computes a rolling, stage-aware, honestly rounded
+remaining-time estimate with tests asserting no NaN, Infinity, or negative values.
+
+### Data model
+
+Schema version 4 adds scanBatches (status, keepOriginals, counters), scanPages
+(identity, per-stage state, quality statuses, alignment and transform metadata
+including detected or manual corner points and the homography, source hash and
+byte sizes, thumbnail data URLs), scanAssets (source and normalized image blobs),
+and scanAuditEvents (manual actions only). Assets live behind the repositories;
+originals are kept by default and removal is confirmed, audited, and irreversible.
+
+### Privacy
+
+Nothing related to scanning leaves the device: no uploads, no remote APIs, no
+telemetry, and no network fetches in the pipeline. Filenames and respondent
+identifiers exist only in local IndexedDB.
 
 ## 17. Testing
 

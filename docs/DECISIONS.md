@@ -2,6 +2,53 @@
 
 Phase-by-phase records of decisions that later phases must respect.
 
+## Phase 4 decisions
+
+### Recovery confidence is not answer confidence
+
+The scan pipeline computes exactly one kind of confidence: how reliably the physical
+page was recovered (marker count, homography residual, manual versus inferred corners,
+orientation confirmation). It never reads, guesses, or scores answers. Everything a
+future response-reading phase needs - the normalized page, marker coordinates, QR
+payload, quality statuses, and per-page transform metadata - is persisted, but no
+answer-region interpretation happens in this phase. This boundary keeps the Phase 4
+pipeline useful for any printed instrument and impossible to silently pre-fill data.
+
+### Rotation is confirmed by the code, not the corners
+
+Four 7 mm square markers at the corners of a page are geometrically symmetric: a
+rotated page produces an equally valid homography for any 90-degree labeling. Rather
+than guess from marker order, the pipeline computes all residual-valid labelings,
+then disambiguates using the decoded QR code's location (projection match in the
+photo, or a probe decode per candidate warp). Only when no code is readable does the
+page keep its best-residual labeling and land in review. This is why "QR unreadable"
+and "rotation ambiguous" are the same review case.
+
+### Fixed canonical dimensions, never stretch
+
+Normalized output is always 150 dpi (A4 1240 x 1754, Letter 1275 x 1650, about
+5.9 px/mm), preserving the print page aspect ratio exactly. Photos are warped through
+a homography built from Phase 3 marker geometry - never from arbitrary visual
+features - so bubble, checkbox, and code coordinates from the print layout remain
+valid in normalized space.
+
+### Quality speaks in statuses, not invented percentages
+
+Blur, exposure, glare, alignment, resolution, and cropping each produce good, warning,
+or error with a human-readable issue line, from deterministic, calibrated metrics
+(gradient energy, downscaled mean gray, ink presence in marker and code regions,
+pixels per millimetre, recovered page coverage). There are no fabricated confidence
+percentages anywhere, so nothing can fake readiness. Margin glare may pass; glare that
+destroys marker or code ink fails.
+
+### The local device is the boundary
+
+Decoding, computer vision, PDF rendering, QR decoding, thumbnails, hashing, and
+storage are all local. Filenames and respondent identifiers never leave the device,
+no telemetry exists, and originals are kept by default. Destructive actions
+(removing originals, deleting a batch) always require confirmation. The ETA
+estimator keeps its timing samples in memory only.
+
 ## Phase 3 decisions
 
 ### One layout engine, two backends, millimetres only
