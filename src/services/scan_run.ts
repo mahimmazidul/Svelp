@@ -8,7 +8,8 @@ import {
   bal_log_scan_action,
   bal_new_id,
   bal_page_transform_from_result,
-  bal_resolve_identity
+  bal_resolve_identity,
+  bal_validate_manual_assignment
 } from './scan_service';
 import { bal_eta_label, bal_record_stage, bal_create_eta_estimator, type bal_EtaEstimator } from '../features/scan/scan_eta';
 import {
@@ -647,4 +648,182 @@ export async function bal_reprocess_page(
     decodeSource: bal_decode,
     encodeNormalized: bal_encode
   });
+}
+
+export async function bal_set_page_thumbs(
+  bal_page_id: string,
+  bal_thumb_source: string | null,
+  bal_thumb_normalized: string | null
+): Promise<void> {
+  const { dhon_scan_page } = await import('../db/scan_repo');
+  const bal_page = await dhon_scan_page(bal_page_id);
+  if (!bal_page) return;
+  await bal_save_scan_page({
+    ...bal_plain(bal_page),
+    thumbSource: bal_thumb_source ?? bal_page.thumbSource,
+    thumbNormalized: bal_thumb_normalized ?? bal_page.thumbNormalized,
+    updatedAt: Date.now()
+  });
+}
+
+export async function bal_manual_identify_page(
+  bal_page_id: string,
+  bal_assignment: { questionnaireId: string; version: number; respondentId: string; pageNumber: number },
+  bal_layouts: PrintLayoutRecord[],
+  bal_pages: ScanPageRecord[]
+): Promise<{ ok: boolean; error: string | null; warning: string | null; page: ScanPageRecord | null }> {
+  const { dhon_scan_page } = await import('../db/scan_repo');
+  const bal_page = await dhon_scan_page(bal_page_id);
+  if (!bal_page) return { ok: false, error: 'Page not found.', warning: null, page: null };
+  const bal_validation = bal_validate_manual_assignment(
+    bal_assignment,
+    bal_layouts,
+    bal_pages,
+    bal_page.id
+  );
+  if (!bal_validation.ok) {
+    return { ok: false, error: bal_validation.error, warning: null, page: null };
+  }
+  const bal_remaining_issues = bal_page.issues.filter(
+    (bal_issue) => bal_issue !== 'unidentified' && bal_issue !== 'multiple-identifiers' && bal_issue !== 'possible-multiple-sheets'
+  );
+  const bal_can_be_ready =
+    bal_remaining_issues.length === 0 &&
+    bal_page.normalizedAssetId !== null &&
+    bal_page.alignment?.confidence !== 'failed' &&
+    bal_page.quality?.overallStatus !== 'error';
+  const bal_status: ScanPageRecord['status'] = bal_can_be_ready
+    ? 'ready'
+    : bal_page.status === 'duplicate'
+      ? 'duplicate'
+      : 'needs-review';
+  const bal_updated: ScanPageRecord = {
+    ...bal_plain(bal_page),
+    questionnaireId: bal_assignment.questionnaireId,
+    questionnaireVersion: bal_assignment.version,
+    respondentId: bal_assignment.respondentId,
+    pageNumber: bal_assignment.pageNumber,
+    identitySource: 'manual',
+    status: bal_status,
+    issues: bal_remaining_issues,
+    errorMessage: bal_remaining_issues.length > 0 ? bal_page.errorMessage : null,
+    updatedAt: Date.now()
+  };
+  await bal_save_scan_page(bal_updated);
+  await bal_log_scan_action(
+    bal_page.batchId,
+    bal_page.id,
+    'manual-identification',
+    `Assigned ${bal_assignment.questionnaireId} v${bal_assignment.version}, respondent ${bal_assignment.respondentId}, page ${bal_assignment.pageNumber}.`
+  );
+  if (bal_validation.warning) {
+    await bal_flag_identity_duplicate(bal_updated, bal_pages);
+  }
+  const bal_refreshed = await dhon_scan_page(bal_page_id);
+  return { ok: true, error: null, warning: bal_validation.warning, page: bal_refreshed ?? bal_updated };
+}
+
+export type bal_DuplicateResolution = 'keep-a' | 'keep-b' | 'keep-both' | 'reject';
+
+export async function bal_resolve_duplicate_pair(
+  bal_page_a_id: string,
+  bal_page_b_id: string,
+  bal_resolution: bal_DuplicateResolution
+): Promise<void> {
+  const { dhon_scan_page } = await import('../db/scan_repo');
+  const bal_page_a = await dhon_scan_page(bal_page_a_id);
+  const bal_page_b = await dhon_scan_page(bal_page_b_id);
+  if (!bal_page_a || !bal_page_b) return;
+  const bal_updates: ScanPageRecord[] = [];
+  const bal_apply = (
+    bal_page: ScanPageRecord,
+    bal_outcome: 'kept' | 'rejected' | 'restored'
+  ): ScanPageRecord => {
+    if (bal_outcome === 'kept') {
+      const bal_issues = bal_page.issues.filter((bal_issue) => bal_issue !== 'duplicate');
+      return {
+        ...bal_plain(bal_page),
+        status: bal_issues.length === 0 && bal_page.normalizedAssetId ? 'ready' : 'needs-review',
+        issues: bal_issues,
+        errorMessage: null,
+        updatedAt: Date.now()
+      };
+    }
+    if (bal_outcome === 'restored') {
+      const bal_issues = bal_page.issues.filter((bal_issue) => bal_issue !== 'duplicate');
+      return {
+        ...bal_plain(bal_page),
+        status: bal_issues.length === 0 ? 'needs-review' : bal_page.status,
+        issues: bal_issues,
+        updatedAt: Date.now()
+      };
+    }
+    return {
+      ...bal_plain(bal_page),
+      status: 'duplicate',
+      issues: [...new Set([...bal_page.issues, 'duplicate' as const])],
+      errorMessage: 'Marked as rejected during duplicate resolution.',
+      updatedAt: Date.now()
+    };
+  };
+  if (bal_resolution === 'keep-a') {
+    bal_updates.push(bal_apply(bal_page_a, 'kept'), bal_apply(bal_page_b, 'rejected'));
+  } else if (bal_resolution === 'keep-b') {
+    bal_updates.push(bal_apply(bal_page_b, 'kept'), bal_apply(bal_page_a, 'rejected'));
+  } else if (bal_resolution === 'keep-both') {
+    bal_updates.push(bal_apply(bal_page_a, 'restored'), bal_apply(bal_page_b, 'restored'));
+  } else {
+    bal_updates.push(bal_apply(bal_page_a, 'rejected'), bal_apply(bal_page_b, 'rejected'));
+  }
+  for (const bal_update of bal_updates) await bal_save_scan_page(bal_update);
+  await bal_log_scan_action(
+    bal_page_a.batchId,
+    bal_page_a.id,
+    'duplicate-resolution',
+    `Duplicate pair resolved: ${bal_resolution} (${bal_page_a.sourceName} vs ${bal_page_b.sourceName}).`
+  );
+}
+
+export async function bal_remove_originals(bal_batch_id: string): Promise<void> {
+  const bal_pages = await ken_pori_scan_pages(bal_batch_id);
+  const bal_ids: string[] = [];
+  for (const bal_page of bal_pages) {
+    if (bal_page.sourceAssetId) bal_ids.push(bal_page.sourceAssetId);
+  }
+  await bal_delete_asset_keys(bal_ids);
+  for (const bal_page of bal_pages) {
+    await bal_save_scan_page({ ...bal_plain(bal_page), sourceAssetId: null, updatedAt: Date.now() });
+  }
+  const { dhon_scan_batch } = await import('../db/scan_repo');
+  const bal_batch = await dhon_scan_batch(bal_batch_id);
+  if (bal_batch) {
+    await bal_save_scan_batch({ ...bal_plain(bal_batch), keepOriginals: false, updatedAt: Date.now() });
+  }
+  await bal_log_scan_action(bal_batch_id, null, 'originals-removed', `Removed ${bal_ids.length} original files from local storage.`);
+}
+
+export async function bal_delete_scan_batch(bal_batch_id: string): Promise<void> {
+  const bal_pages = await ken_pori_scan_pages(bal_batch_id);
+  const bal_asset_ids: string[] = [];
+  for (const bal_page of bal_pages) {
+    if (bal_page.sourceAssetId) bal_asset_ids.push(bal_page.sourceAssetId);
+    if (bal_page.normalizedAssetId) bal_asset_ids.push(bal_page.normalizedAssetId);
+  }
+  await bal_delete_asset_keys(bal_asset_ids);
+  const { bal_delete_keys } = await import('../db/client');
+  await bal_delete_keys(
+    'scanPages',
+    bal_pages.map((bal_page) => bal_page.id)
+  );
+  const bal_audit = await ken_pori_audit_events_safe(bal_batch_id);
+  await bal_delete_keys(
+    'scanAuditEvents',
+    bal_audit.map((bal_event) => bal_event.id)
+  );
+  await bal_delete_keys('scanBatches', [bal_batch_id]);
+}
+
+async function ken_pori_audit_events_safe(bal_batch_id: string) {
+  const { ken_pori_audit_events } = await import('../db/scan_repo');
+  return ken_pori_audit_events(bal_batch_id);
 }

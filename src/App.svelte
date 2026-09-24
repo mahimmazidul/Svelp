@@ -6,6 +6,7 @@
   import BuilderPage from './features/builder/BuilderPage.svelte';
   import PreviewPage from './features/preview/PreviewPage.svelte';
   import PrintPage from './features/print/PrintPage.svelte';
+  import ScanPage from './features/scan/ScanPage.svelte';
   import PlaceholderPage from './features/placeholders/PlaceholderPage.svelte';
   import NotFoundPage from './features/placeholders/NotFoundPage.svelte';
 
@@ -28,6 +29,8 @@
       <PreviewPage projectId={bal_route.projectId} />
     {:else if bal_route.area === 'print'}
       <PrintPage projectId={bal_route.projectId} />
+    {:else if bal_route.area === 'scan'}
+      <ScanPage projectId={bal_route.projectId} />
     {:else}
       <PlaceholderPage area={bal_route.area} />
     {/if}
