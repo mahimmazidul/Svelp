@@ -1,4 +1,9 @@
-import type { QuestionnaireItem, QuestionnaireRecord, ResponseScaleRecord } from '../../models/types';
+import type {
+  ItemTypeName,
+  QuestionnaireItem,
+  QuestionnaireRecord,
+  ResponseScaleRecord
+} from '../../models/types';
 import { item_descriptor } from '../../models/item_catalog';
 import { dhon_matrix_columns, dhon_resolve_options } from '../../models/scale_options';
 import type { DerivedNumbering } from '../../models/numbering';
@@ -19,6 +24,7 @@ export type bal_PrintChunk =
 
 export interface bal_ChunkBase {
   kind: string;
+  itemType: ItemTypeName;
   itemId: string | null;
   sectionId: string;
   height: number;
@@ -55,6 +61,7 @@ export interface bal_OptionRowLayout {
 export interface bal_QuestionChunk extends bal_ChunkBase {
   kind: 'question';
   numberLabel: string;
+  variableName: string | null;
   stemLines: string[];
   required: boolean;
   stemIndent: number;
@@ -85,6 +92,7 @@ export interface bal_MatrixHeadChunk extends bal_ChunkBase {
 export interface bal_MatrixRowChunk extends bal_ChunkBase {
   kind: 'matrix-row';
   numberLabel: string;
+  variableName: string | null;
   rowId: string;
   rowLabel: string;
   labelLines: string[];
@@ -275,12 +283,14 @@ function bal_build_question_chunk(
 
   return {
     kind: 'question',
+    itemType: bal_item.type,
     itemId: bal_item.id,
     sectionId: bal_section_id,
     height: bal_y,
     keepWithNext: false,
     forcedBreakBefore: false,
     numberLabel: bal_number_label,
+    variableName: bal_item.variableName,
     stemLines: bal_stem_lines,
     required: bal_item.required,
     stemIndent: bal_stem_indent,
@@ -375,6 +385,7 @@ function bal_build_matrix_chunks(
 
   const bal_head: bal_MatrixHeadChunk = {
     kind: 'matrix-head',
+    itemType: 'matrix',
     itemId: bal_item.id,
     sectionId: bal_section_id,
     height: bal_stem_height + bal_header_height,
@@ -398,12 +409,14 @@ function bal_build_matrix_chunks(
     const bal_row_height = Math.max(bal_text_height + 1.6, bal_marker_size + 1.6, BAL_MIN_ROW_HEIGHT);
     return {
       kind: 'matrix-row',
+      itemType: 'matrix',
       itemId: bal_item.id,
       sectionId: bal_section_id,
       height: bal_row_height,
       keepWithNext: false,
       forcedBreakBefore: false,
       numberLabel: bal_number_label,
+      variableName: bal_item.variableName,
       rowId: bal_row.id,
       rowLabel: bal_row.label,
       labelLines: bal_lines,
@@ -442,6 +455,7 @@ function bal_build_consent_chunks(
   const bal_title_height = bal_title_lines.length * bal_heading_lh + 1.8;
   bal_chunks.push({
     kind: 'consent-para',
+    itemType: 'consent',
     itemId: bal_item.id,
     sectionId: bal_section_id,
     height: bal_title_height,
@@ -459,6 +473,7 @@ function bal_build_consent_chunks(
   if (bal_intro_lines.length > 0) {
     bal_chunks.push({
       kind: 'consent-para',
+      itemType: 'consent',
       itemId: bal_item.id,
       sectionId: bal_section_id,
       height: bal_intro_lines.length * bal_lh + 2.2,
@@ -483,6 +498,7 @@ function bal_build_consent_chunks(
       bal_body_lines.length * bal_lh + 2.2;
     bal_chunks.push({
       kind: 'consent-para',
+      itemType: 'consent',
       itemId: bal_item.id,
       sectionId: bal_section_id,
       height: bal_height,
@@ -510,6 +526,7 @@ function bal_build_consent_chunks(
   );
   bal_chunks.push({
     kind: 'consent-ack',
+    itemType: 'consent',
     itemId: bal_item.id,
     sectionId: bal_section_id,
     height: bal_ack_height,
@@ -544,6 +561,7 @@ function bal_build_signature_chunk(
   const bal_date = bal_signature?.includeDate ? bal_lh + 2.4 : 0;
   return {
     kind: 'signature',
+    itemType: bal_item.type,
     itemId: bal_item.id,
     sectionId: bal_section_id,
     height: bal_lines + bal_printed + bal_date + 1,
@@ -577,6 +595,7 @@ export function bal_build_chunks(
       : [];
     bal_chunks.push({
       kind: 'section-head',
+      itemType: 'section',
       itemId: bal_section.id,
       sectionId: bal_section.id,
       height: bal_title_lines.length * bal_heading_lh + bal_desc_lines.length * bal_line_height(bal_size(bal_settings)) + 2.6,
@@ -601,6 +620,7 @@ export function bal_build_chunks(
           bal_body_lines.length * bal_lh + 2.4;
         bal_chunks.push({
           kind: 'instruction',
+          itemType: 'instruction',
           itemId: bal_item.id,
           sectionId: bal_section.id,
           height: bal_height,
@@ -633,8 +653,16 @@ export function bal_build_chunks(
       if (bal_item.type === 'yes_no') {
         bal_chunks.push(
           bal_build_question_chunk(bal_item, bal_section.id, bal_ctx, null, [
-            { id: `${bal_item.id}-yes`, label: bal_item.options[0]?.label ?? 'Yes', coding: bal_item.options[0]?.coding ?? '1' },
-            { id: `${bal_item.id}-no`, label: bal_item.options[1]?.label ?? 'No', coding: bal_item.options[1]?.coding ?? '0' }
+            {
+              id: bal_item.options[0]?.id ?? `${bal_item.id}-yes`,
+              label: bal_item.options[0]?.label ?? 'Yes',
+              coding: bal_item.options[0]?.coding ?? '1'
+            },
+            {
+              id: bal_item.options[1]?.id ?? `${bal_item.id}-no`,
+              label: bal_item.options[1]?.label ?? 'No',
+              coding: bal_item.options[1]?.coding ?? '0'
+            }
           ])
         );
         continue;

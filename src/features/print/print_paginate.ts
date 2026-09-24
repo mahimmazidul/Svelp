@@ -1,10 +1,8 @@
 import type { QuestionnaireRecord, ResponseScaleRecord } from '../../models/types';
 import { derive_numbering } from '../../models/numbering';
 import { bal_line_height, bal_wrap_text } from './print_fonts';
-import { bal_normalize_print_settings } from './print_settings';
+import { bal_band_heights, bal_normalize_print_settings } from './print_settings';
 import {
-  BAL_FOOTER_HEIGHT_MM,
-  BAL_HEADER_HEIGHT_MM,
   bal_page_regions,
   bal_paper_dimensions,
   type PageRegions,
@@ -53,12 +51,13 @@ export function bal_paginate(bal_input: bal_LayoutInput): bal_LayoutResult {
     bal_input.questionnaire.paperSize,
     bal_input.questionnaire.orientation
   );
+  const bal_bands = bal_band_heights(bal_settings);
   const bal_regions = bal_page_regions(
     bal_dims.width,
     bal_dims.height,
     bal_input.margins ?? bal_settings.margins,
-    BAL_HEADER_HEIGHT_MM,
-    BAL_FOOTER_HEIGHT_MM
+    bal_bands.header,
+    bal_bands.footer
   );
   const bal_ctx: bal_PrintContext = {
     settings: bal_settings,

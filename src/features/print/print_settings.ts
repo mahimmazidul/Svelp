@@ -284,3 +284,27 @@ export function bal_normalize_print_settings(bal_raw: unknown): PrintSettings {
 export function bal_row_spacing(bal_settings: PrintSettings): number {
   return BAL_DENSITY_ROW_SPACING[bal_settings.density];
 }
+
+export function bal_band_heights(
+  bal_settings: PrintSettings
+): { header: number | null; footer: number | null } {
+  const bal_header_parts = [
+    bal_settings.header.showTitle,
+    bal_settings.header.showInstitution && bal_settings.header.institution.trim().length > 0,
+    bal_settings.header.showVersion,
+    bal_settings.header.showStudyCode && bal_settings.header.studyCode.trim().length > 0,
+    bal_settings.header.showRespondentId && bal_settings.respondentArea.enabled
+  ];
+  const bal_header = bal_header_parts.some(Boolean) ? 12 : null;
+  const bal_footer_parts = [
+    bal_settings.footer.showPageNumbers,
+    bal_settings.footer.showStudyCode && bal_settings.header.studyCode.trim().length > 0,
+    bal_settings.footer.confidentialityNote.trim().length > 0,
+    bal_settings.footer.showHumanIdentifier && bal_settings.showMachineIdentifier
+  ];
+  let bal_footer = bal_footer_parts.some(Boolean) ? 10 : 0;
+  if (bal_settings.showMachineIdentifier) {
+    bal_footer = Math.max(bal_footer, bal_settings.identifier.sizeMm + 2.5);
+  }
+  return { header: bal_header, footer: bal_footer > 0 ? bal_footer : null };
+}
