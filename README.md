@@ -34,11 +34,17 @@ network dependency after the first load.
 - **A participant-facing preview** that renders every supported item type, runs the
   validation rules as a test respondent, supports signature capture on a local canvas,
   and never records or stores answers.
+- **A native print system** that lays the same questionnaire out on A4 or Letter paper
+  (portrait or landscape) with deterministic millimetre geometry: configurable themes,
+  headers, footers, page numbering, keep-together pagination, controlled matrix and
+  consent splitting, QR page identifiers, scanner-readable mode with alignment markers,
+  a print-readiness report, geometry overlays, respondent batch generation with unique
+  coded copies, and offline vector PDF export.
 - **PWA installation and offline operation** after the first load.
 
-Scanning, QR processing, computer vision, OCR, and print/PDF generation are intentionally
-not part of the current phase. Placeholder screens describe what Print, Scan, Responses,
-Export, and Settings will do instead of pretending to work.
+Scanning, QR decoding, computer vision, and OCR are intentionally not part of the current
+phase. Placeholder screens describe what Scan, Responses, Export, and Settings will do
+instead of pretending to work.
 
 ## Running Svelp
 
@@ -67,7 +73,9 @@ npm run test
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — application structure, database schema and
   migrations, questionnaire schema, response-scale model, validation architecture,
   variable naming, matrix and consent/signature architecture, responsive strategy,
-  versioning strategy, offline behavior, and what Phase 3 (print) will consume.
+  versioning strategy, offline behavior, and the native print system: coordinate model,
+  pagination engine, matrix splitting, scanner-safe rules, page identifiers, respondent
+  batches, scanner geometry schema, and PDF generation.
 - [CHANGELOG.md](./CHANGELOG.md) — release history.
 
 ## Source code policy

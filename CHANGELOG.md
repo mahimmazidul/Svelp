@@ -3,6 +3,65 @@
 All notable changes to Svelp are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.3.0 - Phase 3: native print system
+
+The questionnaire definition can now produce professional, deterministic,
+scanner-ready paper forms and the geometry metadata required for future batch scanning.
+
+### Added
+
+- Native print engine with a millimetre coordinate system: A4 and Letter paper in
+  portrait and landscape, physical margins, header and footer bands, and a
+  scanner-safe content box; every rectangle stored physically and normalized (0-1).
+- Page-based print preview with zoom, fit width, page navigation, and optional geometry
+  overlays (content bounds, safe bounds, answer regions, item bounds, QR quiet zone)
+  that never appear in the generated PDF.
+- Deterministic pagination: keep-together rules per item type, keep-with-next section
+  headings, forced page breaks, question option-list splitting at option boundaries,
+  matrix splitting with repeated column headers and ", continued" labels, and consent
+  splitting at paragraph boundaries with an unbreakable acknowledgement block.
+- Five print themes (Academic, Clinical, Minimal, Compact, Institutional) with font,
+  size, spacing, and line-weight control; density presets; presets for Academic A4,
+  Compact A4, Clinical A4, and Letter Standard.
+- Machine-readable page identifiers: local QR generation (vector output, managed quiet
+  zone, default 20 mm) encoding study code, questionnaire version, respondent, and page,
+  plus a human-readable footer fallback such as FFQ-037 P2/3.
+- Scanner-readable mode: four square alignment markers per page inside safe margins,
+  mark-size and margin rules, and a print-readiness validator with structured,
+  navigable issues (overflow, tight margins, small marks, small page codes, overlapping
+  answer regions, missing markers or identifiers, undersized signature areas).
+- Full scanner geometry output per page: item bounds and answer regions carrying item,
+  option, row, and column identifiers with option coding, marker type, and selection
+  behavior - ready for Phase 4 image processing without redesign.
+- Respondent batch generation: sequential zero-padded IDs with optional prefix or a
+  pasted custom ID list, duplicate protection, anonymous numeric mode, one PDF per
+  respondent or a single merged PDF, and persistent batch records pinned to the exact
+  questionnaire version and content fingerprint.
+- Print layout persistence (IndexedDB v3): printLayouts reused per fingerprint across
+  batches, printBatches storing respondent lists and settings; questionnaires are never
+  mutated by batch generation.
+- Offline vector PDF export via jsPDF with exact base-14 font metrics shared by the
+  on-screen preview and the PDF writer; QR codes and alignment markers drawn as vectors.
+
+### Changed
+
+- The Print area replaced its placeholder with the full print workspace (settings,
+  live page preview, readiness report, batch generation); Scan, Responses, Export, and
+  Settings remain documented placeholders.
+- The mobile shell now hides the desktop sidebar below 768px, matching the documented
+  top bar and bottom navigation pattern.
+
+### Validation
+
+- svelte-check: 0 errors, 0 warnings
+- ESLint: 0 errors, 0 warnings
+- Vitest: 147 tests passing, including pagination invariants, geometry bounds,
+  non-overlap, normalized coordinates, QR payloads, batch IDs, and PDF output checks
+- Production build: successful, PWA precache 20 entries
+- Sample PDFs generated and inspected (short, mixed, consent-heavy, 60-row FFQ matrix in
+  scanner mode, landscape); Print area exercised in a real browser at 1440, 768, 390,
+  and 360 px with no console errors and no horizontal overflow
+
 ## 0.2.0 - Phase 2: full questionnaire authoring
 
 The basic builder became a capable research questionnaire authoring system. Existing

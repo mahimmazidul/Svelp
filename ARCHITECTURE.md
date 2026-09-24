@@ -13,6 +13,8 @@ without requiring architectural rewrites.
 | Language | TypeScript (strict) |
 | Routing | Small internal hash router, no router dependency |
 | Persistence | IndexedDB behind a service/repository layer |
+| Print engine | Custom deterministic layout in millimetres; SVG preview and jsPDF output |
+| QR page codes | qrcode-generator (local module matrix, drawn as vectors) |
 | PWA | vite-plugin-pwa (Workbox precache of the built shell) |
 | Testing | Vitest with fake-indexeddb |
 | Runtime dependencies | none |
@@ -122,6 +124,24 @@ upgrade untouched.
 
 Planned stores for later versions (not created yet): `questionnaireVersions`,
 `responses`, `scans`, `scanImages`, `auditEvents`.
+
+### Print persistence model
+
+Print data is separated so one layout serves every respondent copy of a version:
+
+- `PrintLayoutRecord` — one per distinct questionnaire content (matched by a content
+  fingerprint hash of title, version, paper, orientation, and all sections). It stores
+  the paper settings snapshot and the full scanner geometry. Regenerating a batch for an
+  unchanged questionnaire reuses the stored layout instead of re-laying-out.
+- `PrintBatchRecord` — one per generation run. It references the questionnaire id and
+  version, the fingerprint, the layout id, the respondent id list, and the print settings
+  used. It never duplicates the questionnaire content.
+
+Batches never mutate the questionnaire. The base record carries no respondent IDs; batch
+identifiers live only in the batch. Because a batch pins the questionnaire version and
+fingerprint, later edits to the draft cannot silently change what an old batch printed:
+if the questionnaire changes, new batches get a new fingerprint and layout, and the old
+batch metadata keeps pointing at the exact content it was generated from.
 
 On top of schema migrations, records pass through `normalize_questionnaire` when loaded.
 Normalization fills any field introduced after a record was written (for example items
@@ -376,21 +396,119 @@ to the current schema, preserves all stable IDs, and resolves collisions explici
 A future `.svelp` package (for example a zip container with responses and scans) can
 evolve from this bundle by bumping `formatVersion`.
 
-## 16. Phase 3 expectations (print)
+## 16. Print system
 
-The schema and renderer are now mature enough for the print phase to consume:
+The Print area turns the questionnaire definition into deterministic paper output. One
+layout engine feeds two backends: an SVG renderer for the on-screen page preview and a
+jsPDF writer for native offline PDF export. Both consume the same measured block model,
+so the preview and the PDF agree exactly.
 
-- `paperSize`, `orientation`, per-section `pageBreakBefore`, and per-type
-  `canSplitAcrossPages`/`layoutDensity` for pagination.
-- `answerMarker` per type for drawing bubbles, checkboxes, boxes, and lines.
-- Coded options, matrix rows/columns, and scale snapshots for machine-readable targets.
-- Unique questionnaire/version/item IDs for page identification codes.
-- Both planned paths remain: native Svelp print generation (preferred) and overlay of a
-  definition onto external PDFs.
+### Coordinate system
 
-The print renderer should eventually emit, alongside pages, the geometry (answer-mark
-positions, alignment markers, page IDs) that the scanner consumes, so scanner templates
-are generated — never hand-maintained.
+All print geometry is computed in millimetres. The engine never reads the browser
+viewport. Page boxes come from physical presets (A4 210 × 297 mm, Letter 215.9 × 279.4
+mm, orientation-swapped for landscape) minus configurable margins (minimum 10 mm). Each
+page carries header and footer bands sized by the enabled header/footer fields, a content
+box, and a scanner-safe box inset 3 mm from the content box. Every stored rectangle also
+has a normalized copy (all values 0–1 relative to the page) so Phase 4 can work after
+perspective correction regardless of camera resolution.
+
+### Text measurement
+
+The engine embeds the standard base-14 width tables for Helvetica, Times, and Courier
+(extracted from the same tables jsPDF draws with), scaled by font size and a 1.06 bold
+safety factor. Wrapping is greedy word wrap with long-word breaking, so line breaks in
+the preview and the PDF are identical. An integration test pins engine measurements
+against live jsPDF metrics.
+
+### Block model and item renderers
+
+Every item type becomes measured chunks with fixed millimetre heights: section heads
+(keep-with-next, optional forced break), instructions (callouts draw a rule), questions
+(stem + option rows with bubble/checkbox markers and per-option answer regions, or text
+lines/boxes for written answers), matrix heads and rows, consent paragraphs and one
+acknowledgement block, and signature blocks (role label, signature line, printed name and
+date lines). `questionSpacing` and density presets interleave breathing room between
+blocks. Keep-together defaults follow the item catalog: choice, yes/no, Likert, text,
+and signature chunks are atomic; questions with option lists may split only at option
+boundaries (continuation pages restate the stem with ", continued").
+
+### Pagination engine
+
+The paginator runs a greedy fill over the chunk queue: forced section breaks, keep-with-
+next for headings and matrix headers, split-at-option-boundary for overlong questions,
+and move-whole-to-next-page otherwise. Matrix rows are individual chunks, so a large
+matrix flows across pages; when a page break occurs inside a matrix, the engine injects
+a continuation header (shortened title + ", continued" + repeated column headers) before
+the next row, keeping row order and scanner geometry intact. Consent splits at paragraph
+boundaries only; the acknowledgement block is atomic.
+
+### Print themes and settings
+
+Five themes (Academic, Clinical, Minimal, Compact, Institutional) fix the font family,
+base size, heading scale, and line weight, with modest user overrides. Settings cover
+margins, density, question spacing, header fields (title, institution, study code,
+version, respondent ID box), footer fields (page numbers, readable page code, study code,
+confidentiality note), the machine-readable identifier and its size, scanner-readable
+mode, and mark size. Settings persist on the questionnaire (`printSettings`) after
+defensive normalization (clamped values, sanitized study code). Presets (Academic A4,
+Compact A4, Clinical A4, Letter Standard) set paper, theme, density, margins, and the
+scanner-mode default in one step.
+
+### Page identifiers
+
+Every page can carry a compact machine identifier: payload
+`S1|<STUDYCODE>|<version>|<respondentId>|<page>` (study code sanitized to A–Z0–9, at
+most 8 characters). The QR module matrix is generated locally with qrcode-generator at
+error-correction M and drawn as vector rectangles with a 4-module quiet zone, default
+20 mm square. A human-readable fallback (`FFQ-037 P2/3`) prints in the footer for manual
+recovery. Identifier bounds, payload, and module count are part of the page geometry.
+
+### Scanner-readable mode and geometry output
+
+Scanner mode adds four filled square alignment markers (7 mm, positioned inside the
+margins, never on the paper edge), enforces mark size and margin rules, and drives the
+print-readiness validator. The layout produces a full geometry document: per page —
+content/safe/header/footer bounds, respondent ID box, identifier payload + QR bounds,
+alignment marker boxes, item bounds, and answer regions. Answer regions carry the item
+id, variable name, item type, option/row/column ids, option coding, marker type, and
+selection behavior (single, multiple, or written) with physical and normalized rects.
+Choice questions and matrices are `automatic`-capable; text, number, date, and consent
+are `manual-review`; signatures are `unsupported` — the same capability classification
+the item catalog has carried since Phase 2.
+
+### Print-readiness validation
+
+`bal_validate_print` returns structured issues (severity error/warning/info, category
+layout/scanner/identifier/margins/spacing, linked to page and item): overflow beyond the
+printable area, missing alignment markers or identifiers in scanner mode, tight margins
+(<15 mm), small marks (<4 mm), small page codes (<18 mm), overlapping answer regions,
+undersized signature areas, and identifier/marker collisions. The Print area shows a
+grouped Ready/Warnings/Errors report; no fake percentages.
+
+### Batch generation
+
+The batch planner produces sequential zero-padded respondent IDs (prefix, start,
+padding, up to 500) or accepts a pasted ID list, rejecting duplicates and showing the
+first/last ID before generation. One run renders every respondent's document (only the
+QR payload and readable code differ between copies), merges them into a single PDF, and
+persists the batch + layout as described above. Anonymous numeric IDs (`001`, `002`, …)
+work without any prefix.
+
+### PDF generation
+
+PDF export is fully client-side and offline. jsPDF draws text as real text (base-14
+fonts, exact metrics), bubbles/checkboxes/boxes/lines as vectors, the QR and alignment
+markers as filled vector rects, and produces per-respondent or merged multi-respondent
+files. jspdf is loaded lazily only when exporting. A future external-PDF overlay mode
+(stamping identifiers onto existing PDFs) can reuse the identifier and geometry layers
+without touching this pipeline; only the page backdrop source changes.
+
+### Geometry overlays
+
+The preview can toggle overlay layers (content bounds, scanner-safe bounds, answer
+regions, item bounds, QR quiet zone) drawn only in SVG — they never appear in the PDF.
+This exists to verify scanner geometry by eye before committing to a print run.
 
 ## 17. Testing
 

@@ -2,6 +2,39 @@
 
 Phase-by-phase records of decisions that later phases must respect.
 
+## Phase 3 decisions
+
+### One layout engine, two backends, millimetres only
+
+Print geometry is computed in millimetres from physical paper presets and embedded
+base-14 font metrics. The browser viewport never influences layout, and the SVG preview
+and the jsPDF writer consume the same measured block model, so what the researcher sees
+is exactly what prints. Text measurement intentionally over-estimates slightly (no
+kerning, bold safety factor) so lines never collide in real output.
+
+### Layouts are content-addressed, batches are respondents
+
+A print layout is keyed by a fingerprint of the questionnaire content (title, version,
+paper, orientation, sections). Batches reference a layout and pin the questionnaire
+version and fingerprint. Respondent identifiers exist only in the batch, never in the
+questionnaire, so generating or regenerating batches can never mutate study content, and
+a scanned page can always be traced to the exact content version it was printed from.
+
+### The identifier is the page's identity, geometry is the scanner's contract
+
+Every scanner-mode page carries a QR payload (`S1|CODE|VERSION|RESPONDENT|PAGE`) sized
+for phone photography, a human-readable fallback, four square alignment markers, and a
+full answer-region map with normalized coordinates. Phase 4 must reconstruct
+respondent/questionnaire/version/page from the page image alone - never from import
+order - and evaluate marks inside the published regions, not against re-measured layout.
+
+### Reader capabilities stay honest
+
+Choice and matrix marks are classified automatic; written answers are manual-review;
+signatures are unsupported for automatic reading. Print output does not imply scanning
+features that do not exist yet, and the readiness validator states scanner rules as
+warnings or errors rather than silently degrading.
+
 ## Phase 2 decisions
 
 ### Response-scale references are live in drafts, frozen at publish
