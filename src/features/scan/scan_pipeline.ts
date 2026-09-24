@@ -48,6 +48,17 @@ export interface bal_NormalizeResult {
   orientationConfirmed: boolean;
   inferenceNote: string | null;
   residualPx: number;
+  quadCoverage: number;
+}
+
+function bal_polygon_area(bal_points: { x: number; y: number }[]): number {
+  let bal_sum = 0;
+  for (let bal_i = 0; bal_i < bal_points.length; bal_i++) {
+    const bal_a = bal_points[bal_i];
+    const bal_b = bal_points[(bal_i + 1) % bal_points.length];
+    bal_sum += bal_a.x * bal_b.y - bal_b.x * bal_a.y;
+  }
+  return Math.abs(bal_sum) / 2;
 }
 
 function bal_qr_center(bal_location: bal_QrLocation): { x: number; y: number } {
@@ -120,7 +131,8 @@ export function bal_align_and_normalize(bal_input: bal_NormalizeInput): bal_Norm
       payloads: bal_raw_qr ? [bal_raw_qr.data] : [],
       orientationConfirmed: false,
       inferenceNote: bal_alignment.inferenceNote,
-      residualPx: Number.POSITIVE_INFINITY
+      residualPx: Number.POSITIVE_INFINITY,
+      quadCoverage: 0
     };
   }
 
@@ -166,6 +178,16 @@ export function bal_align_and_normalize(bal_input: bal_NormalizeInput): bal_Norm
   const bal_payloads: string[] = [];
   if (bal_warp_qr) bal_payloads.push(bal_warp_qr.data);
   else if (bal_raw_qr) bal_payloads.push(bal_raw_qr.data);
+  const bal_corner_list = [
+    bal_chosen.corners.topLeft,
+    bal_chosen.corners.topRight,
+    bal_chosen.corners.bottomRight,
+    bal_chosen.corners.bottomLeft
+  ];
+  const bal_coverage = Math.min(
+    1,
+    bal_polygon_area(bal_corner_list) / (bal_input.image.width * bal_input.image.height)
+  );
   return {
     found: true,
     confidence: bal_chosen.confidence,
@@ -176,7 +198,8 @@ export function bal_align_and_normalize(bal_input: bal_NormalizeInput): bal_Norm
     payloads: bal_payloads,
     orientationConfirmed: bal_orientation_confirmed,
     inferenceNote: bal_alignment.inferenceNote,
-    residualPx: bal_chosen.residualPx
+    residualPx: bal_chosen.residualPx,
+    quadCoverage: bal_coverage
   };
 }
 

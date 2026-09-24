@@ -36,7 +36,9 @@ export async function dhon_scan_page(bal_id: string): Promise<ScanPageRecord | u
 
 export async function ken_pori_scan_pages(bal_batch_id: string): Promise<ScanPageRecord[]> {
   const bal_rows = await bal_get_all_by_index<ScanPageRecord>('scanPages', 'batchId', bal_batch_id);
-  return bal_rows.sort((bal_a, bal_b) => bal_a.createdAt - bal_b.createdAt);
+  return bal_rows.sort(
+    (bal_a, bal_b) => bal_a.createdAt - bal_b.createdAt || bal_a.id.localeCompare(bal_b.id)
+  );
 }
 
 export async function bal_save_scan_pages(bal_rows: ScanPageRecord[]): Promise<void> {
