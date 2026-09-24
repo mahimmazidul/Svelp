@@ -66,7 +66,7 @@
     bal_save_timer = setTimeout(() => {
       if (!bal_q) return;
       bal_q = { ...bal_q, printSettings: bal_settings, updatedAt: Date.now() };
-      void bal_save_questionnaire(bal_q).then(() => {
+      void bal_save_questionnaire(JSON.parse(JSON.stringify(bal_q))).then(() => {
         bal_saved_note = true;
         setTimeout(() => (bal_saved_note = false), 1600);
       });
@@ -81,19 +81,19 @@
   function bal_apply_paper(bal_size: PaperSize): void {
     if (!bal_q) return;
     bal_q = { ...bal_q, paperSize: bal_size, updatedAt: Date.now() };
-    void bal_save_questionnaire(bal_q);
+    void bal_save_questionnaire(JSON.parse(JSON.stringify(bal_q)));
   }
 
   function bal_apply_orientation(bal_orientation: Orientation): void {
     if (!bal_q) return;
     bal_q = { ...bal_q, orientation: bal_orientation, updatedAt: Date.now() };
-    void bal_save_questionnaire(bal_q);
+    void bal_save_questionnaire(JSON.parse(JSON.stringify(bal_q)));
   }
 
   function bal_apply_preset(bal_preset: PrintPreset): void {
     if (!bal_q) return;
     bal_q = { ...bal_q, paperSize: bal_preset.paperSize, orientation: bal_preset.orientation, updatedAt: Date.now() };
-    void bal_save_questionnaire(bal_q);
+    void bal_save_questionnaire(JSON.parse(JSON.stringify(bal_q)));
     bal_settings = bal_preset_settings(bal_preset);
     bal_queue_save();
   }

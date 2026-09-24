@@ -6,6 +6,10 @@ import { bal_questionnaire_fingerprint, bal_plan_respondent_ids, type bal_BatchP
 import { bal_normalize_print_settings } from '../features/print/print_settings';
 import { bal_save_batch_with_layout, ken_pori_layouts_by_questionnaire } from '../db/print_repo';
 
+function bal_plain<T>(bal_value: T): T {
+  return JSON.parse(JSON.stringify(bal_value)) as T;
+}
+
 export interface bal_GenerateBatchInput {
   questionnaire: QuestionnaireRecord;
   scales: ResponseScaleRecord[];
@@ -46,14 +50,14 @@ export async function bal_generate_batch(
     fingerprint: bal_fingerprint,
     paperSize: bal_input.questionnaire.paperSize,
     orientation: bal_input.questionnaire.orientation,
-    settingsSnapshot: bal_settings,
-    geometry: bal_sample.geometry,
+    settingsSnapshot: bal_plain(bal_settings),
+    geometry: bal_plain(bal_sample.geometry),
     createdAt: bal_now,
     updatedAt: bal_now
   };
   if (bal_matched) {
-    bal_layout.settingsSnapshot = bal_settings;
-    bal_layout.geometry = bal_sample.geometry;
+    bal_layout.settingsSnapshot = bal_plain(bal_settings);
+    bal_layout.geometry = bal_plain(bal_sample.geometry);
     bal_layout.updatedAt = bal_now;
   }
 
@@ -65,7 +69,7 @@ export async function bal_generate_batch(
     fingerprint: bal_fingerprint,
     layoutId: bal_layout.id,
     respondentIds: bal_plan.respondentIds,
-    settings: bal_settings,
+    settings: bal_plain(bal_settings),
     pageCount: bal_sample.pageCount,
     includeMachineIdentifier: bal_settings.showMachineIdentifier,
     includeHumanReadableId: bal_settings.footer.showHumanIdentifier,
