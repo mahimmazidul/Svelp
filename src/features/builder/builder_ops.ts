@@ -1,20 +1,34 @@
 import {
   apel_clone_item,
+  apel_clone_option,
   apel_clone_section,
   dhon_banaitesi_item,
   dhon_banaitesi_section,
+  dhon_consent_section,
+  dhon_likert_points,
+  dhon_matrix_column,
+  dhon_matrix_row,
   komola_option
 } from '../../models/factories';
 import { item_descriptor } from '../../models/item_catalog';
-import { next_variable_name, unique_variable_name } from '../../models/variable_names';
+import {
+  next_variable_name,
+  suggest_variable_name,
+  unique_variable_name
+} from '../../models/variable_names';
 import type {
   ChoiceOption,
+  ConsentConfig,
+  ConsentSectionKind,
+  ItemTypeName,
+  MatrixSelectionMode,
   QuestionnaireItem,
   QuestionnaireRecord,
-  QuestionnaireSection
+  QuestionnaireSection,
+  SignatureConfig
 } from '../../models/types';
 
-export type BuildableItemType = 'instruction' | 'single_choice';
+export type BuildableItemType = ItemTypeName;
 
 export interface SectionRef {
   section: QuestionnaireSection;
@@ -27,6 +41,8 @@ export interface ItemRef {
   itemIndex: number;
   item: QuestionnaireItem;
 }
+
+export type ItemPatch = Partial<Omit<QuestionnaireItem, 'id' | 'type'>>;
 
 export function vorki_find_section(
   bal_q: QuestionnaireRecord,
@@ -66,6 +82,20 @@ export function bal_taken_variable_names(bal_q: QuestionnaireRecord): string[] {
   return bal_names;
 }
 
+export function bal_map_item(
+  bal_q: QuestionnaireRecord,
+  bal_item_id: string,
+  bal_fn: (bal_item: QuestionnaireItem) => QuestionnaireItem
+): QuestionnaireRecord {
+  return {
+    ...bal_q,
+    sections: bal_q.sections.map((bal_s) => ({
+      ...bal_s,
+      items: bal_s.items.map((bal_i) => (bal_i.id === bal_item_id ? bal_fn(bal_i) : bal_i))
+    }))
+  };
+}
+
 export function ghora_add_section(
   bal_q: QuestionnaireRecord,
   bal_title: string
@@ -80,7 +110,7 @@ export function ghora_add_section(
 export function ram_chagol_section(
   bal_q: QuestionnaireRecord,
   bal_section_id: string,
-  bal_patch: Partial<Pick<QuestionnaireSection, 'title' | 'description'>>
+  bal_patch: Partial<Pick<QuestionnaireSection, 'title' | 'description' | 'printConfig'>>
 ): QuestionnaireRecord {
   return {
     ...bal_q,
@@ -148,7 +178,7 @@ export function bal_add_item(
     bal_items.splice(bal_at + 1, 0, bal_item);
   }
   return {
-    q: ram_chagol_section(bal_q, bal_section_id, {}) && {
+    q: {
       ...bal_q,
       sections: bal_q.sections.map((bal_s) =>
         bal_s.id === bal_section_id ? { ...bal_s, items: bal_items } : bal_s
@@ -161,17 +191,9 @@ export function bal_add_item(
 export function dhon_update_item(
   bal_q: QuestionnaireRecord,
   bal_item_id: string,
-  bal_patch: Partial<Pick<QuestionnaireItem, 'label' | 'variableName' | 'required'>>
+  bal_patch: ItemPatch
 ): QuestionnaireRecord {
-  return {
-    ...bal_q,
-    sections: bal_q.sections.map((bal_s) => ({
-      ...bal_s,
-      items: bal_s.items.map((bal_i) =>
-        bal_i.id === bal_item_id ? { ...bal_i, ...bal_patch } : bal_i
-      )
-    }))
-  };
+  return bal_map_item(bal_q, bal_item_id, (bal_i) => ({ ...bal_i, ...bal_patch }));
 }
 
 export function lichu_item(
@@ -194,10 +216,14 @@ export function malta_item(
   const bal_found = apel_find_item(bal_q, bal_item_id);
   if (!bal_found) return { q: bal_q, itemId: null };
   const bal_taken = bal_taken_variable_names(bal_q);
-  const bal_new_name =
-    bal_found.item.variableName !== null
-      ? unique_variable_name(bal_taken, bal_found.item.variableName)
-      : null;
+  let bal_new_name: string | null;
+  if (bal_found.item.variableName !== null) {
+    bal_new_name = unique_variable_name(bal_taken, bal_found.item.variableName);
+  } else {
+    const bal_suggestion = suggest_variable_name(bal_found.item.label);
+    bal_new_name =
+      bal_suggestion !== '' ? unique_variable_name(bal_taken, bal_suggestion) : null;
+  }
   const bal_clone = apel_clone_item(bal_found.item, bal_new_name ?? undefined);
   const bal_items = [...bal_found.section.items];
   bal_items.splice(bal_found.itemIndex + 1, 0, bal_clone);
@@ -259,17 +285,10 @@ export function komola_add_option(
   bal_q: QuestionnaireRecord,
   bal_item_id: string
 ): QuestionnaireRecord {
-  return {
-    ...bal_q,
-    sections: bal_q.sections.map((bal_s) => ({
-      ...bal_s,
-      items: bal_s.items.map((bal_i) =>
-        bal_i.id === bal_item_id
-          ? { ...bal_i, options: [...bal_i.options, komola_option(`Option ${bal_i.options.length + 1}`)] }
-          : bal_i
-      )
-    }))
-  };
+  return bal_map_item(bal_q, bal_item_id, (bal_i) => ({
+    ...bal_i,
+    options: [...bal_i.options, komola_option(`Option ${bal_i.options.length + 1}`)]
+  }));
 }
 
 export function dhon_update_option(
@@ -278,22 +297,12 @@ export function dhon_update_option(
   bal_option_id: string,
   bal_patch: Partial<Pick<ChoiceOption, 'label' | 'coding'>>
 ): QuestionnaireRecord {
-  return {
-    ...bal_q,
-    sections: bal_q.sections.map((bal_s) => ({
-      ...bal_s,
-      items: bal_s.items.map((bal_i) =>
-        bal_i.id === bal_item_id
-          ? {
-              ...bal_i,
-              options: bal_i.options.map((bal_o) =>
-                bal_o.id === bal_option_id ? { ...bal_o, ...bal_patch } : bal_o
-              )
-            }
-          : bal_i
-      )
-    }))
-  };
+  return bal_map_item(bal_q, bal_item_id, (bal_i) => ({
+    ...bal_i,
+    options: bal_i.options.map((bal_o) =>
+      bal_o.id === bal_option_id ? { ...bal_o, ...bal_patch } : bal_o
+    )
+  }));
 }
 
 export function lichu_option(
@@ -301,17 +310,11 @@ export function lichu_option(
   bal_item_id: string,
   bal_option_id: string
 ): QuestionnaireRecord {
-  return {
-    ...bal_q,
-    sections: bal_q.sections.map((bal_s) => ({
-      ...bal_s,
-      items: bal_s.items.map((bal_i) =>
-        bal_i.id === bal_item_id && bal_i.options.length > 1
-          ? { ...bal_i, options: bal_i.options.filter((bal_o) => bal_o.id !== bal_option_id) }
-          : bal_i
-      )
-    }))
-  };
+  return bal_map_item(bal_q, bal_item_id, (bal_i) =>
+    bal_i.options.length > 1
+      ? { ...bal_i, options: bal_i.options.filter((bal_o) => bal_o.id !== bal_option_id) }
+      : bal_i
+  );
 }
 
 export function ghora_move_option(
@@ -320,20 +323,354 @@ export function ghora_move_option(
   bal_option_id: string,
   bal_dir: -1 | 1
 ): QuestionnaireRecord {
+  return bal_map_item(bal_q, bal_item_id, (bal_i) => {
+    const bal_oi = bal_i.options.findIndex((bal_o) => bal_o.id === bal_option_id);
+    const bal_target = bal_oi + bal_dir;
+    if (bal_oi === -1 || bal_target < 0 || bal_target >= bal_i.options.length) return bal_i;
+    const bal_options = [...bal_i.options];
+    const bal_moved = bal_options.splice(bal_oi, 1)[0];
+    bal_options.splice(bal_target, 0, bal_moved);
+    return { ...bal_i, options: bal_options };
+  });
+}
+
+export function dhon_set_likert_points(
+  bal_q: QuestionnaireRecord,
+  bal_item_id: string,
+  bal_count: number
+): QuestionnaireRecord {
+  const bal_clamped = Math.max(2, Math.min(10, Math.round(bal_count)));
+  return bal_map_item(bal_q, bal_item_id, (bal_i) => ({
+    ...bal_i,
+    options: dhon_likert_points(bal_clamped)
+  }));
+}
+
+export function komola_assign_scale(
+  bal_q: QuestionnaireRecord,
+  bal_item_id: string,
+  bal_scale_id: string
+): QuestionnaireRecord {
+  return bal_map_item(bal_q, bal_item_id, (bal_i) => ({
+    ...bal_i,
+    scaleId: bal_scale_id,
+    options: []
+  }));
+}
+
+export function komola_detach_scale(
+  bal_q: QuestionnaireRecord,
+  bal_item_id: string,
+  bal_scale_options: ChoiceOption[]
+): QuestionnaireRecord {
+  return bal_map_item(bal_q, bal_item_id, (bal_i) => ({
+    ...bal_i,
+    scaleId: null,
+    options: bal_scale_options.map(apel_clone_option)
+  }));
+}
+
+export function ghora_add_matrix_row(
+  bal_q: QuestionnaireRecord,
+  bal_item_id: string,
+  bal_label?: string
+): QuestionnaireRecord {
+  return bal_map_item(bal_q, bal_item_id, (bal_i) => ({
+    ...bal_i,
+    rows: [...bal_i.rows, dhon_matrix_row(bal_label ?? '')]
+  }));
+}
+
+export function bal_paste_matrix_rows(
+  bal_q: QuestionnaireRecord,
+  bal_item_id: string,
+  bal_labels: string[]
+): QuestionnaireRecord {
+  if (bal_labels.length === 0) return bal_q;
+  return bal_map_item(bal_q, bal_item_id, (bal_i) => ({
+    ...bal_i,
+    rows: [...bal_i.rows, ...bal_labels.map(dhon_matrix_row)]
+  }));
+}
+
+export function ram_chagol_matrix_row(
+  bal_q: QuestionnaireRecord,
+  bal_item_id: string,
+  bal_row_id: string,
+  bal_label: string
+): QuestionnaireRecord {
+  return bal_map_item(bal_q, bal_item_id, (bal_i) => ({
+    ...bal_i,
+    rows: bal_i.rows.map((bal_r) => (bal_r.id === bal_row_id ? { ...bal_r, label: bal_label } : bal_r))
+  }));
+}
+
+export function lichu_matrix_row(
+  bal_q: QuestionnaireRecord,
+  bal_item_id: string,
+  bal_row_id: string
+): QuestionnaireRecord {
+  return bal_map_item(bal_q, bal_item_id, (bal_i) => ({
+    ...bal_i,
+    rows: bal_i.rows.filter((bal_r) => bal_r.id !== bal_row_id)
+  }));
+}
+
+export function ghora_move_matrix_row(
+  bal_q: QuestionnaireRecord,
+  bal_item_id: string,
+  bal_row_id: string,
+  bal_dir: -1 | 1
+): QuestionnaireRecord {
+  return bal_map_item(bal_q, bal_item_id, (bal_i) => {
+    const bal_ri = bal_i.rows.findIndex((bal_r) => bal_r.id === bal_row_id);
+    const bal_target = bal_ri + bal_dir;
+    if (bal_ri === -1 || bal_target < 0 || bal_target >= bal_i.rows.length) return bal_i;
+    const bal_rows = [...bal_i.rows];
+    const bal_moved = bal_rows.splice(bal_ri, 1)[0];
+    bal_rows.splice(bal_target, 0, bal_moved);
+    return { ...bal_i, rows: bal_rows };
+  });
+}
+
+export function ghora_add_matrix_column(
+  bal_q: QuestionnaireRecord,
+  bal_item_id: string,
+  bal_label?: string
+): QuestionnaireRecord {
+  return bal_map_item(bal_q, bal_item_id, (bal_i) => ({
+    ...bal_i,
+    columns: [...bal_i.columns, dhon_matrix_column(bal_label ?? '')]
+  }));
+}
+
+export function bal_paste_matrix_columns(
+  bal_q: QuestionnaireRecord,
+  bal_item_id: string,
+  bal_labels: string[]
+): QuestionnaireRecord {
+  if (bal_labels.length === 0) return bal_q;
+  return bal_map_item(bal_q, bal_item_id, (bal_i) => ({
+    ...bal_i,
+    scaleId: null,
+    columns: [...bal_i.columns, ...bal_labels.map(dhon_matrix_column)]
+  }));
+}
+
+export function ram_chagol_matrix_column(
+  bal_q: QuestionnaireRecord,
+  bal_item_id: string,
+  bal_column_id: string,
+  bal_patch: Partial<Pick<ChoiceOption, 'label' | 'coding'>>
+): QuestionnaireRecord {
+  return bal_map_item(bal_q, bal_item_id, (bal_i) => ({
+    ...bal_i,
+    columns: bal_i.columns.map((bal_c) =>
+      bal_c.id === bal_column_id ? { ...bal_c, ...bal_patch } : bal_c
+    )
+  }));
+}
+
+export function lichu_matrix_column(
+  bal_q: QuestionnaireRecord,
+  bal_item_id: string,
+  bal_column_id: string
+): QuestionnaireRecord {
+  return bal_map_item(bal_q, bal_item_id, (bal_i) =>
+    bal_i.columns.length > 1
+      ? { ...bal_i, columns: bal_i.columns.filter((bal_c) => bal_c.id !== bal_column_id) }
+      : bal_i
+  );
+}
+
+export function ghora_move_matrix_column(
+  bal_q: QuestionnaireRecord,
+  bal_item_id: string,
+  bal_column_id: string,
+  bal_dir: -1 | 1
+): QuestionnaireRecord {
+  return bal_map_item(bal_q, bal_item_id, (bal_i) => {
+    const bal_ci = bal_i.columns.findIndex((bal_c) => bal_c.id === bal_column_id);
+    const bal_target = bal_ci + bal_dir;
+    if (bal_ci === -1 || bal_target < 0 || bal_target >= bal_i.columns.length) return bal_i;
+    const bal_columns = [...bal_i.columns];
+    const bal_moved = bal_columns.splice(bal_ci, 1)[0];
+    bal_columns.splice(bal_target, 0, bal_moved);
+    return { ...bal_i, columns: bal_columns };
+  });
+}
+
+export function ram_chagol_selection_mode(
+  bal_q: QuestionnaireRecord,
+  bal_item_id: string,
+  bal_mode: MatrixSelectionMode
+): QuestionnaireRecord {
+  return bal_map_item(bal_q, bal_item_id, (bal_i) => ({
+    ...bal_i,
+    selectionMode: bal_mode
+  }));
+}
+
+export function ram_chagol_consent(
+  bal_q: QuestionnaireRecord,
+  bal_item_id: string,
+  bal_patch: Partial<Omit<ConsentConfig, 'sections'>>
+): QuestionnaireRecord {
+  return bal_map_item(bal_q, bal_item_id, (bal_i) => ({
+    ...bal_i,
+    consent: bal_i.consent ? { ...bal_i.consent, ...bal_patch } : bal_i.consent
+  }));
+}
+
+export function ghora_add_consent_section(
+  bal_q: QuestionnaireRecord,
+  bal_item_id: string,
+  bal_kind: ConsentSectionKind
+): QuestionnaireRecord {
+  return bal_map_item(bal_q, bal_item_id, (bal_i) =>
+    bal_i.consent
+      ? { ...bal_i, consent: { ...bal_i.consent, sections: [...bal_i.consent.sections, dhon_consent_section(bal_kind)] } }
+      : bal_i
+  );
+}
+
+export function ram_chagol_consent_section(
+  bal_q: QuestionnaireRecord,
+  bal_item_id: string,
+  bal_section_id: string,
+  bal_patch: Partial<Pick<{ id: string; kind: ConsentSectionKind; title: string; body: string }, 'title' | 'body'>>
+): QuestionnaireRecord {
+  return bal_map_item(bal_q, bal_item_id, (bal_i) =>
+    bal_i.consent
+      ? {
+          ...bal_i,
+          consent: {
+            ...bal_i.consent,
+            sections: bal_i.consent.sections.map((bal_s) =>
+              bal_s.id === bal_section_id ? { ...bal_s, ...bal_patch } : bal_s
+            )
+          }
+        }
+      : bal_i
+  );
+}
+
+export function lichu_consent_section(
+  bal_q: QuestionnaireRecord,
+  bal_item_id: string,
+  bal_consent_section_id: string
+): QuestionnaireRecord {
+  return bal_map_item(bal_q, bal_item_id, (bal_i) =>
+    bal_i.consent
+      ? {
+          ...bal_i,
+          consent: {
+            ...bal_i.consent,
+            sections: bal_i.consent.sections.filter(
+              (bal_s) => bal_s.id !== bal_consent_section_id
+            )
+          }
+        }
+      : bal_i
+  );
+}
+
+export function ghora_move_consent_section(
+  bal_q: QuestionnaireRecord,
+  bal_item_id: string,
+  bal_consent_section_id: string,
+  bal_dir: -1 | 1
+): QuestionnaireRecord {
+  return bal_map_item(bal_q, bal_item_id, (bal_i) => {
+    if (!bal_i.consent) return bal_i;
+    const bal_si = bal_i.consent.sections.findIndex(
+      (bal_s) => bal_s.id === bal_consent_section_id
+    );
+    const bal_target = bal_si + bal_dir;
+    if (bal_si === -1 || bal_target < 0 || bal_target >= bal_i.consent.sections.length) {
+      return bal_i;
+    }
+    const bal_sections = [...bal_i.consent.sections];
+    const bal_moved = bal_sections.splice(bal_si, 1)[0];
+    bal_sections.splice(bal_target, 0, bal_moved);
+    return { ...bal_i, consent: { ...bal_i.consent, sections: bal_sections } };
+  });
+}
+
+export function ram_chagol_signature(
+  bal_q: QuestionnaireRecord,
+  bal_item_id: string,
+  bal_patch: Partial<SignatureConfig>
+): QuestionnaireRecord {
+  return bal_map_item(bal_q, bal_item_id, (bal_i) =>
+    bal_i.signature ? { ...bal_i, signature: { ...bal_i.signature, ...bal_patch } } : bal_i
+  );
+}
+
+export interface BulkQuestionPlanEntry {
+  label: string;
+  variableName: string;
+}
+
+export function bal_plan_bulk_questions(
+  bal_q: QuestionnaireRecord,
+  bal_labels: string[]
+): BulkQuestionPlanEntry[] {
+  const bal_taken = bal_taken_variable_names(bal_q);
+  const bal_plan: BulkQuestionPlanEntry[] = [];
+  for (const bal_label of bal_labels) {
+    const bal_suggestion = suggest_variable_name(bal_label);
+    const bal_base = bal_suggestion !== '' ? bal_suggestion : '';
+    const bal_name =
+      bal_base !== '' ? unique_variable_name(bal_taken, bal_base) : next_variable_name(bal_taken);
+    bal_taken.push(bal_name);
+    bal_plan.push({ label: bal_label, variableName: bal_name });
+  }
+  return bal_plan;
+}
+
+export function bal_banaitesi_bulk_questions(
+  bal_q: QuestionnaireRecord,
+  bal_section_id: string,
+  bal_type: Extract<ItemTypeName, 'single_choice' | 'multiple_choice'>,
+  bal_entries: BulkQuestionPlanEntry[],
+  bal_scale_id: string | null
+): { q: QuestionnaireRecord; itemIds: string[] } {
+  const bal_found = vorki_find_section(bal_q, bal_section_id);
+  if (!bal_found) return { q: bal_q, itemIds: [] };
+  const bal_new_items: QuestionnaireItem[] = bal_entries.map((bal_entry) => {
+    const bal_item = dhon_banaitesi_item(bal_type, bal_entry.variableName);
+    bal_item.label = bal_entry.label;
+    if (bal_scale_id) {
+      bal_item.scaleId = bal_scale_id;
+      bal_item.options = [];
+    }
+    return bal_item;
+  });
   return {
-    ...bal_q,
-    sections: bal_q.sections.map((bal_s) => ({
-      ...bal_s,
-      items: bal_s.items.map((bal_i) => {
-        if (bal_i.id !== bal_item_id) return bal_i;
-        const bal_oi = bal_i.options.findIndex((bal_o) => bal_o.id === bal_option_id);
-        const bal_target = bal_oi + bal_dir;
-        if (bal_oi === -1 || bal_target < 0 || bal_target >= bal_i.options.length) return bal_i;
-        const bal_options = [...bal_i.options];
-        const bal_moved = bal_options.splice(bal_oi, 1)[0];
-        bal_options.splice(bal_target, 0, bal_moved);
-        return { ...bal_i, options: bal_options };
-      })
-    }))
+    q: {
+      ...bal_q,
+      sections: bal_q.sections.map((bal_s) =>
+        bal_s.id === bal_section_id
+          ? { ...bal_s, items: [...bal_s.items, ...bal_new_items] }
+          : bal_s
+      )
+    },
+    itemIds: bal_new_items.map((bal_i) => bal_i.id)
   };
+}
+
+export function suggest_label_variable(bal_item: QuestionnaireItem): string {
+  if (bal_item.label.trim() !== '') return bal_item.label;
+  if (bal_item.type === 'instruction') {
+    return (bal_item.heading ?? '').trim() !== '' ? (bal_item.heading as string) : 'Instruction';
+  }
+  return `Untitled ${item_descriptor(bal_item.type).label.toLowerCase()}`;
+}
+
+export function bal_split_paste_lines(bal_text: string): string[] {
+  return bal_text
+    .split(/\r\n|\r|\n/)
+    .map((bal_line) => bal_line.trim())
+    .filter((bal_line) => bal_line !== '');
 }

@@ -25,7 +25,7 @@ function bal_bundle_text(): string {
     projectId: 'proj-1',
     title: 'Nutrition Survey'
   });
-  return JSON.stringify(hati_bundle(bal_project, bal_questionnaire));
+  return JSON.stringify(hati_bundle(bal_project, bal_questionnaire, []));
 }
 
 describe('biriyani_parse', () => {
@@ -39,7 +39,7 @@ describe('biriyani_parse', () => {
     expect(bal_result.ok).toBe(true);
     if (bal_result.ok) {
       expect(bal_result.bundle.project.id).toBe('proj-1');
-      expect(bal_result.bundle.formatVersion).toBe(1);
+      expect(bal_result.bundle.formatVersion).toBe(2);
     }
   });
 });
@@ -48,7 +48,7 @@ describe('biriyani_plan', () => {
   it('preserves stable ids when there is no collision', () => {
     const bal_result = biriyani_parse(bal_bundle_text());
     if (!bal_result.ok) throw new Error('fixture broken');
-    const bal_plan = biriyani_plan(bal_result.bundle, [], []);
+    const bal_plan = biriyani_plan(bal_result.bundle, [], [], []);
     expect(bal_plan.collision).toBe(false);
     expect(bal_plan.project.id).toBe('proj-1');
   });
@@ -56,7 +56,7 @@ describe('biriyani_plan', () => {
   it('regenerates ids and renames on collision without touching the original', () => {
     const bal_result = biriyani_parse(bal_bundle_text());
     if (!bal_result.ok) throw new Error('fixture broken');
-    const bal_plan = biriyani_plan(bal_result.bundle, ['proj-1'], []);
+    const bal_plan = biriyani_plan(bal_result.bundle, ["proj-1"], [], []);
     expect(bal_plan.collision).toBe(true);
     expect(bal_plan.project.id).not.toBe('proj-1');
     expect(bal_plan.project.title).toBe('Nutrition Survey (imported)');
@@ -71,7 +71,7 @@ describe('biriyani_project end to end', () => {
     const bal_existing = await ken_pori_projects();
     const bal_existing_q = await dhon_questionnaire_by_project(bal_existing[0].id);
     if (!bal_existing_q) throw new Error('fixture broken');
-    const bal_bundle = hati_bundle(bal_existing[0], bal_existing_q);
+    const bal_bundle = hati_bundle(bal_existing[0], bal_existing_q, []);
     const bal_outcome = await biriyani_project(JSON.stringify(bal_bundle));
     expect(bal_outcome.status).toBe('imported-as-copy');
     const bal_all_projects = await ken_pori_projects();

@@ -1,8 +1,8 @@
 # Svelp architecture
 
 This document explains how Svelp is structured, how data is modeled and persisted, and how
-the current foundation prepares for the future print, scanning, export, and versioning
-phases without requiring architectural rewrites.
+the current implementation prepares for the future print, scanning, and export phases
+without requiring architectural rewrites.
 
 ## 1. Technology choices
 
@@ -35,35 +35,33 @@ src/
       routes.ts               route parsing: AppRoute union and area validation
       route_store.ts          hash change listener, route_store, navigate helpers
     project_context.svelte.ts per-project load state for the shell and pages
-    shell/
-      AppShell.svelte         desktop sidebar or mobile top bar + bottom navigation
-      Sidebar.svelte          desktop navigation with per-project area links
-      MobileNav.svelte        mobile bottom tabs (Projects, Build, Scan, Data, More)
-      MoreSheet.svelte        bottom sheet listing all project areas on mobile
-      BrandMark.svelte        static SVG logo with optional wordmark
-      area_links.ts           project area metadata
+    shell/                    desktop sidebar, mobile top bar/bottom nav, brand mark
   components/ui/              design-system components (Button, Dialog, Sheet, fields…)
   icons/
-    icon_defs.ts              hand-drawn SVG path library, one consistent stroke style
+    icon_defs.ts              hand-drawn SVG primitive library, one consistent stroke style
     Icon.svelte               icon renderer
   models/
     types.ts                  persisted domain types
-    factories.ts              constructors and deep clones with fresh stable IDs
-    item_catalog.ts           item type registry with availability flags
+    factories.ts              constructors, deep clones with fresh stable IDs, normalization
+    item_catalog.ts           item type registry: groups, capability metadata, availability
     numbering.ts              derived section/question numbers
-    variable_names.ts         variable-name generation and validation
+    variable_names.ts         deterministic variable-name suggestion and validation
+    questionnaire_validation.ts  structured validation issues
+    scale_options.ts          scale resolution and usage scanning
   db/
     client.ts                 IndexedDB open, versioned migrations, generic operations
     projects_repo.ts          project records
     questionnaires_repo.ts    questionnaire records
+    scales_repo.ts            response-scale records
     settings_repo.ts          key-value settings
   services/
-    project_service.ts        project lifecycle across stores (create/duplicate/delete)
+    project_service.ts        project lifecycle across stores
+    scale_service.ts          scale lifecycle, usage reports, delete-with-detach
     backup_service.ts         project bundle export, parse, collision-aware import
   features/
     projects/                 projects dashboard and project dialogs
-    builder/                  builder state, pure operations, panels, item editors
-    preview/                  participant-facing renderers (separate from builder UI)
+    builder/                  builder state, pure operations, panels, per-type editors
+    preview/                  participant-facing renderers and test mode
     placeholders/             Print, Scan, Responses, Export, Settings screens
   utils/                      debounce, id generation, date format, download, focus trap
 ```
@@ -89,16 +87,12 @@ without server rewrites.
 | --- | --- |
 | `#/projects` | Projects dashboard |
 | `#/project/:id/build` | Builder |
-| `#/project/:id/preview` | Participant preview |
+| `#/project/:id/preview` | Participant preview with test mode |
 | `#/project/:id/print` | Print placeholder |
 | `#/project/:id/scan` | Scan placeholder |
 | `#/project/:id/responses` | Responses placeholder |
 | `#/project/:id/export` | Export placeholder |
 | `#/project/:id/settings` | Project settings placeholder |
-
-`match_route` parses a path into an `AppRoute` union; `App.svelte` switches on the union.
-Unknown paths render a not-found screen. Navigation is plain anchor links, so middle-click
-and keyboard navigation work for free.
 
 Navigation model:
 
@@ -108,235 +102,314 @@ Navigation model:
 - Mobile (<768px): top bar (back, title, overflow) plus bottom tabs for Projects, Build,
   Scan, and Data; the More sheet lists every area.
 
-## 4. Local database
+The builder adapts per width: three panels (structure / canvas / properties) on desktop,
+two panels on tablet, and a single column on mobile with a structure drawer, an inline
+properties section, and a sticky toolbar (undo, redo, check, scales, add). All reorder
+controls are explicit up/down buttons — there is no hover-only or drag-only interaction.
+
+## 4. Local database and migrations
 
 All persistent data lives in one IndexedDB database named `svelp`. Schema versions are
 explicit: `PSTU_CDI_STORES` maps each database version to the stores and indexes it
 introduces, and the upgrade path replays versions sequentially inside
-`onupgradeneeded`. Adding future entities means appending a new version entry and
-bumping `BAL_DB_VERSION` — existing stores are never recreated.
+`onupgradeneeded`. Existing stores are never recreated, so Phase 1 projects survive every
+upgrade untouched.
 
-Version 1 creates:
-
-| Store | Key | Indexes | Contents |
-| --- | --- | --- | --- |
-| `projects` | `id` | `updatedAt` | project metadata |
-| `questionnaires` | `id` | `projectId` | full questionnaire definitions |
-| `settings` | `key` | — | local key-value settings |
+| Version | Stores added |
+| --- | --- |
+| 1 | `projects` (index `updatedAt`), `questionnaires` (index `projectId`), `settings` |
+| 2 | `responseScales` (indexes `name`, `updatedAt`) |
 
 Planned stores for later versions (not created yet): `questionnaireVersions`,
-`responseScales`, `responses`, `scans`, `scanImages`, `auditEvents`.
+`responses`, `scans`, `scanImages`, `auditEvents`.
+
+On top of schema migrations, records pass through `normalize_questionnaire` when loaded.
+Normalization fills any field introduced after a record was written (for example items
+created before matrices existed gain empty `rows`, `columns`, and `selectionMode`), and
+moves unknown legacy keys into `metadata` instead of dropping them. This lets the item
+schema evolve without a data-breaking migration for every added field.
 
 The client exposes a small promise-based API (`bal_get`, `bal_put`, `bal_get_all`,
 `bal_get_all_by_index`, `bal_run_tx`, `bal_delete_keys`, `bal_clear`). Multi-store
-operations — creating a project together with its draft questionnaire, duplicating, or
-deleting — run in one transaction so local data can never be left half-written.
+operations — deleting a scale together with detaching its referencing questions, or
+importing a project with its questionnaire and scales — run in one transaction so local
+data can never be left half-written.
 
-UI code never imports the client; it goes through `services/` and `db/*_repo.ts`.
-
-## 5. Project and questionnaire data model
+## 5. Questionnaire schema
 
 Projects and questionnaires are separate records. A project currently owns exactly one
 draft questionnaire, found through the `projectId` index.
 
 ```ts
 ProjectRecord {
-  id, title, description, status: 'active' | 'archived',
-  createdAt, updatedAt
+  id, title, description, status: 'active' | 'archived', createdAt, updatedAt
 }
 
 QuestionnaireRecord {
   id, projectId, title, description,
   version, status: 'draft' | 'published',
-  language, paperSize: 'a4' | 'letter',
-  orientation: 'portrait' | 'landscape',
-  theme, metadata,
-  sections: QuestionnaireSection[],
-  createdAt, updatedAt
+  language, paperSize: 'a4' | 'letter', orientation, theme, metadata,
+  sections: QuestionnaireSection[], createdAt, updatedAt
 }
 
 QuestionnaireSection {
-  id, type: 'section', title, description, items: QuestionnaireItem[]
+  id, type: 'section', title, description, items: QuestionnaireItem[],
+  printConfig: { pageBreakBefore?: boolean } | null,   // print layout placeholder
+  metadata
 }
 
 QuestionnaireItem {
-  id,
-  type,                        // 'section' | 'instruction' | 'single_choice' | …
-  variableName,                // stable analysis name, unique per questionnaire
-  label, required,
-  options: [{ id, label, coding }],
-  coding, validation,
-  scannerConfig,               // reserved for scanner geometry from the print renderer
-  printConfig                  // reserved for print layout overrides
+  id, type, variableName, label, required,
+  options: [{ id, label, coding }],                    // coded choice points
+  coding,                                              // item-level coding placeholder
+  validation,                                          // typed per item type, see below
+  scannerConfig,                                       // future scanner geometry placeholder
+  printConfig,                                         // future print layout placeholder
+  metadata,                                            // unknown/future keys live here
+  scaleId,                                             // reusable response-scale reference
+  placeholder, heading, emphasis,                      // text/instruction presentation
+  rows, columns, selectionMode,                        // matrix structure, 'single'|'multiple'
+  consent,                                             // structured consent content
+  signature,                                           // signature field configuration
+  unitLabel                                            // number unit (years, kg, …)
+}
+
+ResponseScaleRecord {
+  id, name, options: [{ id, label, coding }], createdAt, updatedAt
 }
 ```
 
 Key decisions:
 
-- **Stable IDs.** Every item, option, section, questionnaire, and project gets a generated
-  UUID at creation. IDs never change when items are reordered, renamed, or renumbered.
+- **Stable IDs.** Every item, option, matrix row, matrix column, consent section, scale,
+  section, questionnaire, and project gets a generated UUID at creation. IDs never change
+  on reorder, rename, or renumber. Duplication always mints fresh IDs.
 - **Derived numbering.** `derive_numbering` computes displayed section labels and `Q1…Qn`
-  numbers from array order at render time. Instruction items are skipped in question
-  numbering. Numbers are never stored, so insertion and reordering cannot corrupt
-  references.
-- **Variable names.** Questions carry an editable, validated, unique `variableName`
-  (`q1`, `q2`, … by default, `age`, `income`, … by choice). Exports and codebooks will use
-  variable names, not question numbers. Duplicating a question mints a fresh ID and a
-  unique variable name (`q1_2`).
-- **Type openness.** `ItemTypeName` already enumerates all planned types (multiple choice,
-  yes/no, text, number, date, time, Likert, matrix, ranking, consent, signatures, …). The
-  item catalog marks each type as available or upcoming; the builder's Add menu disables
-  unavailable types with an explicit "Upcoming" tag instead of faking them. Only
-  `section`, `instruction`, and `single_choice` are editable in this phase.
-- **Multilingual readiness.** `label` is currently a single string, and the questionnaire
-  carries a `language` code. Because all text flows through the item model and renderers
-  read only from the model, text fields can later widen to localized variants without
-  touching renderer architecture.
+  numbers from array order at render time. Numbers are never stored.
+- **Validation payloads are typed per item type** and stored in `validation`:
+  - short/long text: `{ maxLength }`
+  - number: `{ min, max, step, decimalAllowed }`
+  - multiple choice: `{ minSelections, maxSelections }`
+  - matrix: `{ requireAllRows }`
+- **Likert scales** are items whose options are the rated points (label + coding), with
+  3/5/7-point presets. Endpoint labels are simply the first/last point labels, so every
+  point can carry its own label and code.
+- **Yes / No** is a specialized choice item with exactly two editable options, coded
+  Yes = 1 and No = 0 by default.
+- **Multilingual readiness.** Text fields are plain strings and the questionnaire carries
+  a `language` code. Renderers read only from the model, so text fields can widen to
+  localized variants later without touching renderer architecture.
+- **Matrix architecture.** Rows and columns are stable-ID lists on the item.
+  `selectionMode` is `single` or `multiple`. Columns can come from the item itself or,
+  when `scaleId` is set, from a reusable scale (live). Multiline paste creates one row or
+  column per pasted line; pasting columns converts a scale-linked matrix to custom
+  columns, an explicit user action rather than a silent change.
 
-## 6. State architecture
+## 6. Response scales
 
-State is layered by lifetime:
+Response scales are a device-wide library in the `responseScales` store, reusable across
+projects and questions (FFQ frequency, agreement, and similar). The management panel
+supports create, rename, option editing with coding, reordering, add, multiline paste,
+duplicate, and delete.
 
-1. **Persisted domain data** — IndexedDB, owned by repositories/services.
-2. **Builder document state** — `builder_state` holds the draft questionnaire currently
-   being edited plus selection and save status. All edits go through pure functions in
-   `builder_ops.ts` (add/update/move/duplicate/delete for sections, items, and options),
-   applied immutably. Changes mark the state dirty and a 600 ms debounce persists them;
-   flushing also happens when the tab is hidden. No keystroke writes to disk immediately.
-3. **Project context** — `project_context` caches the project record for the open project
-   route.
-4. **UI state** — dialogs, sheets, and menus are local component state and are never
-   persisted.
+**Reference semantics (documented decision).** Questions reference scales *live* by
+`scaleId` while a questionnaire is a draft: edits to a shared scale intentionally appear
+in every question using it, because scales are managed as a deliberate library. The
+safety rules around that live reference are:
 
-There is no global store; each feature owns its slice. The preview never imports builder
-state — it loads the questionnaire from the database, which proves the definition is the
-single source of truth.
+1. **Delete is never silent.** Deleting a scale that is in use requires an explicit
+   confirmation stating how many questions use it. On confirmation, every referencing
+   question receives a snapshot copy of the scale's current options (`scaleId` cleared),
+   inside one transaction with the deletion. Data is preserved; references never dangle
+   through a UI action.
+2. **Explicit detach.** Assigning custom columns or detaching snapshots the current scale
+   options into the item, after which the item no longer follows the scale.
+3. **Version safety.** When publishing is implemented, the frozen questionnaire version
+   will snapshot the scales it uses, so collected responses always resolve against the
+   exact option text and codings that were shown to respondents. Live references are a
+   draft-time convenience only; published artifacts never depend on the mutable library.
+4. **Import collisions.** Importing a bundle whose scale ID already exists locally
+   imports the bundle's scale as a separate copy and remaps the imported questions to the
+   copy, so a shared local scale is never mutated by an import.
 
-## 7. Builder
+## 7. Builder state, undo, and autosave
 
-Desktop uses the three-panel layout: structure (left), editing canvas (center), properties
-inspector (right). Tablet keeps structure and canvas. Mobile becomes a single column: the
-canvas with an inline properties section, a Structure button opening a start-side sheet,
-and a sticky toolbar with the Add menu.
+`builder_state` owns the draft questionnaire, the scale list, the selection, save status,
+and undo/redo stacks. All edits flow through pure functions in `builder_ops.ts` applied
+immutably.
 
-Implemented operations, all persisted: add section, add instructional text, add
-single-choice question, edit question text, edit option labels, edit option codings, add
-option, remove option (minimum one kept), reorder options, reorder items (across section
-boundaries), duplicate items and sections, delete items and sections (with confirmation),
-edit section titles and descriptions, and select in structure or canvas.
+- **Autosave** is debounced (600 ms) and additionally flushed when the tab is hidden or
+  closed, so no substantial work is lost. A restrained save indicator shows Saved,
+  Saving…, Unsaved changes, or Save failed.
+- **Undo/redo** keeps snapshots of the questionnaire plus selection (limit 100). Rapid
+  text edits of the same field coalesce into a single undo step (900 ms window), so
+  typing a label does not flood history. Undo and redo are available as toolbar buttons
+  and via Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z (or Ctrl+Y). Redo clears on a new edit.
 
-## 8. Preview and the renderer plan
+## 8. Variable names
 
-`features/preview` renders the participant-facing questionnaire from
-`QuestionnaireRecord` only. Its components (`SectionView`, `InstructionView`,
-`SingleChoiceView`) are deliberately separate from builder editing components, because the
-same definition must feed multiple renderers later:
+Every data-producing question carries an editable `variableName`, unique within the
+questionnaire. Suggestions are deterministic — no AI: the label is normalized
+(diacritics folded, lowercased), split on non-alphanumerics, a fixed stopword list
+removes question scaffolding ("how", "do", "your", "please", …), the first three content
+words are joined with underscores, and the result is capped at 32 characters. For
+example, "How often do you consume fish?" suggests a form based on its content words
+(such as `often_consume_fish` under the current rules); researchers can edit freely or
+press Suggest again after changing the label. Uniqueness is validated with a clear
+error, duplication auto-suffixes (`rice_2`), and bulk creation previews every generated
+name before anything is created.
 
-| Renderer | Consumes |
-| --- | --- |
-| Digital renderer (this phase's preview) | questionnaire definition |
-| Print renderer (future) | definition + paper size, orientation, page breaks |
-| Scanner template generator (future) | definition + print layout geometry |
-| Codebook generator (future) | definition (variable names, options, codings) |
+## 9. Bulk creation
 
-The print renderer should eventually produce, alongside pages, the machine-readable
-geometry (answer-mark coordinates, alignment markers, page IDs) that the scanner consumes.
-Scanner coordinates must come from the renderer — Svelp must never grow a separately
-maintained scanner template system.
+The bulk creator pastes one question label per line and, in one action, creates one
+question per line in a chosen section — all sharing a selected response scale and type
+(single or multiple choice). Variable names are planned deterministically and shown in a
+preview list before creation. The whole batch is a single undo step. This is the primary
+workflow for FFQ-style questionnaires with long food lists.
 
-## 9. Versioning strategy
+## 10. Validation
 
-The model already carries `version` and `status: 'draft' | 'published'` on every
-questionnaire, and `ProjectRecord`/`QuestionnaireRecord` timestamps are maintained.
+`validate_questionnaire` returns structured issues, each carrying a code, severity
+(error or warning), human message, and navigation targets (`sectionId`, `itemId`,
+`scaleId`). The Check panel lists issues and jumps straight to the affected item.
 
-Planned flow, for which the schema is prepared:
+Detected problems include: duplicate/missing/invalid variable names, empty question
+labels or section titles, choice questions with fewer than two options, duplicate option
+codes, invalid numeric ranges and steps, multiple-choice minimum greater than maximum
+(or exceeding the option count), matrices without rows or columns or with empty
+row/column labels, empty consent acknowledgement, broken scale references, scales with
+fewer than two options, and unnamed scales.
+
+Validation never blocks editing; it is an on-demand report. The preview applies the same
+rules as interactive participant validation (see below).
+
+## 11. Print-readiness and scanner capability metadata
+
+The item catalog carries per-type layout and capability metadata that the Phase 3 print
+renderer and scanner generator will consume:
+
+| Metadata | Values today | Purpose |
+| --- | --- | --- |
+| `canSplitAcrossPages` | sections, instructions, choices: true; text/number/date/matrix/signatures: false | page-breaking decisions |
+| `layoutDensity` | `compact` or `standard` | print spacing presets |
+| `answerMarker` | `bubble`, `checkbox`, `box`, `line`, `none` | which mark shape the print renderer draws |
+| `scannerCapability` | `automatic`, `manual-review`, `unsupported` | whether marks can be read automatically |
+
+No coordinates are generated or stored anywhere. `scannerConfig` and `printConfig`
+remain per-item placeholders. The eventual scanner geometry will be produced by the print
+renderer from the same definition — Svelp will never maintain a separate scanner template
+system.
+
+Text answers, numbers, dates, and consent acknowledgements are classified
+`manual-review`: a future scanner can detect *that* something was written, but reading
+handwriting needs human review. Signatures are `unsupported` for automatic reading;
+paper signatures are kept as images for audit.
+
+## 12. Preview and test mode
+
+`features/preview` renders every implemented item type from the questionnaire definition
+only, sharing no editing components with the builder. It loads the record straight from
+IndexedDB, which keeps the definition the single source of truth.
+
+Test mode lets the researcher fill the questionnaire as a fake respondent: required
+rules, selection limits, numeric ranges, length limits, matrix row requirements, and
+consent acknowledgement all validate against the same rule set used later for real
+digital responses (`bal_validate_answers`). A Check answers action lists per-question
+errors, Reset clears everything, and nothing is ever persisted — answers live in local
+component state only, clearly labeled, so future real response storage can never be
+polluted by testing.
+
+Signatures are captured on a local `<canvas>` with pointer events (touch and mouse) and
+kept in the test answer state as an image data URL. No third-party service is involved.
+On paper, signature items will print as framed boxes with printed-name and date lines.
+
+## 13. Versioning strategy
+
+The model carries `version` and `status: 'draft' | 'published'` on every questionnaire.
+
+Planned flow:
 
 1. A questionnaire is edited freely while `status` is `draft`. Autosave never creates
    versions.
-2. Publishing freezes a draft: the record is copied into `questionnaireVersions` (a future
-   store) as an immutable version, and the draft continues on a new version number.
-3. Responses and scans record the questionnaire `id` they were collected against, so they
-   always remain attached to the exact version that produced them.
+2. Publishing freezes a draft: the record (with snapshot copies of its scales) is copied
+   into the future `questionnaireVersions` store as an immutable version, and the draft
+   continues on a new version number.
+3. Responses and scans record the questionnaire `id` they were collected against, so
+   they always remain attached to the exact version — including its frozen scale
+   snapshots — that produced them.
 
-Publishing is intentionally not implemented in this phase.
+Publishing is intentionally not implemented yet.
 
-## 10. Offline behavior and PWA
+## 14. Offline behavior and PWA
 
-`vite-plugin-pwa` generates a service worker that precaches every built asset (HTML, JS,
-CSS, icons, fonts) with an `autoUpdate` registration, and supplies the web manifest
-(installed name, standalone display, theme, maskable icon). The application shell is a
-local application: after the first load, no network request is needed. Hash routing keeps
-deep links working offline. All features run entirely against local IndexedDB; there is
-nothing to degrade when offline because there is no online mode.
+`vite-plugin-pwa` generates a service worker that precaches every built asset with
+`autoUpdate` registration, plus the web manifest and icons. After the first load, Svelp
+needs no network at any time: hash routing keeps deep links working offline, and all
+features run against local IndexedDB. There is nothing to degrade when offline because
+there is no online mode.
 
-## 11. Project backup and import
+## 15. Project backup and import
 
-Projects export as a JSON bundle:
+Projects export as a JSON bundle (format `svelp.project`, `formatVersion` 2):
 
 ```json
 {
   "format": "svelp.project",
-  "formatVersion": 1,
+  "formatVersion": 2,
   "exportedAt": "…",
   "project": { … },
-  "questionnaire": { … }
+  "questionnaire": { … },
+  "scales": [ … ]
 }
 ```
 
-Export preserves all stable IDs. Import validates the format tag and version, then checks
-for ID collisions:
+The bundle includes every response scale the questionnaire references. Import accepts
+both v2 bundles and Phase 1 v1 bundles (which simply have no scales), normalizes records
+to the current schema, preserves all stable IDs, and resolves collisions explicitly:
 
-- No collision: the project and questionnaire are written exactly as exported.
-- Collision: the import is written as a separate copy with fresh IDs and the title suffix
-  "(imported)"; the existing project is never silently overwritten, and the interface
-  explains what happened.
+- No collision: project, questionnaire, and scales are written exactly as exported.
+- Project or questionnaire ID collision: imported as a separate copy with fresh IDs and
+  an "(imported)" title suffix.
+- Scale ID collision: the bundle's scale is imported as a separate copy and the imported
+  questions are remapped to the copy, so no local scale is ever mutated by an import.
 
 A future `.svelp` package (for example a zip container with responses and scans) can
 evolve from this bundle by bumping `formatVersion`.
 
-## 12. Future print integration (not implemented)
+## 16. Phase 3 expectations (print)
 
-Designed for, not built in this phase:
+The schema and renderer are now mature enough for the print phase to consume:
 
-- Native Svelp questionnaire generation from the definition (preferred path), and a
-  second path that overlays a definition onto externally produced PDFs for direct-edit
-  workflows.
-- A4 and Letter, portrait and landscape, consent sections, page numbering, section
-  breaks, page-safe margins.
-- Machine-readable page identification (questionnaire ID, questionnaire version,
-  respondent ID, page number) and scanner markers emitted by the print renderer together
-  with mark geometry.
+- `paperSize`, `orientation`, per-section `pageBreakBefore`, and per-type
+  `canSplitAcrossPages`/`layoutDensity` for pagination.
+- `answerMarker` per type for drawing bubbles, checkboxes, boxes, and lines.
+- Coded options, matrix rows/columns, and scale snapshots for machine-readable targets.
+- Unique questionnaire/version/item IDs for page identification codes.
+- Both planned paths remain: native Svelp print generation (preferred) and overlay of a
+  definition onto external PDFs.
 
-The questionnaire record already carries `paperSize` and `orientation`; items carry
-`printConfig` for per-question layout overrides.
+The print renderer should eventually emit, alongside pages, the geometry (answer-mark
+positions, alignment markers, page IDs) that the scanner consumes, so scanner templates
+are generated — never hand-maintained.
 
-## 13. Future scanner integration (not implemented)
-
-The scanner phase will add batch image import, page grouping by respondent, duplicate and
-missing page detection, image quality checks, alignment and perspective correction, mark
-detection with confidence values, a manual review queue for uncertain answers, original
-image preservation, reprocessing, and an audit trail — all offline. The architecture
-reserves for it:
-
-- `scannerConfig` on every question (geometry placeholder today),
-- future stores `scans`, `scanImages`, `auditEvents`,
-- version-locked `responses` keyed to the questionnaire version,
-- page identity metadata produced by the print renderer rather than hand-maintained
-  templates.
-
-## 14. Testing
+## 17. Testing
 
 Vitest covers the layers where correctness matters most, with IndexedDB emulated by
 fake-indexeddb:
 
-- `numbering.test.ts` — derived numbering and instruction skipping,
-- `variable_names.test.ts` — name generation, uniquification, validation,
-- `builder_ops.test.ts` — add/insert/duplicate/move/delete semantics for items, sections,
-  and options,
-- `backup_service.test.ts` — bundle parse/validate, collision planning, end-to-end
-  import-as-copy,
-- `db.test.ts` — transactions across stores, rename, duplicate, delete, settings, and
-  version mapping.
+- `variable_names.test.ts` — deterministic suggestions, stopwords, length caps,
+  uniquification, validation,
+- `questionnaire_validation.test.ts` — every issue code and the valid-questionnaire case,
+- `builder_ops.test.ts` — items, options, matrix row/column operations, paste semantics,
+  likert presets, scale assign/detach snapshots, bulk planning/creation, deep-clone
+  isolation,
+- `scale_service.test.ts` — scale CRUD, usage reports, delete-with-detach, bundle
+  scale collection,
+- `bundle_roundtrip.test.ts` — full export→wipe→import cycles including matrix, scales,
+  consent, coded options, and validation payloads, plus scale-collision remapping,
+- `migration.test.ts` — v1→v2 upgrade creating `responseScales` while preserving
+  Phase 1 records,
+- `db.test.ts`, `backup_service.test.ts`, `numbering.test.ts` — project lifecycle
+  transactions, bundle parsing and collision planning, derived numbering.
 
-Run them with `npm run test`. `npm run check` runs svelte-check over the whole codebase
-and `npm run lint` runs ESLint (typescript-eslint plus eslint-plugin-svelte).
+Run them with `npm run test`; `npm run check` and `npm run lint` cover types and style.

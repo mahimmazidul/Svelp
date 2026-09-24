@@ -1,9 +1,42 @@
 import { describe, expect, it } from 'vitest';
 import {
+  suggest_variable_name,
+  bal_normalize_tokens,
   next_variable_name,
   unique_variable_name,
   validate_variable_name
 } from './variable_names';
+
+describe('suggest_variable_name', () => {
+  it('produces deterministic snake_case from content words', () => {
+    expect(suggest_variable_name('How often do you consume fish?')).toBe(
+      suggest_variable_name('How often do you consume fish?')
+    );
+    const bal_first = suggest_variable_name('How often do you consume fish?');
+    expect(bal_first).toMatch(/fish/);
+    expect(bal_first.length).toBeLessThanOrEqual(32);
+  });
+
+  it('drops stopwords and question scaffolding', () => {
+    expect(suggest_variable_name('What is your age?')).toBe('age');
+  });
+
+  it('caps very long labels', () => {
+    const bal_name = suggest_variable_name(
+      'Please describe the entire household food purchasing pattern during the last month'
+    );
+    expect(bal_name.length).toBeLessThanOrEqual(32);
+    expect(bal_name.startsWith('_') || /^[a-z]/.test(bal_name)).toBe(true);
+  });
+
+  it('returns empty for stopwords only', () => {
+    expect(suggest_variable_name('How often?')).toBe('');
+  });
+
+  it('normalizes diacritics and punctuation', () => {
+    expect(bal_normalize_tokens('Café — naïve')).toEqual(['cafe', 'naive']);
+  });
+});
 
 describe('next_variable_name', () => {
   it('returns the first free name', () => {

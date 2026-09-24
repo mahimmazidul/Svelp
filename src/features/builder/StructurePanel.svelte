@@ -11,6 +11,46 @@
   const bal_numbering = $derived(bal_q ? derive_numbering(bal_q) : null);
 
   let bal_collapsed = $state<Record<string, boolean>>({});
+  let bal_query = $state('');
+
+  interface SearchHit {
+    itemId: string;
+    sectionId: string;
+    heading: string;
+    detail: string;
+    icon: ReturnType<typeof item_descriptor>['icon'];
+  }
+
+  const bal_hits = $derived.by<SearchHit[]>(() => {
+    const bal_needle = bal_query.trim().toLowerCase();
+    if (bal_needle === '' || !bal_q || !bal_numbering) return [];
+    const bal_results: SearchHit[] = [];
+    for (const bal_section of bal_q.sections) {
+      const bal_section_match = bal_section.title.toLowerCase().includes(bal_needle);
+      for (const bal_item of bal_section.items) {
+        const bal_text_match =
+          bal_item.label.toLowerCase().includes(bal_needle) ||
+          (bal_item.heading ?? '').toLowerCase().includes(bal_needle) ||
+          (bal_item.variableName ?? '').toLowerCase().includes(bal_needle);
+        if (!bal_text_match && !bal_section_match) continue;
+        bal_results.push({
+          itemId: bal_item.id,
+          sectionId: bal_section.id,
+          heading:
+            bal_item.label.trim() !== ''
+              ? bal_item.label
+              : (bal_item.heading ?? '').trim() !== ''
+                ? (bal_item.heading as string)
+                : `Untitled ${item_descriptor(bal_item.type).label.toLowerCase()}`,
+          detail:
+            bal_numbering.itemLabels[bal_item.id] ??
+            (bal_item.variableName ? bal_item.variableName : 'instruction'),
+          icon: item_descriptor(bal_item.type).icon
+        });
+      }
+    }
+    return bal_results;
+  });
 
   function bal_display_label(bal_type: string, bal_label: string): string {
     if (bal_label.trim() !== '') return bal_label;
@@ -26,11 +66,42 @@
 <div class="structure">
   <header class="head">
     <h2 class="head-title">Structure</h2>
-    <AddItemMenu />
+    <AddItemMenu show_bulk={true} />
   </header>
 
+  <div class="search">
+    <Icon name="search" size={14} />
+    <input
+      type="search"
+      placeholder="Search text or variable"
+      bind:value={bal_query}
+      aria-label="Search questionnaire"
+    />
+  </div>
+
   {#if bal_q && bal_numbering}
-    {#if bal_q.sections.length === 0}
+    {#if bal_query.trim() !== ''}
+      {#if bal_hits.length === 0}
+        <p class="no-hits">Nothing matches “{bal_query.trim()}”.</p>
+      {:else}
+        <div class="hits">
+          {#each bal_hits as bal_hit (bal_hit.itemId)}
+            <button
+              class="hit-row"
+              class:selected={bal_state.selectedItemId === bal_hit.itemId}
+              type="button"
+              onclick={() => builder_state.select_item(bal_hit.itemId)}
+            >
+              <Icon name={bal_hit.icon} size={15} />
+              <span class="hit-text">
+                <span class="hit-heading">{bal_hit.heading}</span>
+                <span class="hit-detail">{bal_hit.detail}</span>
+              </span>
+            </button>
+          {/each}
+        </div>
+      {/if}
+    {:else if bal_q.sections.length === 0}
       <div class="structure-empty">
         <p>No sections yet. Add a section to start organizing questions.</p>
         <Button variant="secondary" icon="plus" onclick={() => builder_state.add_section()}>
@@ -127,6 +198,37 @@
     color: var(--color-ink-3);
   }
 
+  .search {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin: 0 var(--space-3) var(--space-2);
+    padding: 0 var(--space-2);
+    height: 34px;
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--radius-md);
+    color: var(--color-ink-3);
+    flex: none;
+  }
+
+  .search:focus-within {
+    border-color: var(--color-accent);
+    box-shadow: 0 0 0 3px var(--color-accent-soft);
+  }
+
+  .search input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: none;
+    font-size: var(--text-sm);
+    color: var(--color-ink);
+  }
+
+  .search input:focus {
+    outline: none;
+  }
+
   .sections {
     flex: 1;
     min-height: 0;
@@ -135,6 +237,69 @@
     display: grid;
     gap: var(--space-1);
     align-content: start;
+  }
+
+  .hits {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0 var(--space-2) var(--space-3);
+    display: grid;
+    gap: 2px;
+    align-content: start;
+  }
+
+  .no-hits {
+    padding: var(--space-3);
+    font-size: var(--text-sm);
+    color: var(--color-ink-3);
+  }
+
+  .hit-row {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-2);
+    width: 100%;
+    border: none;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    border-radius: var(--radius-md);
+    padding: var(--space-2);
+    color: var(--color-ink-2);
+  }
+
+  .hit-row:hover {
+    background: var(--color-surface-2);
+  }
+
+  .hit-row.selected {
+    background: var(--color-accent-soft);
+    color: var(--color-accent);
+  }
+
+  .hit-row :global(svg) {
+    flex: none;
+    margin-top: 2px;
+  }
+
+  .hit-text {
+    display: grid;
+    min-width: 0;
+  }
+
+  .hit-heading {
+    font-size: var(--text-sm);
+    color: inherit;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .hit-detail {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-ink-3);
   }
 
   .section-group {

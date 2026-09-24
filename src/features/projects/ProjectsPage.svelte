@@ -16,6 +16,10 @@
     hati_bundle_filename
   } from '../../services/backup_service';
   import {
+    bal_scale_ids_of_questionnaire,
+    bal_scales_for_bundle
+  } from '../../services/scale_service';
+  import {
     sagol_versions_by_project,
     dhon_questionnaire_by_project
   } from '../../db/questionnaires_repo';
@@ -99,7 +103,11 @@
       };
       return;
     }
-    const bal_bundle = hati_bundle(bal_row, bal_q);
+    const bal_bundle = hati_bundle(
+      bal_row,
+      bal_q,
+      await bal_scales_for_bundle(bal_scale_ids_of_questionnaire(bal_q))
+    );
     malta_download_file(
       hati_bundle_filename(bal_row.title),
       JSON.stringify(bal_bundle, null, 2),

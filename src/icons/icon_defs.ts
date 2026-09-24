@@ -29,7 +29,16 @@ export type IconName =
   | 'hash'
   | 'sort'
   | 'layers'
-  | 'folder';
+  | 'folder'
+  | 'checkbox'
+  | 'toggle'
+  | 'text-cursor'
+  | 'shield'
+  | 'history'
+  | 'undo'
+  | 'redo'
+  | 'list'
+  | 'wand';
 
 export interface IconPrimitive {
   tag: 'path' | 'circle' | 'rect';
@@ -194,5 +203,48 @@ export const icon_primitives: Record<IconName, IconPrimitive[]> = {
       tag: 'path',
       d: 'M3.5 7A1.5 1.5 0 0 1 5 5.5h4.2l2 2.5H19a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5V7z'
     }
+  ],
+  checkbox: [
+    { tag: 'rect', x: 4, y: 4, width: 16, height: 16, rx: 3 },
+    { tag: 'path', d: 'M8.5 12.5l2.5 2.5 4.8-5.5' }
+  ],
+  toggle: [
+    { tag: 'rect', x: 3, y: 8, width: 18, height: 8, rx: 4 },
+    { tag: 'circle', cx: 15.5, cy: 12, r: 1.8, filled: true }
+  ],
+  'text-cursor': [
+    { tag: 'path', d: 'M8 4h8' },
+    { tag: 'path', d: 'M12 4v16' },
+    { tag: 'path', d: 'M8 20h8' }
+  ],
+  shield: [
+    { tag: 'path', d: 'M12 3.5l7 2.5v6c0 4.5-3 7.5-7 8.5-4-1-7-4-7-8.5V6l7-2.5z' },
+    { tag: 'path', d: 'M9 12l2 2 4-4.5' }
+  ],
+  history: [
+    { tag: 'path', d: 'M4 12a8 8 0 1 0 2.3-5.6L4 8.7' },
+    { tag: 'path', d: 'M4 4.5v4.2h4.2' },
+    { tag: 'path', d: 'M12 8v4l2.6 1.6' }
+  ],
+  undo: [
+    { tag: 'path', d: 'M8.5 5L4 9.5L8.5 14' },
+    { tag: 'path', d: 'M4 9.5h9a6 6 0 0 1 6 6v.5' }
+  ],
+  redo: [
+    { tag: 'path', d: 'M15.5 5L20 9.5L15.5 14' },
+    { tag: 'path', d: 'M20 9.5h-9a6 6 0 0 0-6 6v.5' }
+  ],
+  list: [
+    { tag: 'path', d: 'M9 6h11' },
+    { tag: 'path', d: 'M9 12h11' },
+    { tag: 'path', d: 'M9 18h11' },
+    { tag: 'path', d: 'M4.5 6h.01' },
+    { tag: 'path', d: 'M4.5 12h.01' },
+    { tag: 'path', d: 'M4.5 18h.01' }
+  ],
+  wand: [
+    { tag: 'path', d: 'M5 19L16.5 7.5' },
+    { tag: 'path', d: 'M14.5 5l1 2.5 2.5 1-2.5 1-1 2.5-1-2.5L11 8.5l2.5-1 1-2.5z' },
+    { tag: 'path', d: 'M5.5 4.5L6 6l1.5.5L6 7l-.5 1.5L5 7l-1.5-.5L5 6l.5-1.5z' }
   ]
 };

@@ -6,29 +6,39 @@
     item,
     number,
     options,
-    selected = null,
+    selected = [],
     error = null,
-    onanswer
+    ontoggle
   }: {
     item: QuestionnaireItem;
     number: string;
     options: ChoiceOption[];
-    selected?: string | null;
+    selected?: string[];
     error?: string | null;
-    onanswer: (bal_option_id: string) => void;
+    ontoggle: (bal_option_id: string) => void;
   } = $props();
+
+  const bal_limits = $derived.by(() => {
+    const bal_parts: string[] = [];
+    const bal_min = item.validation?.minSelections;
+    const bal_max = item.validation?.maxSelections;
+    if (typeof bal_min === 'number') bal_parts.push(`at least ${bal_min}`);
+    if (typeof bal_max === 'number') bal_parts.push(`at most ${bal_max}`);
+    return bal_parts.length > 0 ? `Select ${bal_parts.join(' and ')}.` : 'Select any that apply.';
+  });
 </script>
 
 <QuestionShell number={number} label={item.label} required={item.required} error={error}>
+  <p class="pv-hint">{bal_limits}</p>
   <div class="pv-options">
     {#each options as bal_option (bal_option.id)}
       <label class="pv-option">
         <input
-          type="radio"
+          type="checkbox"
           name={item.id}
           value={bal_option.id}
-          checked={selected === bal_option.id}
-          onchange={() => onanswer(bal_option.id)}
+          checked={selected.includes(bal_option.id)}
+          onchange={() => ontoggle(bal_option.id)}
         />
         <span class="pv-option-label">
           {bal_option.label.trim() !== '' ? bal_option.label : 'Untitled option'}
@@ -42,6 +52,12 @@
 </QuestionShell>
 
 <style>
+  .pv-hint {
+    font-size: var(--text-xs);
+    color: var(--color-ink-3);
+    margin-top: calc(-1 * var(--space-2));
+  }
+
   .pv-options {
     display: grid;
     gap: var(--space-2);

@@ -11,7 +11,7 @@ export interface BalStoreSpec {
 }
 
 export const BAL_DB_NAME = 'svelp';
-export const BAL_DB_VERSION = 1;
+export const BAL_DB_VERSION = 2;
 
 export const PSTU_CDI_STORES: Record<number, BalStoreSpec[]> = {
   1: [
@@ -28,6 +28,16 @@ export const PSTU_CDI_STORES: Record<number, BalStoreSpec[]> = {
     {
       name: 'settings',
       keyPath: 'key'
+    }
+  ],
+  2: [
+    {
+      name: 'responseScales',
+      keyPath: 'id',
+      indexes: [
+        { name: 'name', keyPath: 'name' },
+        { name: 'updatedAt', keyPath: 'updatedAt' }
+      ]
     }
   ]
 };

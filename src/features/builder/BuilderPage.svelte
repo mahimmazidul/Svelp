@@ -1,6 +1,7 @@
 <script lang="ts">
   import Button from '../../components/ui/Button.svelte';
   import EmptyState from '../../components/ui/EmptyState.svelte';
+  import IconButton from '../../components/ui/IconButton.svelte';
   import Sheet from '../../components/ui/Sheet.svelte';
   import { project_context } from '../../app/project_context';
   import { ghora_layout, type LayoutMode } from '../../utils/breakpoints';
@@ -9,11 +10,15 @@
   import InspectorPanel from './InspectorPanel.svelte';
   import ItemEditor from './ItemEditor.svelte';
   import StructurePanel from './StructurePanel.svelte';
+  import ValidationPanel from './ValidationPanel.svelte';
+  import ScalesManagerSheet from './ScalesManagerSheet.svelte';
   import { builder_state } from './builder_state';
 
   let { projectId }: { projectId: string } = $props();
 
   let shawya_structure_open = $state(false);
+  let shawya_check_open = $state(false);
+  let shawya_scales_open = $state(false);
 
   const bal_mode = $derived<LayoutMode>($ghora_layout);
   const bal_state = $derived($builder_state);
@@ -23,6 +28,22 @@
     return () => {
       void builder_state.flush();
     };
+  });
+
+  $effect(() => {
+    const bal_handler = (bal_event: KeyboardEvent): void => {
+      if (!(bal_event.metaKey || bal_event.ctrlKey)) return;
+      const bal_key = bal_event.key.toLowerCase();
+      if (bal_key === 'z' && !bal_event.shiftKey) {
+        bal_event.preventDefault();
+        builder_state.undo();
+      } else if ((bal_key === 'z' && bal_event.shiftKey) || bal_key === 'y') {
+        bal_event.preventDefault();
+        builder_state.redo();
+      }
+    };
+    window.addEventListener('keydown', bal_handler);
+    return () => window.removeEventListener('keydown', bal_handler);
   });
 
   const bal_save_label = $derived(
@@ -81,10 +102,32 @@
     <div class="panel canvas-panel">
       <header class="canvas-head">
         <span class="canvas-crumb">{bal_state.questionnaire.title}</span>
-        <span class="save-state" data-state={bal_state.saveStatus}>
-          <span class="save-dot" aria-hidden="true"></span>
-          {bal_save_label}
-        </span>
+        <div class="canvas-tools">
+          <IconButton
+            label="Undo"
+            icon="undo"
+            glyph={17}
+            disabled={!bal_state.canUndo}
+            onclick={() => builder_state.undo()}
+          />
+          <IconButton
+            label="Redo"
+            icon="redo"
+            glyph={17}
+            disabled={!bal_state.canRedo}
+            onclick={() => builder_state.redo()}
+          />
+          <Button variant="secondary" size="sm" icon="check" onclick={() => (shawya_check_open = true)}>
+            Check
+          </Button>
+          <Button variant="secondary" size="sm" icon="sliders" onclick={() => (shawya_scales_open = true)}>
+            Scales
+          </Button>
+          <span class="save-state" data-state={bal_state.saveStatus}>
+            <span class="save-dot" aria-hidden="true"></span>
+            {bal_save_label}
+          </span>
+        </div>
       </header>
       <div class="canvas-body">
         <ItemEditor mode={bal_mode} />
@@ -104,7 +147,35 @@
         >
           Structure
         </Button>
-        <AddItemMenu label="Add" />
+        <div class="mobile-tools">
+          <IconButton
+            label="Undo"
+            icon="undo"
+            glyph={17}
+            disabled={!bal_state.canUndo}
+            onclick={() => builder_state.undo()}
+          />
+          <IconButton
+            label="Redo"
+            icon="redo"
+            glyph={17}
+            disabled={!bal_state.canRedo}
+            onclick={() => builder_state.redo()}
+          />
+          <IconButton
+            label="Check questionnaire"
+            icon="circle-check"
+            glyph={17}
+            onclick={() => (shawya_check_open = true)}
+          />
+          <IconButton
+            label="Response scales"
+            icon="sliders"
+            glyph={17}
+            onclick={() => (shawya_scales_open = true)}
+          />
+          <AddItemMenu label="Add" show_bulk={true} />
+        </div>
       </div>
       <Sheet bind:open={shawya_structure_open} side="start" title="Structure">
         <div class="sheet-structure">
@@ -114,6 +185,20 @@
     {/if}
   </div>
 {/if}
+
+<ValidationPanel
+  open={shawya_check_open}
+  onnavigate={(bal_section_id, bal_item_id) => {
+    if (bal_item_id) {
+      builder_state.select_item(bal_item_id);
+    } else if (bal_section_id) {
+      builder_state.select_section(bal_section_id);
+    }
+    if (bal_mode === 'mobile') shawya_structure_open = false;
+  }}
+/>
+
+<ScalesManagerSheet bind:open={shawya_scales_open} />
 
 <style>
   .builder {
@@ -159,7 +244,7 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--space-4);
-    padding: var(--space-3) var(--space-5);
+    padding: var(--space-2) var(--space-3) var(--space-2) var(--space-5);
     border-bottom: var(--border-width) solid var(--color-border);
     background: var(--color-surface);
     flex: none;
@@ -172,6 +257,19 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    min-width: 0;
+  }
+
+  .canvas-tools {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex: none;
+  }
+
+  .canvas-tools :global(.ibtn) {
+    width: 34px;
+    height: 34px;
   }
 
   .save-state {
@@ -224,12 +322,18 @@
     border-top: var(--border-width) solid var(--color-border);
   }
 
+  .mobile-tools {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
   .builder[data-mode='mobile'] .canvas-panel {
     border-top: none;
   }
 
   .builder[data-mode='mobile'] .canvas-head {
-    padding: var(--space-3) var(--space-4);
+    padding: var(--space-2) var(--space-3);
   }
 
   .builder[data-mode='mobile'] .canvas-body {
@@ -240,5 +344,11 @@
   .sheet-structure {
     height: 100%;
     min-height: 0;
+  }
+
+  @media (max-width: 767px) {
+    .canvas-tools :global(.btn) {
+      display: none;
+    }
   }
 </style>
