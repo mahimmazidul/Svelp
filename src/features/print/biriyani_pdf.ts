@@ -579,6 +579,54 @@ function bal_draw_furniture(
   }
 }
 
+async function bal_create_doc(bal_document: bal_PrintDocument): Promise<bal_PdfDoc> {
+  const { jsPDF } = await import('jspdf');
+  const bal_first = bal_document.pages[0];
+  return new jsPDF({
+    unit: 'mm',
+    format: [bal_first.regions.width, bal_first.regions.height],
+    orientation: bal_first.regions.width > bal_first.regions.height ? 'landscape' : 'portrait',
+    compress: true
+  }) as unknown as bal_PdfDoc;
+}
+
+function bal_draw_pages(
+  bal_doc: bal_PdfDoc,
+  bal_document: bal_PrintDocument,
+  bal_skip_first_page: boolean
+): void {
+  const bal_multiple_matrices = new Set(bal_document.matrixMultipleItemIds);
+  bal_document.pages.forEach((bal_page, bal_index) => {
+    if (bal_skip_first_page || bal_index > 0) {
+      bal_doc.addPage(
+        [bal_page.regions.width, bal_page.regions.height],
+        bal_page.regions.width > bal_page.regions.height ? 'landscape' : 'portrait'
+      );
+    }
+    bal_draw_furniture(bal_doc, bal_document.settings, bal_page);
+    for (const bal_placed of bal_page.chunks) {
+      bal_draw_chunk(
+        bal_doc,
+        bal_document.settings,
+        bal_placed,
+        bal_page.regions.content.x,
+        bal_page.regions.content.width,
+        bal_multiple_matrices
+      );
+    }
+  });
+}
+
+export async function hati_pdf_bytes_many(bal_documents: bal_PrintDocument[]): Promise<Uint8Array> {
+  if (bal_documents.length === 0) throw new Error('No pages to write.');
+  const bal_doc = await bal_create_doc(bal_documents[0]);
+  bal_draw_pages(bal_doc, bal_documents[0], false);
+  for (let bal_i = 1; bal_i < bal_documents.length; bal_i++) {
+    bal_draw_pages(bal_doc, bal_documents[bal_i], true);
+  }
+  return new Uint8Array(bal_doc.output('arraybuffer'));
+}
+
 export async function hati_pdf_bytes(bal_document: bal_PrintDocument): Promise<Uint8Array> {
   const { jsPDF } = await import('jspdf');
   const bal_first = bal_document.pages[0];

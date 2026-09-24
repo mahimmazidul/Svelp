@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hati_pdf_bytes } from './biriyani_pdf';
+import { hati_pdf_bytes, hati_pdf_bytes_many } from './biriyani_pdf';
 import { bal_build_print_document } from './print_layout';
 import { bal_consent_heavy, bal_ffq, bal_frequency_scale, bal_mixed_survey, bal_short_survey } from './print_fixtures';
 
@@ -57,5 +57,30 @@ describe('pdf generation', () => {
     expect(bal_doc.pages[0].regions.width).toBeCloseTo(297, 1);
     const bal_bytes = await hati_pdf_bytes(bal_doc);
     expect(String.fromCharCode(...bal_bytes.slice(0, 5))).toBe('%PDF-');
+  });
+});
+
+describe('batch pdf generation', () => {
+  it('merges multiple respondent documents into one pdf', async () => {
+    const bal_q = bal_short_survey();
+    const bal_docs = ['001', '002', '003'].map((bal_r) =>
+      bal_build_print_document({ questionnaire: bal_q, scales: [], respondentId: bal_r })
+    );
+    const bal_bytes = await hati_pdf_bytes_many(bal_docs);
+    expect(String.fromCharCode(...bal_bytes.slice(0, 5))).toBe('%PDF-');
+    expect(bal_count_pdf_pages(bal_bytes)).toBe(3);
+    const bal_single = await hati_pdf_bytes(bal_docs[0]);
+    expect(bal_bytes.length).toBeGreaterThan(bal_single.length * 2);
+  });
+
+  it('writes distinct page identifiers for each merged respondent', async () => {
+    const bal_q = bal_short_survey();
+    const bal_docs = ['001', '002'].map((bal_r) =>
+      bal_build_print_document({ questionnaire: bal_q, scales: [], respondentId: bal_r })
+    );
+    bal_docs.forEach((bal_doc) => {
+      const bal_payloads = bal_doc.pages.map((bal_p) => bal_doc.pages.length && bal_p.geometry.identifier?.payload);
+      expect(new Set(bal_payloads).size).toBe(bal_doc.pageCount);
+    });
   });
 });
