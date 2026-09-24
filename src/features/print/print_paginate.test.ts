@@ -29,7 +29,7 @@ describe('pagination page model', () => {
     const bal_result = bal_paginate({ questionnaire: bal_mixed_survey(), scales: [] });
     expect(bal_result.pages.length).toBeGreaterThan(1);
     expect(bal_result.pages.map((bal_p) => bal_p.pageNumber)).toEqual(
-      bal_result.pages.map((bal_p, bal_i) => bal_i + 1)
+      bal_result.pages.map((_bal_page, bal_i) => bal_i + 1)
     );
   });
 
@@ -114,7 +114,7 @@ describe('question option splitting', () => {
     };
     const bal_items = bal_q.sections[0].items;
     const bal_choice = bal_items[0];
-    bal_choice.options = Array.from({ length: 12 }, (bal_x, bal_i) => ({
+    bal_choice.options = Array.from({ length: 12 }, (_bal_x, bal_i) => ({
       id: `o${bal_i}`,
       label: `Age group ${bal_i + 1}`,
       coding: String(bal_i)
@@ -131,7 +131,12 @@ describe('question option splitting', () => {
     const bal_split = bal_split_chunk(bal_chunk, bal_ctx, bal_chunk.height * 0.6);
     expect(bal_split).not.toBeNull();
     if (!bal_split) return;
-    const [bal_head, bal_rest] = bal_split;
+    const [bal_head_raw, bal_rest_raw] = bal_split;
+    if (bal_head_raw.kind !== 'question' || bal_rest_raw.kind !== 'question') {
+      throw new Error('split produced non-question chunks');
+    }
+    const bal_head = bal_head_raw;
+    const bal_rest = bal_rest_raw;
     const bal_total = bal_head.optionRows.length + bal_rest.optionRows.length;
     expect(bal_total).toBe(12);
     expect(bal_head.height).toBeLessThan(bal_chunk.height);

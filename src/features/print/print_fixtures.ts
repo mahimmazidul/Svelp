@@ -23,7 +23,7 @@ export function bal_short_survey(): QuestionnaireRecord {
 
 export function bal_choice_item(bal_label: string, bal_option_count: number): QuestionnaireItem {
   const bal_item = dhon_banaitesi_item('single_choice', bal_label);
-  bal_item.options = Array.from({ length: bal_option_count }, (bal_x, bal_i) =>
+  bal_item.options = Array.from({ length: bal_option_count }, (_bal_x, bal_i) =>
     komola_option(`Option ${bal_i + 1}`)
   );
   return bal_item;
@@ -41,7 +41,7 @@ export function bal_mixed_survey(): QuestionnaireRecord {
   const bal_second = dhon_banaitesi_section('Consumption');
   bal_second.printConfig = { pageBreakBefore: true };
   const bal_likert = dhon_banaitesi_item('likert_scale', 'How satisfied are you with food variety?');
-  bal_likert.options = Array.from({ length: 5 }, (bal_x, bal_i) => {
+  bal_likert.options = Array.from({ length: 5 }, (_bal_x, bal_i) => {
     const bal_option = komola_option(`Level ${bal_i + 1}`);
     bal_option.coding = String(bal_i + 1);
     return bal_option;
@@ -154,7 +154,7 @@ export function bal_ffq(bal_rows = 60, bal_linked_scale = true): QuestionnaireRe
   const bal_matrix = dhon_banaitesi_item('matrix', 'How often did the household eat each food in the last month?');
   bal_matrix.scaleId = bal_linked_scale ? 'scale-freq' : null;
   bal_matrix.options = [];
-  bal_matrix.rows = Array.from({ length: bal_rows }, (bal_x, bal_i) => ({
+  bal_matrix.rows = Array.from({ length: bal_rows }, (_bal_x, bal_i) => ({
     id: `row-${bal_i + 1}`,
     label: `Food item ${bal_i + 1}`
   }));
@@ -174,7 +174,7 @@ export function bal_custom_matrix(bal_rows: number, bal_columns: string[]): Ques
     label: bal_label,
     coding: String(bal_i)
   }));
-  bal_matrix.rows = Array.from({ length: bal_rows }, (bal_x, bal_i) => ({
+  bal_matrix.rows = Array.from({ length: bal_rows }, (_bal_x, bal_i) => ({
     id: `row-${bal_i + 1}`,
     label: `Item ${bal_i + 1}`
   }));
