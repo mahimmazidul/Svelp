@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import 'fake-indexeddb/auto';
+import { BAL_DB_VERSION } from './client';
 
-describe('local database migration v1 to v2', () => {
+describe('local database migration v1 to current', () => {
   it('creates the responseScales store and preserves phase 1 records', async () => {
     const bal_req = indexedDB.open('svelp', 1);
     bal_req.onupgradeneeded = () => {
@@ -35,8 +36,10 @@ describe('local database migration v1 to v2', () => {
 
     const { open_kala_joshim, bal_get } = await import('./client');
     const bal_db = await open_kala_joshim();
-    expect(bal_db.version).toBe(2);
+    expect(bal_db.version).toBe(BAL_DB_VERSION);
     expect(bal_db.objectStoreNames.contains('responseScales')).toBe(true);
+    expect(bal_db.objectStoreNames.contains('printLayouts')).toBe(true);
+    expect(bal_db.objectStoreNames.contains('printBatches')).toBe(true);
     expect(bal_db.objectStoreNames.contains('projects')).toBe(true);
 
     const bal_legacy = await bal_get<{ id: string; title: string }>(
