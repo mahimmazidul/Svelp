@@ -29,7 +29,7 @@ describe('page payload decoding', () => {
   });
 
   it('rejects non-svelp text', () => {
-    const bal_result = bal_payload_result('https://example.com');
+    const bal_result = bal_payload_result('see other document 42');
     expect(bal_result.ok).toBe(false);
     if (bal_result.ok) return;
     expect(bal_result.rejection.code).toBe('not-svelp-format');
