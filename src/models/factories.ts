@@ -278,6 +278,7 @@ export function dhon_banaitesi_questionnaire(bal_input: {
     theme: null,
     status: 'draft',
     metadata: null,
+    printSettings: null,
     sections: [dhon_banaitesi_section('Section 1')],
     createdAt: bal_now,
     updatedAt: bal_now

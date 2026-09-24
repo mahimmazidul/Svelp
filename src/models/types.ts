@@ -159,9 +159,80 @@ export interface QuestionnaireRecord {
   theme: string | null;
   status: QuestionnaireStatus;
   metadata: Record<string, unknown> | null;
+  printSettings: PrintSettings | null;
   sections: QuestionnaireSection[];
   createdAt: number;
   updatedAt: number;
+}
+
+export type PrintThemeName = 'academic' | 'clinical' | 'minimal' | 'compact' | 'institutional';
+
+export type PrintFontFamily = 'helvetica' | 'times' | 'courier';
+
+export type PrintDensity = 'compact' | 'standard' | 'comfortable';
+
+export interface PrintThemeConfig {
+  name: PrintThemeName;
+  fontFamily: PrintFontFamily;
+  baseFontSize: number;
+  headingScale: number;
+  lineWeight: number;
+}
+
+export interface PrintHeaderConfig {
+  showTitle: boolean;
+  showInstitution: boolean;
+  institution: string;
+  showStudyCode: boolean;
+  studyCode: string;
+  showVersion: boolean;
+  showRespondentId: boolean;
+  respondentIdLabel: string;
+}
+
+export interface PrintFooterConfig {
+  showPageNumbers: boolean;
+  showStudyCode: boolean;
+  confidentialityNote: string;
+  showHumanIdentifier: boolean;
+}
+
+export interface PrintMarkerConfig {
+  diameterMm: number;
+  regionPaddingMm: number;
+}
+
+export interface PrintIdentifierConfig {
+  sizeMm: number;
+  errorCorrection: 'L' | 'M' | 'Q' | 'H';
+}
+
+export interface PrintLogoConfig {
+  dataUrl: string;
+  widthMm: number;
+}
+
+export interface PrintSettings {
+  margins: {
+    top: number;
+    right: number;
+    bottom: number;
+    left: number;
+  };
+  theme: PrintThemeConfig;
+  density: PrintDensity;
+  questionSpacing: number;
+  header: PrintHeaderConfig;
+  footer: PrintFooterConfig;
+  showMachineIdentifier: boolean;
+  scannerMode: boolean;
+  marker: PrintMarkerConfig;
+  identifier: PrintIdentifierConfig;
+  respondentArea: {
+    enabled: boolean;
+    label: string;
+  };
+  logo: PrintLogoConfig | null;
 }
 
 export interface ResponseScaleRecord {
