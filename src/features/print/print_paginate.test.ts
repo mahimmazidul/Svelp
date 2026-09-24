@@ -33,6 +33,15 @@ describe('pagination page model', () => {
     );
   });
 
+  it('switches to Letter geometry when the questionnaire uses it', () => {
+    const bal_q = bal_short_survey();
+    bal_q.paperSize = 'letter';
+    const bal_result = bal_paginate({ questionnaire: bal_q, scales: [] });
+    expect(bal_result.pages[0].regions.width).toBeCloseTo(215.9, 1);
+    expect(bal_result.pages[0].regions.height).toBeCloseTo(279.4, 1);
+    expect(bal_result.pages[0].regions.content.width).toBeCloseTo(215.9 - 32, 1);
+  });
+
   it('keeps every chunk inside the content bounds', () => {
     for (const bal_q of [bal_mixed_survey(), bal_consent_heavy(), bal_ffq(60)]) {
       const bal_result = bal_paginate({ questionnaire: bal_q, scales: [bal_frequency_scale()] });

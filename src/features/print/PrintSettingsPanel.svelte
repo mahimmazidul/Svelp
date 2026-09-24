@@ -94,6 +94,30 @@
     return bal_map[bal_name];
   }
 
+  let bal_logo_error = $state<string | null>(null);
+
+  async function bal_load_logo(bal_file: File): Promise<void> {
+    bal_logo_error = null;
+    if (!['image/png', 'image/jpeg'].includes(bal_file.type)) {
+      bal_logo_error = 'Use a PNG or JPEG image stored on this device.';
+      return;
+    }
+    const bal_data_url = await new Promise<string>((bal_resolve, bal_reject) => {
+      const bal_reader = new FileReader();
+      bal_reader.onload = () => bal_resolve(bal_reader.result as string);
+      bal_reader.onerror = () => bal_reject(new Error('Could not read the image.'));
+      bal_reader.readAsDataURL(bal_file);
+    });
+    const bal_aspect = await new Promise<number>((bal_resolve) => {
+      const bal_image = new Image();
+      bal_image.onload = () =>
+        bal_resolve(bal_image.naturalHeight > 0 ? bal_image.naturalWidth / bal_image.naturalHeight : 1);
+      bal_image.onerror = () => bal_resolve(1);
+      bal_image.src = bal_data_url;
+    });
+    onchange({ ...settings, logo: { dataUrl: bal_data_url, widthMm: 24, aspect: bal_aspect } });
+  }
+
   function theme_scale(bal_name: PrintThemeName): number {
     const bal_map: Record<PrintThemeName, number> = {
       academic: 1.25,
@@ -290,6 +314,35 @@
           bal_patch({ respondentArea: { ...settings.respondentArea, label: bal_value } })}
       />
     {/if}
+    <Field label="Logo" hint="PNG or JPEG from this device. Shown in the header.">
+      <input
+        class="file"
+        type="file"
+        accept="image/png,image/jpeg"
+        onchange={(bal_event) => {
+          const bal_input = bal_event.currentTarget as HTMLInputElement;
+          const bal_file = bal_input.files?.[0];
+          bal_input.value = '';
+          if (bal_file) void bal_load_logo(bal_file);
+        }}
+      />
+    </Field>
+    {#if bal_logo_error}
+      <p class="logo-error" role="alert">{bal_logo_error}</p>
+    {/if}
+    {#if settings.logo}
+      <div class="logo-row">
+        <img class="logo-thumb" src={settings.logo.dataUrl} alt="Logo preview" />
+        <span class="logo-size">{settings.logo.widthMm} mm wide</span>
+        <button
+          type="button"
+          class="logo-remove"
+          onclick={() => onchange({ ...settings, logo: null })}
+        >
+          Remove
+        </button>
+      </div>
+    {/if}
   </section>
 
   <section class="group">
@@ -436,6 +489,44 @@
     font-size: var(--text-xs);
     color: var(--color-ink);
     opacity: 0.85;
+  }
+
+  .file {
+    font-size: var(--text-xs);
+    color: var(--color-ink);
+    max-width: 100%;
+  }
+
+  .logo-error {
+    margin: 0;
+    font-size: var(--text-xs);
+    color: var(--color-danger);
+  }
+
+  .logo-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-xs);
+  }
+
+  .logo-thumb {
+    max-height: 2rem;
+    max-width: 4rem;
+    object-fit: contain;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: #ffffff;
+    padding: 2px;
+  }
+
+  .logo-remove {
+    border: none;
+    background: none;
+    color: var(--color-danger);
+    font-size: var(--text-xs);
+    cursor: pointer;
+    padding: 0.2rem 0.4rem;
   }
 
   .ti {

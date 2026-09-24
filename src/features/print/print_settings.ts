@@ -223,7 +223,8 @@ function bal_normalize_logo(bal_raw: unknown): PrintLogoConfig | null {
   if (!bal_source || typeof bal_source.dataUrl !== 'string' || bal_source.dataUrl.length === 0) return null;
   return {
     dataUrl: bal_source.dataUrl,
-    widthMm: bal_clamp(bal_source.widthMm as number, 8, 60, 24)
+    widthMm: bal_clamp(bal_source.widthMm as number, 8, 60, 24),
+    aspect: bal_clamp(bal_source.aspect as number, 0.3, 4, 1)
   };
 }
 

@@ -117,6 +117,7 @@ export interface bal_HeaderRender {
   studyCodeText: string | null;
   respondentBox: PhysicalRect | null;
   respondentLabel: string | null;
+  logo: { dataUrl: string; rect: PhysicalRect } | null;
 }
 
 export interface bal_FooterRender {
@@ -237,7 +238,24 @@ export function bal_build_print_document(bal_input: {
           respondentLabel:
             bal_settings.header.showRespondentId && bal_settings.respondentArea.enabled
               ? bal_settings.respondentArea.label || bal_settings.header.respondentIdLabel
-              : null
+              : null,
+          logo: bal_settings.logo
+            ? (() => {
+                const bal_height = Math.min(
+                  bal_settings.logo.widthMm / Math.max(0.3, bal_settings.logo.aspect),
+                  (bal_regions.header?.height ?? 12) - 1
+                );
+                return {
+                  dataUrl: bal_settings.logo.dataUrl,
+                  rect: {
+                    x: bal_regions.header.x,
+                    y: bal_regions.header.y + (12 - bal_height) / 2,
+                    width: bal_settings.logo.widthMm,
+                    height: bal_height
+                  }
+                };
+              })()
+            : null
         }
       : null;
 

@@ -196,6 +196,34 @@ export function bal_validate_print(bal_doc: bal_PrintDocument): PrintReadinessRe
       }
     }
 
+    if (bal_page.header?.logo && bal_settings.scannerMode) {
+      for (const bal_marker of bal_page.geometry.alignmentMarkers) {
+        if (bal_rects_overlap(bal_page.header.logo.rect, bal_marker.rect)) {
+          bal_issues.push({
+            code: 'logo-marker-collision',
+            severity: 'error',
+            category: 'identifier',
+            message: `The logo overlaps an alignment marker on page ${bal_page.pageNumber}. Reduce the logo width.`,
+            pageNumber: bal_page.pageNumber,
+            itemId: null
+          });
+        }
+      }
+      if (
+        bal_page.geometry.respondentIdBounds &&
+        bal_rects_overlap(bal_page.header.logo.rect, bal_page.geometry.respondentIdBounds)
+      ) {
+        bal_issues.push({
+          code: 'logo-respondent-collision',
+          severity: 'error',
+          category: 'identifier',
+          message: `The logo overlaps the respondent ID box on page ${bal_page.pageNumber}. Reduce the logo width.`,
+          pageNumber: bal_page.pageNumber,
+          itemId: null
+        });
+      }
+    }
+
     const bal_qr = bal_page.geometry.identifier?.qrBounds;
     if (bal_qr && bal_settings.scannerMode) {
       for (const bal_marker of bal_page.geometry.alignmentMarkers) {

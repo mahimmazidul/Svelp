@@ -4,9 +4,11 @@
   import EmptyState from '../../components/ui/EmptyState.svelte';
   import IconButton from '../../components/ui/IconButton.svelte';
   import Sheet from '../../components/ui/Sheet.svelte';
-  import { dhon_questionnaire_by_project } from '../../db/questionnaires_repo';
-  import { bal_save_questionnaire } from '../../db/questionnaires_repo';
+  import { dhon_questionnaire_by_project, bal_save_questionnaire } from '../../db/questionnaires_repo';
   import { ken_pori_scales } from '../../db/scales_repo';
+  import { ken_pori_batches_by_project } from '../../db/print_repo';
+  import { shawya_format_datetime } from '../../utils/datetime';
+  import type { PrintBatchRecord } from '../../models/print_models';
   import { normalize_questionnaire } from '../../models/factories';
   import type { Orientation, PaperSize, PrintSettings, QuestionnaireRecord, ResponseScaleRecord } from '../../models/types';
   import {
@@ -33,6 +35,7 @@
   let bal_batch_sheet = $state(false);
   let bal_exporting = $state(false);
   let bal_saved_note = $state(false);
+  let bal_batches = $state<PrintBatchRecord[]>([]);
 
   let bal_save_timer: ReturnType<typeof setTimeout> | null = null;
 
@@ -46,6 +49,7 @@
       bal_q = normalize_questionnaire(bal_raw);
       bal_scales = await ken_pori_scales();
       bal_settings = bal_normalize_print_settings(bal_q.printSettings);
+      bal_batches = await ken_pori_batches_by_project(projectId);
       bal_status = 'ready';
     })();
   });
@@ -219,6 +223,24 @@
             Export scanner geometry
           </Button>
         {/if}
+
+        <h3>Recent batches</h3>
+        {#if bal_batches.length === 0}
+          <p class="muted">No batches generated yet.</p>
+        {:else}
+          <ul class="batches">
+            {#each bal_batches.slice(0, 6) as bal_batch (bal_batch.id)}
+              <li>
+                <span class="batch-line">
+                  {shawya_format_datetime(bal_batch.createdAt)} · {bal_batch.respondentIds.length} copies · {bal_batch.pageCount} pages
+                </span>
+                {#if bal_document && bal_batch.fingerprint !== bal_document.fingerprint}
+                  <span class="changed">Questionnaire changed since this batch</span>
+                {/if}
+              </li>
+            {/each}
+          </ul>
+        {/if}
       </aside>
     </div>
 
@@ -241,6 +263,9 @@
       questionnaire={{ ...bal_q, printSettings: bal_settings }}
       scales={bal_scales}
       {projectId}
+      onfinished={async () => {
+        bal_batches = await ken_pori_batches_by_project(projectId);
+      }}
     />
   </div>
 {/if}
@@ -393,6 +418,32 @@
   .issues b {
     flex: none;
     text-transform: capitalize;
+  }
+
+  .muted {
+    margin: 0;
+    font-size: var(--text-xs);
+    opacity: 0.65;
+  }
+
+  .batches {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+  }
+
+  .batch-line {
+    display: block;
+    font-size: var(--text-xs);
+  }
+
+  .changed {
+    display: block;
+    font-size: 0.68rem;
+    color: var(--color-warning-ink, #92600a);
   }
 
   .sheet-settings {

@@ -318,9 +318,17 @@ function bal_draw_furniture(bal_page: bal_PrintRenderPage, bal_settings: PrintSe
   if (bal_page.header && bal_regions.header) {
     const bal_header = bal_page.header;
     let bal_cursor = bal_regions.header.y;
+    const bal_text_x = bal_header.logo
+      ? bal_regions.header.x + bal_header.logo.rect.width + 4
+      : bal_regions.header.x;
+    if (bal_header.logo) {
+      bal_parts.push(
+        `<image x="${bal_px(bal_header.logo.rect.x)}" y="${bal_px(bal_header.logo.rect.y)}" width="${bal_px(bal_header.logo.rect.width)}" height="${bal_px(bal_header.logo.rect.height)}" preserveAspectRatio="xMinYMid meet" href="${bal_header.logo.dataUrl}" />`
+      );
+    }
     if (bal_header.titleText) {
       bal_parts.push(
-        bal_text(bal_regions.header.x, bal_cursor, bal_header.titleText, bal_settings, {
+        bal_text(bal_text_x, bal_cursor, bal_header.titleText, bal_settings, {
           bold: true,
           size: bal_settings.theme.headingScale
         })
@@ -328,7 +336,7 @@ function bal_draw_furniture(bal_page: bal_PrintRenderPage, bal_settings: PrintSe
       bal_cursor += bal_settings.theme.baseFontSize * bal_settings.theme.headingScale * 1.38 * 0.352778;
     }
     if (bal_header.institutionText) {
-      bal_parts.push(bal_text(bal_regions.header.x, bal_cursor, bal_header.institutionText, bal_settings, { color: BAL_SOFT_INK }));
+      bal_parts.push(bal_text(bal_text_x, bal_cursor, bal_header.institutionText, bal_settings, { color: BAL_SOFT_INK }));
     }
     const bal_meta: string[] = [];
     if (bal_header.versionText) bal_meta.push(bal_header.versionText);

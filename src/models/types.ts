@@ -210,6 +210,7 @@ export interface PrintIdentifierConfig {
 export interface PrintLogoConfig {
   dataUrl: string;
   widthMm: number;
+  aspect: number;
 }
 
 export interface PrintSettings {

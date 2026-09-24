@@ -27,6 +27,14 @@ interface bal_PdfWriter {
 
 interface bal_PdfDoc extends bal_PdfWriter {
   addPage(format: [number, number], orientation: 'portrait' | 'landscape'): void;
+  addImage(
+    data: string,
+    format: 'PNG' | 'JPEG',
+    x: number,
+    y: number,
+    width: number,
+    height: number
+  ): void;
   output(encoding: 'arraybuffer'): ArrayBuffer;
   internal: { scaleFactor: number };
 }
