@@ -7,7 +7,7 @@
   let {
     area
   }: {
-    area: 'print' | 'scan' | 'responses' | 'export' | 'settings';
+    area: 'scan' | 'responses' | 'export' | 'settings';
   } = $props();
 
   const bal_content = $derived(shawya_area_content[area]);

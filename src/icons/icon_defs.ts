@@ -5,6 +5,9 @@ export type IconName =
   | 'chevron-up'
   | 'chevron-down'
   | 'chevron-right'
+  | 'chevron-left'
+  | 'zoom-in'
+  | 'zoom-out'
   | 'arrow-left'
   | 'menu'
   | 'more'
@@ -60,6 +63,17 @@ export const icon_primitives: Record<IconName, IconPrimitive[]> = {
   check: [{ tag: 'path', d: 'M5 12.5l4.5 4.5L19 7.5' }],
   'chevron-up': [{ tag: 'path', d: 'M6 14.5l6-6 6 6' }],
   'chevron-down': [{ tag: 'path', d: 'M6 9.5l6 6 6-6' }],
+  'chevron-left': [{ tag: 'path', d: 'M14.5 6l-6 6 6 6' }],
+  'zoom-in': [
+    { tag: 'circle', cx: 11, cy: 11, r: 6 },
+    { tag: 'path', d: 'M15.5 15.5L20 20' },
+    { tag: 'path', d: 'M11 8.5v5M8.5 11h5' }
+  ],
+  'zoom-out': [
+    { tag: 'circle', cx: 11, cy: 11, r: 6 },
+    { tag: 'path', d: 'M15.5 15.5L20 20' },
+    { tag: 'path', d: 'M8.5 11h5' }
+  ],
   'chevron-right': [{ tag: 'path', d: 'M9.5 6l6 6-6 6' }],
   'arrow-left': [{ tag: 'path', d: 'M19 12H5' }, { tag: 'path', d: 'M12 19l-7-7 7-7' }],
   menu: [

@@ -9,22 +9,9 @@ export interface AreaContent {
 }
 
 export const shawya_area_content: Record<
-  'print' | 'scan' | 'responses' | 'export' | 'settings',
+  'scan' | 'responses' | 'export' | 'settings',
   AreaContent
 > = {
-  print: {
-    title: 'Print',
-    icon: 'printer',
-    lead:
-      'Print output is not part of this release. Svelp will generate print-ready questionnaires directly from the questionnaire definition, and will also support overlaying a definition onto existing PDF forms.',
-    bullets: [
-      'Native print rendering from the same definition used by Preview',
-      'A4 and Letter paper, portrait and landscape',
-      'Section breaks, page numbering, and page-safe margins',
-      'Machine-readable page identifiers and scanner markers',
-      'Overlay mode for externally produced PDF forms'
-    ]
-  },
   scan: {
     title: 'Scan',
     icon: 'scan',
