@@ -15,6 +15,7 @@
   import {
     bal_add_files_to_batch,
     bal_default_encode_normalized,
+    bal_new_batch_for_project,
     bal_remove_originals,
     bal_resolve_duplicate_pair,
     bal_run_batch_queue,
@@ -71,12 +72,10 @@
   onMount(() => {
     void (async () => {
       const bal_q = await dhon_questionnaire_by_project(projectId);
-      if (!bal_q) {
-        bal_status = 'missing';
-        return;
-      }
-      bal_questionnaire = bal_q;
-      bal_layouts = await bal_layouts_for_project();
+      bal_questionnaire = bal_q ?? null;
+      bal_status = 'ready';
+      if (!bal_q) return;
+      bal_layouts = await ken_pori_layouts_by_questionnaire(bal_q.id);
       const bal_batches = await ken_pori_scan_batches(projectId);
       if (bal_batches.length > 0) {
         bal_batch = bal_batches[0];
@@ -84,7 +83,6 @@
         bal_keep_originals = bal_batches[0].keepOriginals;
         await bal_refresh_storage();
       }
-      bal_status = 'ready';
     })();
     return () => {
       bal_worker?.dispose();
@@ -92,12 +90,8 @@
     };
   });
 
-  async function bal_layouts_for_project(): Promise<PrintLayoutRecord[]> {
-    if (!bal_questionnaire) return [];
-    return ken_pori_layouts_by_questionnaire(bal_questionnaire.id);
-  }
-
   const bal_review = $derived(bal_review_pages(bal_pages));
+  const bal_ready_pages = $derived(bal_pages.filter((bal_page) => bal_page.status === 'ready'));
   const bal_overview = $derived.by(() => {
     const bal_ready = bal_pages.filter((bal_page) => bal_page.status === 'ready');
     const bal_respondents = new Set(
@@ -171,7 +165,15 @@
   }
 
   async function bal_begin_processing(): Promise<void> {
-    if (!bal_batch || !bal_questionnaire || bal_staging_files.length === 0) return;
+    if (bal_staging_files.length === 0) return;
+    if (!bal_batch) {
+      bal_batch = await bal_new_batch_for_project(
+        projectId,
+        bal_questionnaire?.id ?? null,
+        bal_questionnaire?.version ?? null,
+        bal_keep_originals
+      );
+    }
     bal_processing = true;
     bal_progress = null;
     bal_cancel_requested = false;
@@ -411,7 +413,7 @@
 {#if bal_status === 'loading'}
   <div class="scan-loading"><p>Loading…</p></div>
 {:else if bal_status === 'missing'}
-  <EmptyState icon="scan" title="Nothing to scan yet" body="Create and print a questionnaire batch first. Scanned pages are matched against the printed codes.">
+  <EmptyState icon="scan" title="Scanning without a questionnaire" body="There is no questionnaire in this project yet. You can still add page photos and PDFs; codes will not auto-identify, so pages will land in review for manual assignment.">
     <Button variant="secondary" onclick={() => history.back()}>Go back</Button>
   </EmptyState>
 {:else}
@@ -517,6 +519,24 @@
         {#if bal_overview.queued > 0}
           <div class="stat"><span class="stat-num">{bal_overview.queued}</span><span class="stat-label">Queued</span></div>
         {/if}
+      </section>
+    {/if}
+
+    {#if bal_ready_pages.length > 0}
+      <section class="ready-pages">
+        <h3>Recovered pages</h3>
+        <div class="thumbs">
+          {#each bal_ready_pages as bal_page (bal_page.id)}
+            <button class="thumb-card" type="button" onclick={() => (bal_viewer_page = bal_page)}>
+              {#if bal_page.thumbNormalized ?? bal_page.thumbSource}
+                <img src={bal_page.thumbNormalized ?? bal_page.thumbSource} alt="Page for {bal_page_title(bal_page)}" />
+              {:else}
+                <span class="thumb-blank small">No preview</span>
+              {/if}
+              <span class="thumb-label">{bal_page_title(bal_page)}</span>
+            </button>
+          {/each}
+        </div>
       </section>
     {/if}
 
@@ -871,6 +891,49 @@
     flex-wrap: wrap;
     gap: var(--space-2);
     padding: 0 var(--space-3) var(--space-3);
+  }
+  .ready-pages h3 {
+    margin: 0 0 var(--space-2);
+    font-size: var(--text-lg);
+  }
+  .thumbs {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: var(--space-3);
+  }
+  .thumb-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    padding: var(--space-2);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    cursor: zoom-in;
+  }
+  .thumb-card img {
+    width: 100%;
+    height: 90px;
+    object-fit: cover;
+    border-radius: var(--radius-sm);
+    display: block;
+  }
+  .thumb-label {
+    font-size: var(--text-xs);
+    color: var(--color-ink-2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .thumb-blank.small {
+    height: 90px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-surface-2);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-xs);
+    color: var(--color-ink-2);
   }
   .storage {
     border-top: var(--border-width) solid var(--color-border);
