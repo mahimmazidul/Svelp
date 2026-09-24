@@ -69,7 +69,10 @@ export function bal_paginate(bal_input: bal_LayoutInput): bal_LayoutResult {
 
   const bal_make_continuation = (bal_head: bal_MatrixHeadChunk): bal_MatrixHeadChunk => {
     const bal_lh = bal_line_height(bal_ctx.settings.theme.baseFontSize);
-    const bal_title = bal_head.stemLines.join(' ').replace(/\s*\*\s*$/, '');
+    const bal_title = bal_head.stemLines
+      .join(' ')
+      .replace(/\s*\*\s*$/, '')
+      .replace(/\.\s*$/, '');
     const bal_lines = bal_wrap_text(
       `${bal_title}, continued`,
       { family: bal_ctx.settings.theme.fontFamily, bold: true },
@@ -102,13 +105,16 @@ export function bal_paginate(bal_input: bal_LayoutInput): bal_LayoutResult {
   };
   bal_page(1);
 
-  const bal_new_page = (): void => {
+  const bal_new_page = (): bal_PrintChunk | null => {
     bal_page_number += 1;
     bal_page(bal_page_number);
     bal_y = bal_regions.content.y;
     if (bal_active_matrix && bal_active_matrix.headPage < bal_page_number) {
-      bal_queue.unshift(bal_make_continuation(bal_active_matrix.head));
+      const bal_injected = bal_make_continuation(bal_active_matrix.head);
+      bal_queue.unshift(bal_injected);
+      return bal_injected;
     }
+    return null;
   };
 
   const bal_place = (bal_chunk: bal_PrintChunk): void => {
@@ -127,13 +133,21 @@ export function bal_paginate(bal_input: bal_LayoutInput): bal_LayoutResult {
     }
 
     if (bal_chunk.forcedBreakBefore && bal_y > bal_regions.content.y) {
-      bal_new_page();
+      const bal_injected = bal_new_page();
+      if (bal_injected) {
+        bal_queue.splice(1, 0, bal_chunk);
+        continue;
+      }
     }
 
     if (bal_chunk.keepWithNext) {
       const bal_next_height = bal_queue.length > 0 ? bal_queue[0].height : 0;
       if (bal_y + bal_chunk.height + bal_next_height > bal_bottom && bal_y > bal_regions.content.y) {
-        bal_new_page();
+        const bal_injected = bal_new_page();
+        if (bal_injected) {
+          bal_queue.splice(1, 0, bal_chunk);
+          continue;
+        }
       }
     }
 
@@ -149,14 +163,22 @@ export function bal_paginate(bal_input: bal_LayoutInput): bal_LayoutResult {
         const [bal_head, bal_rest] = bal_split;
         if (bal_head.height <= bal_available && bal_head.height > 0) {
           bal_place(bal_head);
-          bal_new_page();
+          const bal_injected = bal_new_page();
+          if (bal_injected) {
+            bal_queue.splice(1, 0, bal_rest);
+            continue;
+          }
           bal_place(bal_rest);
           continue;
         }
       }
     }
 
-    bal_new_page();
+    const bal_injected = bal_new_page();
+    if (bal_injected) {
+      bal_queue.splice(1, 0, bal_chunk);
+      continue;
+    }
     bal_place(bal_chunk);
   }
 

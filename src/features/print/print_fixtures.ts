@@ -9,20 +9,26 @@ import type { QuestionnaireItem, QuestionnaireRecord, ResponseScaleRecord } from
 export function bal_short_survey(): QuestionnaireRecord {
   const bal_q = dhon_banaitesi_questionnaire({ projectId: 'p1', title: 'Short survey' });
   const bal_items = [
-    dhon_banaitesi_item('yes_no', 'Do you eat rice daily?'),
-    dhon_banaitesi_item('short_text', 'What is your household code?'),
-    dhon_banaitesi_item('number', 'How many people live in the household?')
+    bal_labeled_item('yes_no', 'Do you eat rice daily?', 'eat_rice_daily'),
+    bal_labeled_item('short_text', 'What is your household code?', 'household_code'),
+    bal_labeled_item('number', 'How many people live in the household?', 'household_size')
   ];
-  bal_items.forEach((bal_item, bal_i) => {
-    bal_item.label = bal_item.label ?? '';
-    bal_item.variableName = `v${bal_i + 1}`;
-  });
   bal_q.sections[0].items = bal_items;
   return bal_q;
 }
 
+export function bal_labeled_item(
+  bal_type: Parameters<typeof dhon_banaitesi_item>[0],
+  bal_label: string,
+  bal_variable: string | null
+): QuestionnaireItem {
+  const bal_item = dhon_banaitesi_item(bal_type, bal_variable);
+  bal_item.label = bal_label;
+  return bal_item;
+}
+
 export function bal_choice_item(bal_label: string, bal_option_count: number): QuestionnaireItem {
-  const bal_item = dhon_banaitesi_item('single_choice', bal_label);
+  const bal_item = bal_labeled_item('single_choice', bal_label, null);
   bal_item.options = Array.from({ length: bal_option_count }, (_bal_x, bal_i) =>
     komola_option(`Option ${bal_i + 1}`)
   );
@@ -34,22 +40,22 @@ export function bal_mixed_survey(): QuestionnaireRecord {
   const bal_first = dhon_banaitesi_section('Background');
   bal_first.items = [
     bal_choice_item('What is your age group?', 6),
-    dhon_banaitesi_item('long_text', 'Describe your household food source.'),
+    bal_labeled_item('long_text', 'Describe your household food source.', 'food_source'),
     bal_choice_item('Which cooking fuel do you use most?', 5),
-    dhon_banaitesi_item('date', 'When was the survey conducted?')
+    bal_labeled_item('date', 'When was the survey conducted?', 'survey_date')
   ];
   const bal_second = dhon_banaitesi_section('Consumption');
   bal_second.printConfig = { pageBreakBefore: true };
-  const bal_likert = dhon_banaitesi_item('likert_scale', 'How satisfied are you with food variety?');
+  const bal_likert = bal_labeled_item('likert_scale', 'How satisfied are you with the variety of food your household ate?', 'food_variety');
   bal_likert.options = Array.from({ length: 5 }, (_bal_x, bal_i) => {
     const bal_option = komola_option(`Level ${bal_i + 1}`);
     bal_option.coding = String(bal_i + 1);
     return bal_option;
   });
   bal_second.items = [
-    dhon_banaitesi_item('instruction', 'Please answer the following questions about the last seven days.'),
+    bal_labeled_item('instruction', 'Please answer the following questions about the last seven days.', null),
     bal_likert,
-    dhon_banaitesi_item('multiple_choice', 'Which meals do you eat outside the home?'),
+    bal_labeled_item('multiple_choice', 'Which meals do you eat outside the home?', 'meals_outside'),
     bal_choice_item('Who usually cooks in the household?', 4),
     dhon_banaitesi_item('participant_signature', null)
   ];
@@ -151,7 +157,7 @@ export function bal_frequency_scale(): ResponseScaleRecord {
 
 export function bal_ffq(bal_rows = 60, bal_linked_scale = true): QuestionnaireRecord {
   const bal_q = dhon_banaitesi_questionnaire({ projectId: 'p1', title: 'Food frequency questionnaire' });
-  const bal_matrix = dhon_banaitesi_item('matrix', 'How often did the household eat each food in the last month?');
+  const bal_matrix = bal_labeled_item('matrix', 'How often did the household eat each food in the last month?', 'food_frequency');
   bal_matrix.scaleId = bal_linked_scale ? 'scale-freq' : null;
   bal_matrix.options = [];
   bal_matrix.rows = Array.from({ length: bal_rows }, (_bal_x, bal_i) => ({
@@ -167,7 +173,7 @@ export function bal_ffq(bal_rows = 60, bal_linked_scale = true): QuestionnaireRe
 
 export function bal_custom_matrix(bal_rows: number, bal_columns: string[]): QuestionnaireRecord {
   const bal_q = dhon_banaitesi_questionnaire({ projectId: 'p1', title: 'Custom matrix' });
-  const bal_matrix = dhon_banaitesi_item('matrix', 'Rate each item.');
+  const bal_matrix = bal_labeled_item('matrix', 'Rate each item.', 'ratings');
   bal_matrix.scaleId = null;
   bal_matrix.columns = bal_columns.map((bal_label, bal_i) => ({
     id: `col-${bal_i + 1}`,

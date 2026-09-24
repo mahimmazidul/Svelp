@@ -676,6 +676,12 @@ export function bal_build_chunks(
       }
     }
   });
-  return bal_chunks;
+  const bal_gap = bal_ctx.settings.questionSpacing;
+  return bal_chunks.map((bal_chunk) => {
+    if (bal_chunk.kind === 'matrix-row') return bal_chunk;
+    const bal_factor =
+      bal_chunk.kind === 'consent-para' || bal_chunk.kind === 'consent-ack' ? 0.45 : 1;
+    return { ...bal_chunk, height: bal_chunk.height + bal_gap * bal_factor };
+  });
 }
 

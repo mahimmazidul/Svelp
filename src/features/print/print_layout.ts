@@ -146,6 +146,7 @@ export interface bal_PrintDocument {
   fingerprint: string;
   settings: PrintSettings;
   pageCount: number;
+  matrixMultipleItemIds: string[];
   pages: bal_PrintRenderPage[];
   geometry: PrintLayoutGeometry;
 }
@@ -515,6 +516,9 @@ export function bal_build_print_document(bal_input: {
     fingerprint: bal_fingerprint,
     settings: bal_settings,
     pageCount: bal_pages.length,
+    matrixMultipleItemIds: [...bal_matrix_context.entries()]
+      .filter((bal_entry) => bal_entry[1].multiple)
+      .map((bal_entry) => bal_entry[0]),
     pages: bal_pages,
     geometry: bal_geometry
   };
