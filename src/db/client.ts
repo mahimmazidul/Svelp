@@ -11,7 +11,7 @@ export interface BalStoreSpec {
 }
 
 export const BAL_DB_NAME = 'svelp';
-export const BAL_DB_VERSION = 4;
+export const BAL_DB_VERSION = 5;
 
 export const PSTU_CDI_STORES: Record<number, BalStoreSpec[]> = {
   1: [
@@ -93,6 +93,43 @@ export const PSTU_CDI_STORES: Record<number, BalStoreSpec[]> = {
         { name: 'batchId', keyPath: 'batchId' },
         { name: 'createdAt', keyPath: 'createdAt' }
       ]
+    }
+  ],
+  5: [
+    {
+      name: 'responses',
+      keyPath: 'id',
+      indexes: [
+        { name: 'projectId', keyPath: 'projectId' },
+        { name: 'batchId', keyPath: 'batchId' },
+        { name: 'respondentId', keyPath: 'respondentId' },
+        { name: 'questionnaireId', keyPath: 'questionnaireId' },
+        { name: 'status', keyPath: 'status' },
+        { name: 'updatedAt', keyPath: 'updatedAt' }
+      ]
+    },
+    {
+      name: 'recognitionRuns',
+      keyPath: 'id',
+      indexes: [
+        { name: 'projectId', keyPath: 'projectId' },
+        { name: 'createdAt', keyPath: 'createdAt' }
+      ]
+    },
+    {
+      name: 'responseAuditEvents',
+      keyPath: 'id',
+      indexes: [
+        { name: 'projectId', keyPath: 'projectId' },
+        { name: 'responseId', keyPath: 'responseId' },
+        { name: 'respondentId', keyPath: 'respondentId' },
+        { name: 'createdAt', keyPath: 'createdAt' }
+      ]
+    },
+    {
+      name: 'blankReferences',
+      keyPath: 'id',
+      indexes: [{ name: 'fingerprint', keyPath: 'fingerprint' }]
     }
   ]
 };
