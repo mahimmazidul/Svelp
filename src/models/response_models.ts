@@ -57,6 +57,7 @@ export interface RecognitionRunRecord {
   overwroteMachine: number;
   startedAt: number;
   finishedAt: number;
+  createdAt: number;
 }
 
 export interface ResponseRecord {

@@ -29,6 +29,12 @@ describe('local database migration to v5', () => {
       createdAt: 1,
       updatedAt: 2
     });
+    const { ken_pori_scan_batches } = await import('./scan_repo');
+    const bal_batches = await ken_pori_scan_batches('p-1');
+    expect(bal_batches).toHaveLength(1);
+    expect(bal_batches[0].id).toBe('legacy-scan');
+    const bal_row = await bal_get<{ id: string }>('scanBatches', 'legacy-scan');
+    expect(bal_row?.id).toBe('legacy-scan');
     const bal_db = await open_kala_joshim();
     expect(bal_db.version).toBe(BAL_DB_VERSION);
     for (const bal_store of ['responses', 'recognitionRuns', 'responseAuditEvents', 'blankReferences']) {
@@ -37,12 +43,6 @@ describe('local database migration to v5', () => {
     for (const bal_store of ['scanBatches', 'scanPages', 'scanAssets', 'printLayouts', 'questionnaires']) {
       expect(bal_db.objectStoreNames.contains(bal_store)).toBe(true);
     }
-    const { ken_pori_scan_batches } = await import('./scan_repo');
-    const bal_batches = await ken_pori_scan_batches('p-1');
-    expect(bal_batches).toHaveLength(1);
-    expect(bal_batches[0].id).toBe('legacy-scan');
     bal_db.close();
-    const bal_row = await bal_get<{ id: string }>('scanBatches', 'legacy-scan');
-    expect(bal_row?.id).toBe('legacy-scan');
   });
 });
