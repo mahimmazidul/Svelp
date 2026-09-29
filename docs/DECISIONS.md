@@ -161,3 +161,47 @@ with the editor.
 
 All explanation lives in documentation files. Internal identifiers use the project's
 internal vocabulary; persisted keys and UI text stay professional.
+
+## Phase 4.5 decisions
+
+### MAHIM as the only portable container
+
+Portable Svelp data uses the MAHIM container format — a versioned binary container
+format for portable application data whose current reference implementation is written
+in TypeScript. Svelp consumes it as an external dependency; the format specification and
+implementation remain authoritative upstream, and Svelp vendors the pinned build
+artifact (`vendor/mahim/`) because MAHIM has no npm release and a git dependency cannot
+produce its built output. Files are identified by header magic and application
+identifier, never by extension, and `.svelp`-style custom archives are explicitly
+rejected as a direction.
+
+### Three independent versions in every file
+
+The MAHIM format version, the Svelp application identifier (`svelp`, registered in the
+MAHIM registry), and the Svelp data payload version (1) are separate concepts and stay
+separate. Svelp schema evolution bumps the payload version, never the container version
+or the identifier.
+
+### Canonical CBOR with tagged fixed-point numbers
+
+Structured payload data is canonical CBOR. MAHIM's CBOR profile forbids floating-point
+numbers, so non-integer values are encoded with a tagged fixed-point representation at
+scale 10^-6 (`svelp-fixed`) and restored on decode. This keeps millimetre geometry,
+normalized coordinates, confidences, and recognition thresholds exact to well below any
+physically meaningful tolerance while remaining deterministic on both devices.
+
+### Atomic, collision-aware imports
+
+Imports verify container integrity and the Svelp payload schema independently, then
+commit once inside a single transaction spanning every affected store. Stable IDs make
+transfers identity-preserving; identical content deduplicates, immutable questionnaire
+versions with differing content are integrity conflicts, and project conflicts resolve
+only through explicit replace or import-as-copy. Settings rows import only when the
+device lacks the key, so a backup never overwrites device preferences.
+
+### Missing templates are recoverable, never fatal
+
+A scanned page identifying an absent template is preserved with its decoded identity and
+a specific review banner. Importing the transfer file from the banner restores geometry
+and resumes the same pages from stored originals, which is what makes a two-device
+paper workflow survivable without any central service.

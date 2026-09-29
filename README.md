@@ -46,6 +46,12 @@ network dependency after the first load.
   groups pages by respondent, flags duplicates and missing pages, and stores
   everything on the device with resumable batches and honest progress - never reading
   or interpreting answers.
+- **Portable data through MAHIM files**: "Export for another device" packages a
+  questionnaire version with its referenced scales, print layout, and full scanner
+  geometry so printed sheets from one device resolve on another; "Export project
+  backup" captures the whole project with opt-in scan images and responses. Imports are
+  validated, integrity-checked, collision-aware, and atomic; scanned pages whose
+  template is missing are preserved and resume after the template is imported.
 - **PWA installation and offline operation** after the first load.
 
 Answer reading, OCR, and response data export are intentionally not part of the
@@ -80,11 +86,13 @@ npm run test
 - [ARCHITECTURE.md](./ARCHITECTURE.md) — application structure, database schema and
   migrations, questionnaire schema, response-scale model, validation architecture,
   variable naming, matrix and consent/signature architecture, responsive strategy,
-  versioning strategy, offline behavior, the native print system (coordinate model,
-  pagination engine, matrix splitting, scanner-safe rules, page identifiers, respondent
-  batches, scanner geometry schema, and PDF generation), and the scan ingestion
-  pipeline (local computer vision, QR identification, canonical normalization, quality
-  model, worker strategy, and privacy).
+  versioning strategy, offline behavior, portable data and project backup (the MAHIM
+  container, package modes, section model, filenames, collision handling, scanner
+  missing-template recovery, and the legacy JSON bundle), the native print system
+  (coordinate model, pagination engine, matrix splitting, scanner-safe rules, page
+  identifiers, respondent batches, scanner geometry schema, and PDF generation), and
+  the scan ingestion pipeline (local computer vision, QR identification, canonical
+  normalization, quality model, worker strategy, and privacy).
 - [CHANGELOG.md](./CHANGELOG.md) — release history.
 
 ## Source code policy

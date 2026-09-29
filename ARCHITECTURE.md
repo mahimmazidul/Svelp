@@ -368,33 +368,120 @@ needs no network at any time: hash routing keeps deep links working offline, and
 features run against local IndexedDB. There is nothing to degrade when offline because
 there is no online mode.
 
-## 15. Project backup and import
+## 15. Portable data and project backup
 
-Projects export as a JSON bundle (format `svelp.project`, `formatVersion` 2):
+### The MAHIM container
 
-```json
-{
-  "format": "svelp.project",
-  "formatVersion": 2,
-  "exportedAt": "…",
-  "project": { … },
-  "questionnaire": { … },
-  "scales": [ … ]
-}
-```
+Svelp's portable data files use MAHIM, a versioned binary container format for portable
+application data. MAHIM is section-oriented, extensible, and integrity-aware; the current
+reference implementation is written in TypeScript. Svelp consumes MAHIM as an external
+format dependency — the authoritative specification and implementation live in the
+[MAHIM repository](https://github.com/mahimmazidul/mahim), and no part of MAHIM is
+reimplemented or forked inside Svelp. The integrated build artifact of the reference
+implementation is vendored under `vendor/mahim/` at a pinned upstream commit with its
+provenance recorded in `vendor/mahim/README.md`; MAHIM is not on the npm registry, and a
+plain git dependency cannot produce its build output, so the vendored artifact is the
+documented integration path.
 
-The bundle includes every response scale the questionnaire references. Import accepts
-both v2 bundles and Phase 1 v1 bundles (which simply have no scales), normalizes records
-to the current schema, preserves all stable IDs, and resolves collisions explicitly:
+Files are always recognized by their MAHIM header (magic bytes plus application
+identifier), never by the `.mahim` extension. Three version numbers stay strictly
+separate in every file:
 
-- No collision: project, questionnaire, and scales are written exactly as exported.
-- Project or questionnaire ID collision: imported as a separate copy with fresh IDs and
-  an "(imported)" title suffix.
-- Scale ID collision: the bundle's scale is imported as a separate copy and the imported
-  questions are remapped to the copy, so no local scale is ever mutated by an import.
+- the MAHIM format version (container mechanics),
+- the Svelp application identifier `svelp` (registered in MAHIM's application
+  identifier registry),
+- the Svelp data payload version (currently `1`), which describes the Svelp schema
+  inside the container and evolves independently of both.
 
-A future `.svelp` package (for example a zip container with responses and scans) can
-evolve from this bundle by bumping `formatVersion`.
+### Package modes
+
+**Export for another device** (`questionnaire-transfer`) moves one questionnaire version
+to another installation with full scanner fidelity: the project record, the exact
+questionnaire version with all sections, items, coding, and validation, every referenced
+response scale, the print layout with deterministic scanner geometry (page metadata,
+alignment-marker geometry, answer regions, machine page-identifier configuration, print
+settings snapshot), and print batch metadata. Scans, responses, recognition results,
+unrelated versions, and UI state are excluded. Exporting a draft is allowed; the file
+carries the version that exists at export time, and printing before export is what adds
+the scanner geometry.
+
+**Export project backup** (`project-backup`) captures the whole project: metadata, the
+questionnaire definition, scales, print configuration and geometry, print batch records,
+scan batches with page identification and recovery metadata, scan audit history,
+recognized responses with their recognition runs and audit history, blank-reference
+metadata, and device settings rows that the device does not already have. Binary scan
+images are opt-in through explicit checkboxes (original scans, normalized pages,
+thumbnails, responses) with an approximate size estimate before export; a backup never
+silently grows to multi-gigabyte size.
+
+### Container sections
+
+Structured data is serialized as canonical CBOR (MAHIM never carries JSON). JavaScript
+number precision is preserved by a tagged fixed-point representation (`svelp-fixed`,
+scale 10^-6) applied at encode time and reversed at decode time, because MAHIM's
+canonical CBOR profile forbids floating-point numbers. Binary assets (scan originals,
+normalized pages, blank-reference sheets) are raw MAHIM asset sections referenced by a
+CBOR asset index, stored without recompression. Every file carries MAHIM's CRC32C
+integrity checksums and a SHA-256 file digest, and import verifies all of them.
+
+Section names: `manifest`, `project`, `questionnaires`, `scales`, `print`,
+`scan-metadata`, `responses`, `settings`, `asset-index`, plus `asset-<n>` binaries.
+
+### Filenames
+
+One sanitizer serves every exported name: trim, collapse whitespace into hyphens, strip
+filesystem-invalid characters and control characters, collapse repeated hyphens, remove
+leading and trailing dots/hyphens, preserve safe Unicode, cap length, and never expose
+internal IDs. Patterns:
+
+- Transfer: `<Project>-v<version>.mahim`
+- Backup: `<Project>-backup-YYYY-MM-DD.mahim` (device-local date)
+- Legacy JSON export: `<Project>-v<version>-questionnaire.json`
+- Print batch PDF: `<Project>-v<version>-<first>-<last>.pdf`
+
+### Import validation and collisions
+
+Import runs in stages: read, verify integrity, validate the Svelp payload schema
+independently of the container (ids, enums, geometry bounds, references, asset MIME and
+size limits), check existing local data, then commit once in a single IndexedDB
+transaction across all affected stores. A failure before the commit leaves the device
+unchanged; nothing is written partially.
+
+Rejections are specific: not a MAHIM file; corrupt (integrity failure — distinct from a
+schema error); a valid MAHIM file of another application ("This is a valid MAHIM file,
+but it belongs to another application and cannot be imported into Svelp."); an
+unsupported MAHIM format version; and a newer Svelp payload version ("This file was
+created by a newer Svelp data format and cannot be imported by this version."). An
+invalid payload is never partially imported.
+
+Stable IDs (project, questionnaire, version, items, scales, print-layout identity,
+scanner geometry references) travel unchanged, so printed sheets from one device resolve
+on another. Collisions are explicit, never silent overwrites:
+
+- identical canonical content: deduplicated and reported as already available;
+- the same immutable questionnaire-version identity with different content: an integrity
+  conflict that blocks merge and offers replace (explicit confirmation) or import-as-copy;
+- a project-ID conflict: import as copy (new identity, "(imported)" title, printed pages
+  keep resolving through the study code and version, but duplicate geometry may make
+  identification ambiguous — the dialog warns) or replace after confirmation;
+- settings rows: imported only for keys the device does not already have.
+
+### Scanner missing-template recovery
+
+A scanned page whose identifier decodes to a study code and version with no local
+template is preserved with a `template-missing` issue — never discarded. Its review card
+shows "Questionnaire template not available on this device. Required: `<code>` Version
+`<n>`" with an import action. Importing a MAHIM transfer file from that banner restores
+the template and geometry, then reprocesses the preserved pages from their stored
+originals without re-selecting any image. A code that matches an existing template of a
+different version is reported as a version mismatch instead.
+
+### Legacy JSON bundle
+
+The Phase 1 JSON bundle (format `svelp.project`) remains available as a legacy option
+for questionnaire-only exchange. It has no MAHIM framing, no integrity verification, no
+scanner geometry, and its import-as-copy collision behavior regenerates identities; it
+is documented as legacy and the MAHIM transfer/backup files are the portable format.
 
 ## 16. Print system
 
