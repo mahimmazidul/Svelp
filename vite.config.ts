@@ -3,7 +3,11 @@ import { svelte } from '@sveltejs/vite-plugin-svelte';
 import { VitePWA } from 'vite-plugin-pwa';
 import bal_pkg from './package.json';
 
+const bal_pages_base =
+  (globalThis as { process?: { env?: { BAL_PAGES_BASE?: string } } }).process?.env?.BAL_PAGES_BASE ?? '/';
+
 export default defineConfig({
+  base: bal_pages_base,
   plugins: [
     svelte(),
     VitePWA({
@@ -14,8 +18,8 @@ export default defineConfig({
         name: 'Svelp - Survey Help, simplified.',
         short_name: 'Svelp',
         description: 'Offline-first research questionnaire platform.',
-        start_url: '/',
-        scope: '/',
+        start_url: bal_pages_base,
+        scope: bal_pages_base,
         display: 'standalone',
         orientation: 'any',
         background_color: '#ffffff',
@@ -28,7 +32,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,woff,woff2}'],
-        navigateFallback: '/index.html'
+        navigateFallback: `${bal_pages_base}index.html`
       }
     })
   ],
