@@ -1,0 +1,14 @@
+export declare const MAX_SAFE_UINT64: number;
+export declare function readUint8(bytes: Uint8Array, offset: number): number;
+export declare function readUint16LE(bytes: Uint8Array, offset: number): number;
+export declare function readUint32LE(bytes: Uint8Array, offset: number): number;
+export declare function readUint64LE(bytes: Uint8Array, offset: number): number;
+export declare function writeUint8(bytes: Uint8Array, offset: number, value: number): void;
+export declare function writeUint16LE(bytes: Uint8Array, offset: number, value: number): void;
+export declare function writeUint32LE(bytes: Uint8Array, offset: number, value: number): void;
+export declare function writeUint64LE(bytes: Uint8Array, offset: number, value: number): void;
+export declare function decodeUtf8(bytes: Uint8Array): string;
+export declare function encodeUtf8(value: string): Uint8Array;
+export declare function concatBytes(parts: readonly Uint8Array[], totalLength?: number): Uint8Array;
+export declare function bytesEqual(a: Uint8Array, b: Uint8Array): boolean;
+export declare function checkedAdd(a: number, b: number, label?: string): number;
