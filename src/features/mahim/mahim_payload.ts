@@ -521,7 +521,8 @@ function bal_validate_page_geometry(
   bal_orientation: Orientation,
   bal_issues: BalPayloadIssue[],
   bal_path: string,
-  bal_item_ids: Set<string>
+  bal_item_ids: Set<string>,
+  bal_section_ids: Set<string>
 ): boolean {
   if (!bal_is_obj(bal_page)) {
     bal_payload_issue(bal_issues, bal_path, 'Page geometry invalid.');
@@ -573,12 +574,16 @@ function bal_validate_page_geometry(
       return false;
     }
     const bal_region_path = `${bal_path}.answerRegions[${bal_r}]`;
-    if (!bal_is_str(bal_region.itemId) || !bal_item_ids.has(bal_region.itemId)) {
+    if (!bal_is_str(bal_region.itemId)) {
       bal_payload_issue(bal_issues, `${bal_region_path}.itemId`, 'Answer region references an unknown item.');
       return false;
     }
     if (!bal_is_str(bal_region.kind) || !BAL_REGION_KINDS.has(bal_region.kind as never)) {
       bal_payload_issue(bal_issues, `${bal_region_path}.kind`, 'Answer region kind unknown.');
+      return false;
+    }
+    if (bal_region.kind !== 'respondent' && !bal_item_ids.has(bal_region.itemId)) {
+      bal_payload_issue(bal_issues, `${bal_region_path}.itemId`, 'Answer region references an unknown item.');
       return false;
     }
     if (!bal_is_str(bal_region.markerType) || !BAL_MARKER_TYPES.has(bal_region.markerType as AnswerMarkerType)) {
@@ -601,7 +606,11 @@ function bal_validate_page_geometry(
     return false;
   }
   for (const [bal_b, bal_bound] of (bal_page.itemBounds as unknown[]).entries()) {
-    if (!bal_is_obj(bal_bound) || !bal_is_str(bal_bound.itemId) || !bal_item_ids.has(bal_bound.itemId)) {
+    if (
+      !bal_is_obj(bal_bound) ||
+      !bal_is_str(bal_bound.itemId) ||
+      (!bal_item_ids.has(bal_bound.itemId) && !bal_section_ids.has(bal_bound.itemId))
+    ) {
       bal_payload_issue(bal_issues, `${bal_path}.itemBounds[${bal_b}]`, 'Item bound references an unknown item.');
       return false;
     }
@@ -695,7 +704,9 @@ export function bal_validate_print_package(
       return null;
     }
     const bal_item_ids = new Set<string>();
+    const bal_section_ids = new Set<string>();
     for (const bal_section of bal_q.sections) {
+      bal_section_ids.add(bal_section.id);
       for (const bal_item of bal_section.items) bal_item_ids.add(bal_item.id);
     }
     for (const [bal_p, bal_page] of (bal_geometry.pages as unknown[]).entries()) {
@@ -706,7 +717,8 @@ export function bal_validate_print_package(
           bal_layout.orientation as Orientation,
           bal_issues,
           `${bal_layout_path}.geometry.pages[${bal_p}]`,
-          bal_item_ids
+          bal_item_ids,
+          bal_section_ids
         )
       ) {
         return null;
