@@ -327,6 +327,8 @@ import { dhon_project } from '../../db/projects_repo';
     display: flex;
     gap: var(--space-2);
     align-items: center;
+    flex-wrap: wrap;
+    min-width: 0;
   }
 
   .layout {
