@@ -247,6 +247,52 @@ export async function bal_run_tx(
   });
 }
 
+export async function bal_run_tx_async<T>(
+  bal_stores: string[],
+  bal_mode: IDBTransactionMode,
+  bal_run: (bal_tx: IDBTransaction) => Promise<T>
+): Promise<T> {
+  const bal_db = await open_kala_joshim();
+  return new Promise<T>((bal_resolve, bal_reject) => {
+    const bal_tx = bal_db.transaction(bal_stores, bal_mode);
+    let bal_result: T;
+    bal_tx.oncomplete = () => bal_resolve(bal_result);
+    bal_tx.onabort = () =>
+      bal_reject(bal_tx.error ?? new Error('Local transaction was aborted.'));
+    bal_tx.onerror = () =>
+      bal_reject(bal_tx.error ?? new Error('Local transaction failed.'));
+    bal_run(bal_tx).then(
+      (bal_value) => {
+        bal_result = bal_value;
+      },
+      (bal_error) => {
+        try {
+          bal_tx.abort();
+        } catch {
+          bal_reject(bal_error as Error);
+          return;
+        }
+        bal_reject(bal_error as Error);
+      }
+    );
+  });
+}
+
+export async function bal_get_all_by_index_tx<T>(
+  bal_tx: IDBTransaction,
+  bal_store: string,
+  bal_index: string,
+  ...bal_keys: IDBValidKey[]
+): Promise<T[]> {
+  const bal_os = bal_tx.objectStore(bal_store).index(bal_index);
+  const bal_rows: T[] = [];
+  for (const bal_key of bal_keys) {
+    const bal_part = await bal_to_promise<T[]>(bal_os.getAll(bal_key));
+    bal_rows.push(...bal_part);
+  }
+  return bal_rows;
+}
+
 export async function bal_delete_keys(
   bal_store: string,
   bal_keys: IDBValidKey[]

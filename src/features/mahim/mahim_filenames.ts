@@ -1,11 +1,21 @@
-const BAL_INVALID_FILESYSTEM_CHARS = /[/\\:*?"<>|\u0000-\u001f]/g;
+const BAL_INVALID_FILESYSTEM_CHARS = /[/\\:*?"<>|]/gu;
 const BAL_FILENAME_MAX_CODEPOINTS = 80;
+
+function bal_strip_control_characters(bal_value: string): string {
+  let bal_out = '';
+  for (const bal_char of bal_value) {
+    const bal_code = bal_char.codePointAt(0) ?? 0;
+    if (bal_code < 32) continue;
+    bal_out += bal_char;
+  }
+  return bal_out;
+}
 
 export function bal_sanitize_filename(
   bal_input: string,
   bal_extension: string
 ): string {
-  let bal_name = bal_input.trim();
+  let bal_name = bal_strip_control_characters(bal_input.trim());
   bal_name = bal_name.replace(/\s+/g, '-');
   bal_name = bal_name.replace(BAL_INVALID_FILESYSTEM_CHARS, '');
   bal_name = bal_name.replace(/-+/g, '-');
