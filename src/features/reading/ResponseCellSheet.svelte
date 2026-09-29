@@ -3,7 +3,7 @@
   import Button from '../../components/ui/Button.svelte';
   import StatusPill from '../../components/ui/StatusPill.svelte';
   import Sheet from '../../components/ui/Sheet.svelte';
-  import { dhon_questionnaire_by_project } from '../../db/questionnaires_repo';
+  import { dhon_questionnaire } from '../../db/questionnaires_repo';
   import { ken_pori_scales } from '../../db/scales_repo';
   import {
     bal_save_response,
@@ -31,13 +31,11 @@
   import { bal_default_image_decode } from './reading_crops';
 
   let {
-    projectId,
     respondentId,
     itemId,
     rowId,
     onclose
   }: {
-    projectId: string;
     respondentId: string;
     itemId: string;
     rowId: string | null;
@@ -61,18 +59,20 @@
   let bal_is_written = $derived(bal_response?.status === 'manual-only');
 
   async function bal_load(): Promise<void> {
-    const bal_q = await dhon_questionnaire_by_project(projectId);
-    if (!bal_q) return;
     const bal_all = await ken_pori_responses_by_respondent(respondentId);
     bal_response =
       bal_all.find((bal_r) => bal_r.itemId === itemId && bal_r.rowId === rowId && bal_r.status !== 'manual-only') ??
+      bal_all.find((bal_r) => bal_r.itemId === bal_r.itemId && bal_r.rowId === rowId) ??
       bal_all.find((bal_r) => bal_r.itemId === itemId && bal_r.rowId === rowId) ??
       null;
+    if (!bal_response) return;
+    const bal_q = await dhon_questionnaire(bal_response.questionnaireId);
+    if (!bal_q) return;
     bal_info = bal_item_map(bal_q).get(itemId) ?? null;
-    bal_history = (await ken_pori_response_audit(bal_response?.id ?? '')).sort(
+    bal_history = (await ken_pori_response_audit(bal_response.id)).sort(
       (bal_a, bal_b) => bal_b.createdAt - bal_a.createdAt
     );
-    bal_transcript = bal_response?.value.join(' ') ?? '';
+    bal_transcript = bal_response.value.join(' ');
     await bal_load_crop();
     void bal_load_diagnostics(bal_q);
   }
@@ -151,7 +151,7 @@
     bal_busy = true;
     bal_error = null;
     try {
-      const bal_previous: ResponseRecord = bal_response;
+      const bal_previous: ResponseRecord = $state.snapshot(bal_response);
       await bal_save_response_audit_event({
         id: bal_new_id(),
         projectId: bal_previous.projectId,

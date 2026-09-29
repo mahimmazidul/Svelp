@@ -327,7 +327,6 @@
 
 {#if bal_cell}
   <ResponseCellSheet
-    projectId={projectId}
     respondentId={bal_cell.respondentId}
     itemId={bal_cell.itemId}
     rowId={bal_cell.rowId}

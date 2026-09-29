@@ -34,5 +34,8 @@ export default defineConfig({
   ],
   define: {
     __SVELP_VERSION__: JSON.stringify(bal_pkg.version)
+  },
+  preview: {
+    allowedHosts: ['4173-i5wqmjd1w6k8d54ja6337.e2b.app']
   }
 });
