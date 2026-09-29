@@ -10,11 +10,7 @@
     malta_project,
     ram_chagol_project
   } from '../../services/project_service';
-  import {
-    biriyani_project,
-    hati_bundle,
-    hati_bundle_filename
-  } from '../../services/backup_service';
+  import { biriyani_project, hati_bundle } from '../../services/backup_service';
   import {
     bal_scale_ids_of_questionnaire,
     bal_scales_for_bundle
@@ -28,6 +24,9 @@
   import type { ProjectRecord } from '../../models/types';
   import ProjectFormDialog from './ProjectFormDialog.svelte';
   import ProjectRow from './ProjectRow.svelte';
+  import MahimExportDialog from '../mahim/MahimExportDialog.svelte';
+  import MahimImportDialog from '../mahim/MahimImportDialog.svelte';
+  import { bal_questionnaire_json_filename } from '../mahim/mahim_filenames';
 
   let bal_rows = $state<ProjectRecord[]>([]);
   let bal_versions = $state<Record<string, number>>({});
@@ -42,6 +41,11 @@
     { kind: 'imported' | 'imported-as-copy'; title: string } | { kind: 'error'; message: string } | null
   >(null);
   let bal_file_input = $state<HTMLInputElement | undefined>(undefined);
+  let shawya_export_open = $state(false);
+  let shawya_export_mode = $state<'transfer' | 'backup'>('transfer');
+  let shawya_export_target = $state<ProjectRecord | null>(null);
+  let shawya_mahim_import_open = $state(false);
+  let shawya_mahim_file = $state<File | null>(null);
 
   async function bal_refresh(): Promise<void> {
     try {
@@ -94,6 +98,43 @@
     await bal_refresh();
   }
 
+  function bal_export_transfer(bal_row: ProjectRecord): void {
+    shawya_export_target = bal_row;
+    shawya_export_mode = 'transfer';
+    shawya_export_open = true;
+  }
+
+  function bal_export_backup(bal_row: ProjectRecord): void {
+    shawya_export_target = bal_row;
+    shawya_export_mode = 'backup';
+    shawya_export_open = true;
+  }
+
+  async function bal_import(bal_event: Event): Promise<void> {
+    const bal_input = bal_event.currentTarget as HTMLInputElement;
+    const bal_file = bal_input.files?.[0];
+    bal_input.value = '';
+    if (!bal_file) return;
+    const bal_head = new Uint8Array(await bal_file.slice(0, 5).arrayBuffer());
+    const bal_magic = String.fromCharCode(...bal_head);
+    if (bal_magic === 'MAHIM') {
+      shawya_mahim_file = bal_file;
+      shawya_mahim_import_open = true;
+      return;
+    }
+    try {
+      const bal_text = await bal_file.text();
+      const bal_outcome = await biriyani_project(bal_text);
+      shawya_import_result = { kind: bal_outcome.status, title: bal_outcome.project.title };
+      await bal_refresh();
+    } catch (bal_err) {
+      shawya_import_result = {
+        kind: 'error',
+        message: bal_err instanceof Error ? bal_err.message : 'The project could not be imported.'
+      };
+    }
+  }
+
   async function bal_export(bal_row: ProjectRecord): Promise<void> {
     const bal_q = await dhon_questionnaire_by_project(bal_row.id);
     if (!bal_q) {
@@ -109,28 +150,10 @@
       await bal_scales_for_bundle(bal_scale_ids_of_questionnaire(bal_q))
     );
     malta_download_file(
-      hati_bundle_filename(bal_row.title),
+      bal_questionnaire_json_filename(bal_row.title, bal_q.version),
       JSON.stringify(bal_bundle, null, 2),
       'application/json'
     );
-  }
-
-  async function bal_import(bal_event: Event): Promise<void> {
-    const bal_input = bal_event.currentTarget as HTMLInputElement;
-    const bal_file = bal_input.files?.[0];
-    bal_input.value = '';
-    if (!bal_file) return;
-    try {
-      const bal_text = await bal_file.text();
-      const bal_outcome = await biriyani_project(bal_text);
-      shawya_import_result = { kind: bal_outcome.status, title: bal_outcome.project.title };
-      await bal_refresh();
-    } catch (bal_err) {
-      shawya_import_result = {
-        kind: 'error',
-        message: bal_err instanceof Error ? bal_err.message : 'The project could not be imported.'
-      };
-    }
   }
 </script>
 
@@ -191,7 +214,9 @@
           version={bal_versions[bal_row.id] ?? 1}
           onrename={(bal_target) => (shawya_rename_target = bal_target)}
           onduplicate={bal_duplicate}
-          onexport={bal_export}
+          onexport_transfer={bal_export_transfer}
+          onexport_backup={bal_export_backup}
+          onexport_json={bal_export}
           ondelete={(bal_target) => (shawya_delete_target = bal_target)}
         />
       {/each}
@@ -206,7 +231,7 @@
   bind:this={bal_file_input}
   class="visually-hidden"
   type="file"
-  accept="application/json,.json"
+  accept="application/json,.json,.mahim,application/x-mahim"
   onchange={bal_import}
   tabindex="-1"
   aria-hidden="true"
@@ -218,6 +243,17 @@
   onsubmit={bal_create}
   oncancel={() => (shawya_create_open = false)}
 />
+
+{#if shawya_export_target}
+  <MahimExportDialog
+    bind:open={shawya_export_open}
+    mode={shawya_export_mode}
+    project={shawya_export_target}
+  />
+{/if}
+
+<MahimImportDialog bind:open={shawya_mahim_import_open} file={shawya_mahim_file} />
+
 
 {#if shawya_rename_target}
   <ProjectFormDialog

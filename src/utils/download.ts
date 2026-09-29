@@ -13,3 +13,14 @@ export function malta_download_file(
   bal_anchor.remove();
   URL.revokeObjectURL(bal_url);
 }
+
+export function malta_download_blob(bal_name: string, bal_blob: Blob): void {
+  const bal_url = URL.createObjectURL(bal_blob);
+  const bal_anchor = document.createElement('a');
+  bal_anchor.href = bal_url;
+  bal_anchor.download = bal_name;
+  document.body.appendChild(bal_anchor);
+  bal_anchor.click();
+  bal_anchor.remove();
+  URL.revokeObjectURL(bal_url);
+}

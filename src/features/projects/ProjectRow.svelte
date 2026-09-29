@@ -9,14 +9,18 @@
     version,
     onrename,
     onduplicate,
-    onexport,
+    onexport_transfer,
+    onexport_backup,
+    onexport_json,
     ondelete
   }: {
     project: ProjectRecord;
     version: number;
     onrename: (bal_row: ProjectRecord) => void;
     onduplicate: (bal_row: ProjectRecord) => void;
-    onexport: (bal_row: ProjectRecord) => void;
+    onexport_transfer: (bal_row: ProjectRecord) => void;
+    onexport_backup: (bal_row: ProjectRecord) => void;
+    onexport_json: (bal_row: ProjectRecord) => void;
     ondelete: (bal_row: ProjectRecord) => void;
   } = $props();
 </script>
@@ -40,7 +44,9 @@
       { id: 'open', label: 'Open', icon: 'eye', onSelect: () => window.open(`#/project/${project.id}/build`, '_self') },
       { id: 'rename', label: 'Rename', icon: 'pencil', onSelect: () => onrename(project) },
       { id: 'duplicate', label: 'Duplicate', icon: 'copy', onSelect: () => onduplicate(project) },
-      { id: 'export', label: 'Export backup', icon: 'download', onSelect: () => onexport(project) },
+      { id: 'export-transfer', label: 'Export for another device', icon: 'upload', onSelect: () => onexport_transfer(project) },
+      { id: 'export-backup', label: 'Export project backup', icon: 'download', onSelect: () => onexport_backup(project) },
+      { id: 'export-json', label: 'Export questionnaire JSON (legacy)', icon: 'file-text', onSelect: () => onexport_json(project) },
       { id: 'delete', label: 'Delete', icon: 'trash', danger: true, onSelect: () => ondelete(project) }
     ]}
   />
