@@ -5,12 +5,13 @@
   import IconButton from '../../components/ui/IconButton.svelte';
   import Sheet from '../../components/ui/Sheet.svelte';
   import { dhon_questionnaire_by_project, bal_save_questionnaire } from '../../db/questionnaires_repo';
+import { dhon_project } from '../../db/projects_repo';
   import { ken_pori_scales } from '../../db/scales_repo';
   import { ken_pori_batches_by_project } from '../../db/print_repo';
   import { shawya_format_datetime } from '../../utils/datetime';
   import type { PrintBatchRecord } from '../../models/print_models';
   import { normalize_questionnaire } from '../../models/factories';
-  import type { Orientation, PaperSize, PrintSettings, QuestionnaireRecord, ResponseScaleRecord } from '../../models/types';
+  import type { Orientation, PaperSize, PrintSettings, ProjectRecord, QuestionnaireRecord, ResponseScaleRecord } from '../../models/types';
   import {
     bal_apply_preset as bal_preset_settings,
     bal_default_print_settings,
@@ -22,6 +23,7 @@
   import PrintSettingsPanel from './PrintSettingsPanel.svelte';
   import PrintPreview from './PrintPreview.svelte';
   import PrintBatchSheet from './PrintBatchSheet.svelte';
+  import MahimExportDialog from '../mahim/MahimExportDialog.svelte';
   import type { PrintPreset } from './print_settings';
 
   let { projectId }: { projectId: string } = $props();
@@ -36,12 +38,15 @@
   let bal_exporting = $state(false);
   let bal_saved_note = $state(false);
   let bal_batches = $state<PrintBatchRecord[]>([]);
+  let bal_export_open = $state(false);
+  let bal_project_row = $state<ProjectRecord | null>(null);
 
   let bal_save_timer: ReturnType<typeof setTimeout> | null = null;
 
   onMount(() => {
     void (async () => {
       const bal_raw = await dhon_questionnaire_by_project(projectId);
+      bal_project_row = (await dhon_project(projectId)) ?? null;
       if (!bal_raw) {
         bal_status = 'missing';
         return;
@@ -167,6 +172,9 @@
         />
         <Button size="sm" icon="download" disabled={bal_exporting} onclick={() => void bal_download_pdf()}>
           {bal_exporting ? 'Preparing…' : 'Download PDF'}
+        </Button>
+        <Button size="sm" icon="upload" onclick={() => (bal_export_open = true)}>
+          Export for another device
         </Button>
         <Button size="sm" variant="primary" icon="copy" onclick={() => (bal_batch_sheet = true)}>
           Generate batch
@@ -475,3 +483,11 @@
     }
   }
 </style>
+
+{#if bal_project_row}
+  <MahimExportDialog
+    bind:open={bal_export_open}
+    mode="transfer"
+    project={bal_project_row}
+  />
+{/if}

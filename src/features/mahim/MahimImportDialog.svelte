@@ -11,10 +11,12 @@
 
   let {
     open = $bindable(false),
-    file
+    file,
+    onimported
   }: {
     open?: boolean;
     file: File | null;
+    onimported?: () => void;
   } = $props();
 
   let bal_stage = $state<
@@ -90,6 +92,7 @@
       bal_stage = 'finalizing';
       bal_report = bal_result;
       bal_stage = 'done';
+      onimported?.();
     } catch (bal_err) {
       bal_error_title = 'The import could not be completed.';
       bal_error_detail = bal_err instanceof Error ? bal_err.message : String(bal_err);
@@ -106,9 +109,9 @@
       bal_stage = 'importing';
       const bal_result = await bal_commit_import(bal_copy, 'merge');
       bal_stage = 'finalizing';
-      bal_report = bal_result;
       bal_report = { ...bal_result, projectTitle: bal_copy.project.title };
       bal_stage = 'done';
+      onimported?.();
     } catch (bal_err) {
       bal_error_title = 'The import could not be completed.';
       bal_error_detail = bal_err instanceof Error ? bal_err.message : String(bal_err);

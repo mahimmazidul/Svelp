@@ -42,6 +42,8 @@
   import ScanIdentifySheet from './ScanIdentifySheet.svelte';
   import ScanCornerEditor from './ScanCornerEditor.svelte';
   import ScanDuplicateSheet from './ScanDuplicateSheet.svelte';
+  import MahimImportDialog from '../mahim/MahimImportDialog.svelte';
+  import { bal_parse_page_payload } from './scan_payload';
 
   let { projectId }: { projectId: string } = $props();
 
@@ -58,6 +60,10 @@
   let bal_file_input = $state<HTMLInputElement | undefined>(undefined);
   let bal_drag_over = $state(false);
   let bal_keep_originals = $state(true);
+  let bal_template_file_input = $state<HTMLInputElement | undefined>(undefined);
+  let bal_template_page = $state<ScanPageRecord | null>(null);
+  let bal_mahim_file = $state<File | null>(null);
+  let bal_mahim_open_state = $state(false);
   let bal_storage = $state<{ source: number; normalized: number } | null>(null);
   let bal_confirm_remove_originals = $state(false);
   let bal_confirm_clear = $state(false);
@@ -111,6 +117,72 @@
   const bal_active_categories = $derived(
     BAL_REVIEW_CATEGORIES.filter((bal_category) => bal_category_pages(bal_review, bal_category.id).length > 0)
   );
+
+  function bal_template_requirement(bal_page: ScanPageRecord): string {
+    if (!bal_page.payload) return '';
+    const bal_parsed = bal_parse_page_payload(bal_page.payload);
+    if (!bal_parsed.ok) return '';
+    return `${bal_parsed.identifier.studyCode} Version ${bal_parsed.identifier.version}`;
+  }
+
+  function bal_open_template_import(bal_page: ScanPageRecord): void {
+    bal_template_page = bal_page;
+    bal_template_file_input?.click();
+  }
+
+  async function bal_template_file_chosen(bal_event: Event): Promise<void> {
+    const bal_input = bal_event.currentTarget as HTMLInputElement;
+    const bal_file = bal_input.files?.[0];
+    bal_input.value = '';
+    if (!bal_file) return;
+    const bal_head = new Uint8Array(await bal_file.slice(0, 5).arrayBuffer());
+    const bal_magic = String.fromCharCode(...bal_head);
+    if (bal_magic !== 'MAHIM') {
+      bal_flash('This is not a MAHIM file. Import the questionnaire transfer .mahim file from the other device.');
+      return;
+    }
+    bal_mahim_file = bal_file;
+    bal_mahim_open_state = true;
+  }
+
+  async function bal_after_template_import(): Promise<void> {
+    const { bal_get_all } = await import('../../db/client');
+    bal_layouts = await bal_get_all<PrintLayoutRecord>('printLayouts');
+    const bal_targets = bal_pages.filter((bal_page) => bal_page.issues.includes('template-missing'));
+    const bal_page = bal_template_page;
+    bal_template_page = null;
+    if (bal_targets.length === 0) {
+      bal_flash('Template imported. Use Reprocess on the page to read it again.');
+      return;
+    }
+    if (!bal_worker && bal_worker_available()) bal_worker = bal_create_worker_processor();
+    const bal_processor = bal_worker
+      ? (bal_input: Parameters<bal_WorkerHandle['process']>[0]) => bal_worker!.process(bal_input)
+      : (bal_input: Parameters<bal_WorkerHandle['process']>[0]) =>
+          import('./scan_engine').then((bal_engine) => bal_engine.bal_process_image(bal_input));
+    bal_processing = true;
+    let bal_resumed = 0;
+    try {
+      for (const bal_target of bal_targets) {
+        if (!bal_target.sourceAssetId) continue;
+        const bal_updated = await bal_reprocess_page(
+          bal_target.id,
+          bal_layouts,
+          bal_processor,
+          (bal_blob) => bal_stage_decode_source(bal_blob),
+          bal_default_encode_normalized
+        );
+        if (bal_updated) bal_resumed += 1;
+      }
+      bal_pages = await ken_pori_scan_pages(bal_batch?.id ?? '');
+      bal_flash(
+        `Template imported. ${bal_resumed} page${bal_resumed === 1 ? '' : 's'} resumed from the queue.`
+      );
+    } finally {
+      bal_processing = false;
+      void bal_page;
+    }
+  }
 
   function bal_flash(bal_message: string): void {
     bal_note = bal_message;
@@ -564,6 +636,19 @@
                     <p class="card-source" title={bal_page.sourceName}>{bal_page.sourceName}</p>
                     <StatusPill tone={bal_status_tone(bal_page.status)} label={bal_status_label(bal_page.status)} />
                   </div>
+                  {#if bal_page.issues.includes('template-missing')}
+                    <div class="template-gap">
+                      <p class="template-note">
+                        Questionnaire template not available on this device.
+                        {#if bal_template_requirement(bal_page)}
+                          Required: {bal_template_requirement(bal_page)}.
+                        {/if}
+                      </p>
+                      <Button size="sm" variant="primary" onclick={() => bal_open_template_import(bal_page)}>
+                        Import MAHIM file
+                      </Button>
+                    </div>
+                  {/if}
                   <div class="card-actions">
                     {#if bal_page.issues.includes('duplicate')}
                       <Button size="sm" variant="secondary" onclick={() => bal_request_duplicate_review(bal_page)}>Compare</Button>
@@ -635,6 +720,22 @@
     pair={bal_duplicate_pair}
     onresolve={(bal_resolution) => void bal_after_duplicate(bal_resolution)}
     onclose={() => (bal_duplicate_pair = null)}
+  />
+
+  <input
+    bind:this={bal_template_file_input}
+    class="visually-hidden"
+    type="file"
+    accept=".mahim,application/x-mahim"
+    onchange={bal_template_file_chosen}
+    tabindex="-1"
+    aria-hidden="true"
+  />
+
+  <MahimImportDialog
+    bind:open={bal_mahim_open_state}
+    file={bal_mahim_file}
+    onimported={() => void bal_after_template_import()}
   />
 
   <ConfirmDialog
@@ -886,6 +987,21 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  .template-gap {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    grid-column: 1 / -1;
+  }
+
+  .template-note {
+    font-size: var(--text-sm);
+    color: var(--color-ink-2);
+  }
+
   .card-actions {
     display: flex;
     flex-wrap: wrap;
@@ -969,7 +1085,22 @@
     .page-card {
       flex-direction: column;
     }
-    .card-actions {
+    .template-gap {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    border: var(--border-width) solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    grid-column: 1 / -1;
+  }
+
+  .template-note {
+    font-size: var(--text-sm);
+    color: var(--color-ink-2);
+  }
+
+  .card-actions {
       display: grid;
       grid-template-columns: 1fr 1fr;
     }

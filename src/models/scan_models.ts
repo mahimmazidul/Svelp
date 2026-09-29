@@ -20,7 +20,8 @@ export type ScanIssueCategory =
   | 'version-mismatch'
   | 'unsupported-file'
   | 'failed-decode'
-  | 'possible-multiple-sheets';
+  | 'possible-multiple-sheets'
+  | 'template-missing';
 
 export type QualityAspectStatus = 'good' | 'warning' | 'error' | 'unknown';
 

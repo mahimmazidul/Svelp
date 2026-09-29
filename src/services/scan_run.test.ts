@@ -422,7 +422,12 @@ describe('manual assignment and correction', () => {
     expect(bal_identified.pageNumber).toBe(2);
     const bal_unknown = bal_resolve_identity(['S1|ZZZZ|1|042|2'], bal_layouts);
     expect(bal_unknown.questionnaireId).toBeNull();
-    expect(bal_unknown.issues).toContain('unidentified');
+    expect(bal_unknown.issues).toContain('template-missing');
+    expect(bal_unknown.reviewReason).toContain('ZZZZ');
+    expect(bal_unknown.reviewReason).toContain('Version 1');
+    const bal_wrong_version = bal_resolve_identity(['S1|TEST|9|042|2'], bal_layouts);
+    expect(bal_wrong_version.questionnaireId).toBeNull();
+    expect(bal_wrong_version.issues).toContain('version-mismatch');
   });
 
   it('reprocesses a page with manual corner correction', async () => {

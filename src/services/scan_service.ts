@@ -246,8 +246,19 @@ export function bal_resolve_identity(
     return bal_outcome;
   }
   if (bal_chosen.matches.matches.length === 0) {
-    bal_outcome.issues.push('unidentified');
-    bal_outcome.reviewReason = 'No printed questionnaire in this project matches this code.';
+    const bal_code_known = bal_layouts.some((bal_layout) =>
+      bal_layout.geometry.pages.some((bal_page) => {
+        const bal_parts = bal_page.identifier?.payload.split('|') ?? [];
+        return bal_parts.length >= 3 && bal_parts[1] === bal_chosen.identifier.studyCode;
+      })
+    );
+    if (bal_code_known) {
+      bal_outcome.issues.push('version-mismatch');
+      bal_outcome.reviewReason = `A printed template for code ${bal_chosen.identifier.studyCode} exists on this device, but not for version ${bal_chosen.identifier.version}.`;
+      return bal_outcome;
+    }
+    bal_outcome.issues.push('template-missing');
+    bal_outcome.reviewReason = `Questionnaire template not available on this device. Required: ${bal_chosen.identifier.studyCode} Version ${bal_chosen.identifier.version}.`;
     return bal_outcome;
   }
   if (bal_chosen.matches.matches.length > 1) {
