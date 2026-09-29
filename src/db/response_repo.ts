@@ -89,6 +89,10 @@ export async function dhon_blank_reference(bal_id: string): Promise<BlankReferen
   return bal_get<BlankReferenceRecord>('blankReferences', bal_id);
 }
 
+export async function ken_pori_blank_references(bal_fingerprint: string): Promise<BlankReferenceRecord[]> {
+  return bal_get_all_by_index<BlankReferenceRecord>('blankReferences', 'fingerprint', bal_fingerprint);
+}
+
 export async function lichu_blank_references(bal_fingerprint: string): Promise<void> {
   const bal_rows = await bal_get_all_by_index<BlankReferenceRecord>('blankReferences', 'fingerprint', bal_fingerprint);
   await bal_delete_keys(

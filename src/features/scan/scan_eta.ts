@@ -5,6 +5,7 @@ export type bal_EtaStage =
   | 'normalize'
   | 'quality'
   | 'persist'
+  | 'read'
   | 'total';
 
 export interface bal_EtaSample {
