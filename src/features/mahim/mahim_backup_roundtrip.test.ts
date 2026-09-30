@@ -13,7 +13,9 @@ import {
 } from '../../db/scan_repo';
 import {
   bal_save_response,
-  bal_save_blank_reference
+  bal_save_blank_reference,
+  bal_save_recognition_run,
+  bal_save_response_audit_event
 } from '../../db/response_repo';
 import { bal_build_backup_package, type BalBackupOptions } from './mahim_backup';
 import { bal_inspect_mahim_package } from './mahim_import';
@@ -25,7 +27,12 @@ import {
   bal_layout
 } from './mahim_test_fixtures';
 import type { ScanBatchRecord, ScanPageRecord, ScanAssetRecord, ScanAuditEventRecord } from '../../models/scan_models';
-import type { BlankReferenceRecord, ResponseRecord } from '../../models/response_models';
+import type {
+  BlankReferenceRecord,
+  RecognitionRunRecord,
+  ResponseAuditEventRecord,
+  ResponseRecord
+} from '../../models/response_models';
 import { dhon_scan_asset } from '../../db/scan_repo';
 
 const BAL_ALL_STORES = [
@@ -339,6 +346,111 @@ describe('mahim backup round trip', () => {
     const bal_page_row = await bal_get<ScanPageRecord>('scanPages', 'scan-page-1');
     expect(bal_page_row?.thumbSource).toBeNull();
     expect(bal_page_row?.thumbNormalized).toBeNull();
+  });
+
+  it('round trips review state with recognition runs and audit events', async () => {
+    await bal_seed_device_a();
+    const bal_reviewed: ResponseRecord = {
+      ...bal_response(),
+      value: ['o2'],
+      codedValue: null,
+      status: 'accepted',
+      confidence: null,
+      machineValue: ['o1'],
+      machineStatus: 'ambiguous',
+      machineConfidence: 0.42,
+      manuallyReviewed: true
+    };
+    const bal_run: RecognitionRunRecord = {
+      id: 'run-1',
+      projectId: 'proj-1',
+      batchId: 'scan-batch-1',
+      questionnaireId: 'q-1',
+      questionnaireVersion: 3,
+      scope: 'batch',
+      algorithmVersion: 'R1',
+      thresholdProfile: {
+        markCenterRatio: 0.055,
+        markAddedRatio: 0.11,
+        ambiguousFloorRatio: 0.025,
+        strokeAreaPx: 14,
+        ambiguitySeparation: 0.3,
+        acceptanceConfidence: 0.75,
+        glareFractionMax: 0.3,
+        inkDeltaGray: 45,
+        noiseMultiplier: 3,
+        regionMarginMm: 2.6
+      },
+      acceptanceThreshold: 0.75,
+      pagesProcessed: 1,
+      regionsProcessed: 12,
+      accepted: 1,
+      blanks: 8,
+      needsReview: 2,
+      unreadable: 0,
+      preservedManual: 1,
+      overwroteMachine: 0,
+      startedAt: 1727600000000,
+      finishedAt: 1727600005000,
+      createdAt: 1727600000000
+    };
+    const bal_event: ResponseAuditEventRecord = {
+      id: 'audit-1',
+      projectId: 'proj-1',
+      responseId: 'R-001::i1',
+      respondentId: 'R-001',
+      itemId: 'i1',
+      rowId: null,
+      previousValue: ['o1'],
+      previousStatus: 'ambiguous',
+      finalValue: ['o2'],
+      finalStatus: 'accepted',
+      action: 'manual-correction',
+      createdAt: 1727600100000
+    };
+    await bal_save_response(bal_reviewed);
+    await bal_save_recognition_run(bal_run);
+    await bal_save_response_audit_event(bal_event);
+    const bal_backup = await bal_build_backup_package({
+      project: bal_project(),
+      questionnaires: [bal_questionnaire()],
+      scales: [bal_scale()],
+      layouts: [bal_layout()],
+      batches: [],
+      scanBatches: [bal_scan_batch()],
+      scanPages: [bal_scan_page()],
+      scanAuditEvents: [bal_audit_event()],
+      responses: [bal_reviewed],
+      recognitionRuns: [bal_run],
+      responseAuditEvents: [bal_event],
+      blankReferences: [bal_blank_reference()],
+      assets: [bal_scan_asset('scan-asset-1', 'source'), bal_scan_asset('scan-asset-2', 'normalized')],
+      settings: [],
+      options: bal_options()
+    });
+    if ('issues' in bal_backup) throw new Error(JSON.stringify(bal_backup.issues));
+    await bal_wipe();
+    const bal_outcome = await bal_inspect_mahim_package(
+      new Blob([bal_backup.build.bytes], { type: 'application/x-mahim' })
+    );
+    if (!bal_outcome.ok || 'failure' in bal_outcome) throw new Error('inspect failed');
+    const bal_report = await bal_commit_import(bal_outcome.inspected, 'merge');
+    expect(bal_report.written.responses).toBe(1);
+    expect(bal_report.written.recognitionRuns).toBe(1);
+    expect(bal_report.written.responseAuditEvents).toBe(1);
+    const bal_restored = await bal_get<ResponseRecord>('responses', 'R-001::i1');
+    expect(bal_restored?.value).toEqual(['o2']);
+    expect(bal_restored?.machineValue).toEqual(['o1']);
+    expect(bal_restored?.machineStatus).toBe('ambiguous');
+    expect(bal_restored?.machineConfidence).toBeCloseTo(0.42, 9);
+    expect(bal_restored?.manuallyReviewed).toBe(true);
+    const bal_restored_run = await bal_get<RecognitionRunRecord>('recognitionRuns', 'run-1');
+    expect(bal_restored_run?.thresholdProfile.acceptanceConfidence).toBeCloseTo(0.75, 9);
+    expect(bal_restored_run?.accepted).toBe(1);
+    const bal_restored_event = await bal_get<ResponseAuditEventRecord>('responseAuditEvents', 'audit-1');
+    expect(bal_restored_event?.previousStatus).toBe('ambiguous');
+    expect(bal_restored_event?.finalValue).toEqual(['o2']);
+    expect(bal_restored_event?.action).toBe('manual-correction');
   });
 
   it('re-importing a backup on the same device writes nothing new', async () => {
