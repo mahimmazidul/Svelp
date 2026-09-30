@@ -27,10 +27,10 @@ guessed.
   controls: mark sensitivity, ambiguity tolerance, auto-accept threshold.
 - Response persistence with machine-result preservation, manual review flags,
   validation issues, source page and region references, and a full audit trail.
-- Review queue and inspector with source crops, detected values, confidence
-  categories, audit history, per-option diagnostics, keyboard shortcuts, and a
-  manual transcription flow for handwritten fields; responsive desktop and mobile
-  layouts.
+- Review queue and inspector with source crops expandable to the full normalized
+  page and original imported image, detected values, confidence categories, audit
+  history, per-option diagnostics, keyboard shortcuts, and a manual transcription
+  flow for handwritten fields; responsive desktop and mobile layouts.
 - Reprocessing with keep-manual-corrections default, reviewed-respondent skip, and
   explicit full recompute with audit events; incremental, cancellable runs with a
   real stage-aware ETA and a sixty-respondent batch test plus a matrix-heavy run.

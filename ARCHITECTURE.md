@@ -725,7 +725,8 @@ remaining work.
 The review queue lists only problematic responses (ambiguous, multiple marks,
 needs review, unreadable, manual-only pending). The inspector shows the question,
 the source crop, detected result, confidence category, validation issues, and the
-audit history; reviewers accept the detection, pick another answer, mark blank or
+audit history, and can expand from the answer crop to the full normalized page and
+the original imported image for traceability; reviewers accept the detection, pick another answer, mark blank or
 unreadable, or transcribe manual-only values, with optional keyboard shortcuts
 (numbers, B for blank). Desktop uses a side placement with a full grid; mobile
 uses a bottom sheet with stacked, large touch targets.

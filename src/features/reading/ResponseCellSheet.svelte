@@ -45,6 +45,8 @@
   let bal_response = $state<ResponseRecord | null>(null);
   let bal_info = $state<bal_ItemInfo | null>(null);
   let bal_crop = $state<string | null>(null);
+  let bal_page_thumb = $state<string | null>(null);
+  let bal_source_thumb = $state<string | null>(null);
   let bal_history = $state<ResponseAuditEventRecord[]>([]);
   let bal_diagnostic_rows = $state<
     { label: string; detected: boolean; evidence: number; center: number; added: number; stroke: number; glare: number }[]
@@ -80,6 +82,8 @@
     if (!bal_response?.sourcePageId || !bal_response.sourceRegionRect) return;
     const bal_page = await dhon_scan_page(bal_response.sourcePageId);
     if (!bal_page?.normalizedAssetId) return;
+    bal_page_thumb = bal_page.thumbNormalized;
+    bal_source_thumb = bal_page.thumbSource;
     const bal_asset = await dhon_scan_asset(bal_page.normalizedAssetId);
     if (!bal_asset) return;
     bal_crop = await bal_page_crop(bal_page.normalizedAssetId, bal_response.sourceRegionRect);
@@ -269,6 +273,18 @@
         {/if}
       </div>
 
+      {#if bal_page_thumb || bal_source_thumb}
+        <details class="page-context">
+          <summary>Full page context</summary>
+          {#if bal_page_thumb}
+            <img src={bal_page_thumb} alt="Full normalized page" />
+          {/if}
+          {#if bal_source_thumb}
+            <img src={bal_source_thumb} alt="Original imported page" />
+          {/if}
+        </details>
+      {/if}
+
       {#if bal_is_written}
         <label class="transcript">
           <span class="field-label">Transcribed value</span>
@@ -376,6 +392,21 @@
     align-items: center;
     gap: 10px;
     flex-wrap: wrap;
+  }
+  .page-context {
+    margin-top: 8px;
+  }
+  .page-context summary {
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .page-context img {
+    display: block;
+    max-width: 100%;
+    margin-top: 8px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
   }
   .crop-box {
     border: 1px solid var(--border);
