@@ -252,7 +252,11 @@
   />
 {/if}
 
-<MahimImportDialog bind:open={shawya_mahim_import_open} file={shawya_mahim_file} />
+<MahimImportDialog
+  bind:open={shawya_mahim_import_open}
+  file={shawya_mahim_file}
+  onimported={() => void bal_refresh()}
+/>
 
 
 {#if shawya_rename_target}

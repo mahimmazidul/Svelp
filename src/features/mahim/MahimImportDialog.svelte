@@ -86,7 +86,7 @@
     if (!bal_inspected) return;
     bal_stage = 'checking';
     try {
-      const bal_target = bal_inspected;
+      const bal_target = $state.snapshot(bal_inspected);
       bal_stage = 'importing';
       const bal_result = await bal_commit_import(bal_target, bal_resolution);
       bal_stage = 'finalizing';
@@ -104,8 +104,9 @@
     if (!bal_inspected) return;
     bal_stage = 'checking';
     try {
-      const bal_remap = await bal_build_copy_remapping(bal_inspected);
-      const bal_copy = bal_apply_copy_remapping(bal_inspected, bal_remap);
+      const bal_source = $state.snapshot(bal_inspected);
+      const bal_remap = await bal_build_copy_remapping(bal_source);
+      const bal_copy = bal_apply_copy_remapping(bal_source, bal_remap);
       bal_stage = 'importing';
       const bal_result = await bal_commit_import(bal_copy, 'merge');
       bal_stage = 'finalizing';
