@@ -12,7 +12,7 @@ import {
 } from '../features/reading/reading_fixtures';
 import { bal_reading_regions_for_page } from '../features/reading/reading_geometry';
 import { bal_build_print_document } from '../features/print/print_layout';
-import { bal_frequency_scale, bal_mixed_survey } from '../features/print/print_fixtures';
+import { bal_ffq, bal_frequency_scale, bal_mixed_survey } from '../features/print/print_fixtures';
 import type { ScanPageRecord } from '../models/scan_models';
 import type { ResponseScaleRecord } from '../models/types';
 import { bal_run_reading, type bal_ReadRunProgress } from './reading_run';
@@ -352,6 +352,190 @@ describe('reading run service', () => {
     const bal_responses = await ken_pori_responses_by_respondent('007');
     expect(bal_responses).toHaveLength(0);
   });
+
+  it('reads a realistic batch of sixty respondents incrementally within a bounded time', async () => {
+    const bal_plans = Array.from({ length: 60 }, (_bal_x, bal_i) => ({
+      pageId: `pg-batch-${bal_i}`,
+      respondentId: `R${String(bal_i + 1).padStart(3, '0')}`,
+      pageNumber: 1,
+      marks: [{ optionIndex: 1, style: 'fill' as const }],
+      choiceItemIndex: 0
+    }));
+    const bal_seed = await bal_seed_project();
+    await bal_save_scan_batch({
+      id: bal_seed.batchId,
+      projectId: 'p-read',
+      questionnaireId: bal_seed.questionnaireId,
+      questionnaireVersion: bal_mixed_survey().version,
+      status: 'done',
+      keepOriginals: true,
+      summary: {
+        totalPages: 0,
+        ready: 0,
+        needsReview: 0,
+        duplicates: 0,
+        failed: 0,
+        unsupported: 0,
+        queued: 0,
+        respondents: 0,
+        complete: 0,
+        incomplete: 0
+      },
+      createdAt: 1,
+      updatedAt: 1
+    });
+    const bal_images = new Map<string, { data: Uint8ClampedArray; width: number; height: number }>();
+    for (const [bal_key, bal_value] of Object.entries(bal_render_plan(bal_plans[0]))) {
+      for (const bal_plan of bal_plans) bal_images.set(bal_key.replace(bal_plans[0].pageId, bal_plan.pageId), bal_value);
+    }
+    for (const bal_plan of bal_plans) {
+      await bal_seed_page_with_blobs(bal_seed.batchId, bal_seed.questionnaireId, bal_plan, bal_images);
+    }
+    const bal_started = Date.now();
+    let bal_progress_updates = 0;
+    let bal_last_done = 0;
+    const bal_result = await bal_run_reading({
+      scope: { projectId: 'p-read', batchId: bal_seed.batchId, respondentId: null },
+      decode: bal_make_decoder(bal_images),
+      blankRenderer: async (bal_page) => new Blob([new TextEncoder().encode(`blank:${bal_page.pageNumber}`)]),
+      onProgress: (bal_p) => {
+        bal_progress_updates += 1;
+        expect(bal_p.pagesDone).toBeGreaterThanOrEqual(bal_last_done);
+        bal_last_done = bal_p.pagesDone;
+      }
+    });
+    const bal_elapsed = Date.now() - bal_started;
+    expect(bal_result.errors).toEqual([]);
+    expect(bal_result.pagesProcessed).toBe(60);
+    expect(bal_result.accepted).toBe(60);
+    expect(bal_progress_updates).toBeGreaterThanOrEqual(60);
+    expect(bal_elapsed).toBeLessThan(120000);
+    const bal_first = await ken_pori_responses_by_respondent('R001');
+    expect(bal_first.length).toBeGreaterThan(0);
+  }, 150000);
+
+  it('reads a matrix-heavy questionnaire with per-row stability', async () => {
+    const bal_q = bal_ffq(20);
+    await bal_save_questionnaire(bal_q);
+    await bal_save_scale(bal_frequency_scale());
+    await bal_save_scan_batch({
+      id: 'batch-ffq',
+      projectId: 'p-read',
+      questionnaireId: bal_q.id,
+      questionnaireVersion: bal_q.version,
+      status: 'done',
+      keepOriginals: true,
+      summary: {
+        totalPages: 0,
+        ready: 0,
+        needsReview: 0,
+        duplicates: 0,
+        failed: 0,
+        unsupported: 0,
+        queued: 0,
+        respondents: 0,
+        complete: 0,
+        incomplete: 0
+      },
+      createdAt: 1,
+      updatedAt: 1
+    });
+    const bal_matrix = bal_q.sections[0].items[1];
+    const bal_respondents = ['M001', 'M002', 'M003'];
+    const bal_images = new Map<string, { data: Uint8ClampedArray; width: number; height: number }>();
+    for (const bal_respondent of bal_respondents) {
+      const bal_doc = bal_build_print_document({
+        questionnaire: bal_q,
+        scales: [bal_frequency_scale()],
+        respondentId: bal_respondent
+      });
+      const bal_regions = bal_reading_regions_for_page(bal_doc, 1);
+      const bal_blank = bal_render_blank_instrument(bal_regions, BAL_PPM);
+      const bal_row_col_index = (bal_row_id: string): number =>
+        bal_regions.findIndex(
+          (bal_region) => bal_region.itemId === bal_matrix.id && bal_region.rowId === bal_row_id
+        );
+      const bal_scan = bal_render_marked_scan(
+        bal_blank,
+        bal_regions,
+        [
+          { regionIndex: bal_row_col_index('row-1'), style: 'fill' },
+          { regionIndex: bal_row_col_index('row-2'), style: 'tick' }
+        ],
+        BAL_PPM
+      );
+      const bal_key = `ffq-${bal_respondent}|scan`;
+      bal_images.set(bal_key, { data: bal_scan.data, width: bal_scan.width, height: bal_scan.height });
+      bal_images.set(`blank:1`, { data: bal_blank.data, width: bal_blank.width, height: bal_blank.height });
+      const bal_page_id = `ffq-pg-${bal_respondent}`;
+      const bal_marker = new TextEncoder().encode(bal_key);
+      await bal_save_scan_asset({
+        id: `asset-n-${bal_page_id}`,
+        batchId: 'batch-ffq',
+        pageId: bal_page_id,
+        kind: 'normalized',
+        mime: 'application/x-svelp-fixture',
+        bytes: new Blob([bal_marker]),
+        width: bal_scan.width,
+        height: bal_scan.height,
+        size: bal_marker.length,
+        createdAt: 1
+      });
+      await bal_save_scan_page({
+        id: bal_page_id,
+        batchId: 'batch-ffq',
+        projectId: 'p-read',
+        questionnaireId: bal_q.id,
+        questionnaireVersion: bal_q.version,
+        respondentId: bal_respondent,
+        pageNumber: 1,
+        status: 'ready',
+        sourceAssetId: null,
+        normalizedAssetId: `asset-n-${bal_page_id}`,
+        sourceName: `${bal_page_id}.png`,
+        sourceType: 'image',
+        sourceHash: `hash-${bal_page_id}`,
+        sourceBytes: 10,
+        normalizedBytes: bal_scan.data.length,
+        thumbSource: null,
+        thumbNormalized: null,
+        identitySource: 'qr',
+        payload: null,
+        detectedPayloads: null,
+        quality: null,
+        alignment: null,
+        transform: {
+          markerPoints: null,
+          manualPoints: null,
+          homography: null,
+          sourceWidth: 1,
+          sourceHeight: 1,
+          outWidth: bal_scan.width,
+          outHeight: bal_scan.height,
+          rotationApplied: 0,
+          pixelsPerMm: BAL_PPM
+        },
+        issues: [],
+        errorMessage: null,
+        processingMs: 5,
+        createdAt: 1,
+        updatedAt: 1
+      });
+    }
+    const bal_result = await bal_run_reading({
+      scope: { projectId: 'p-read', batchId: 'batch-ffq', respondentId: null },
+      decode: bal_make_decoder(bal_images),
+      blankRenderer: async (bal_page) => new Blob([new TextEncoder().encode(`blank:${bal_page.pageNumber}`)])
+    });
+    expect(bal_result.errors).toEqual([]);
+    expect(bal_result.pagesProcessed).toBe(3);
+    const bal_rows_m001 = (await ken_pori_responses_by_respondent('M001')).filter(
+      (bal_r) => bal_r.itemId === bal_matrix.id && bal_r.rowId === 'row-1'
+    );
+    expect(bal_rows_m001).toHaveLength(1);
+    expect(bal_rows_m001[0].status).toBe('accepted');
+    expect(bal_rows_m001[0].value).toHaveLength(1);
+  }, 150000);
 
   it('keeps a broken page from failing the whole run', async () => {
     const bal_setup = await bal_setup_plans([
