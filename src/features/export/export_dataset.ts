@@ -192,7 +192,8 @@ export function bal_build_export_rows(
   bal_questionnaire: QuestionnaireRecord,
   bal_scales: ResponseScaleRecord[],
   bal_responses: ResponseRecord[],
-  bal_respondents: string[]
+  bal_respondents: string[],
+  bal_include_diagnostics = false
 ): Record<string, string>[] {
   const bal_item_by_id = new Map<string, QuestionnaireItem>();
   for (const bal_section of bal_questionnaire.sections) {
@@ -215,13 +216,42 @@ export function bal_build_export_rows(
       const bal_item = bal_item_by_id.get(bal_column.itemId);
       if (!bal_item) {
         bal_row[bal_column.header] = '';
+        if (bal_include_diagnostics) {
+          bal_row[`${bal_column.header}__status`] = 'missing-source';
+          bal_row[`${bal_column.header}__confidence`] = '';
+          bal_row[`${bal_column.header}__machine`] = '';
+          bal_row[`${bal_column.header}__corrected`] = '';
+        }
         continue;
       }
-      bal_row[bal_column.header] = bal_cell_value(bal_response, bal_item, bal_scales, bal_item.columns);
+      const bal_export = bal_cell_export(bal_response, bal_item, bal_scales, bal_item.columns);
+      bal_row[bal_column.header] = bal_export.value;
+      if (bal_include_diagnostics) {
+        bal_row[`${bal_column.header}__status`] = bal_response ? bal_export.status : 'missing-source';
+        bal_row[`${bal_column.header}__confidence`] =
+          bal_export.confidence === null ? '' : String(Math.round(bal_export.confidence * 100));
+        bal_row[`${bal_column.header}__machine`] = bal_export.machineValue;
+        bal_row[`${bal_column.header}__corrected`] = bal_export.manuallyReviewed ? 'yes' : '';
+      }
     }
     bal_rows.push(bal_row);
   }
   return bal_rows;
+}
+
+export function bal_export_headers(bal_columns: bal_ExportColumn[], bal_include_diagnostics = false): string[] {
+  if (!bal_include_diagnostics) return ['respondent_id', ...bal_columns.map((bal_c) => bal_c.header)];
+  const bal_headers = ['respondent_id'];
+  for (const bal_column of bal_columns) {
+    bal_headers.push(
+      bal_column.header,
+      `${bal_column.header}__status`,
+      `${bal_column.header}__confidence`,
+      `${bal_column.header}__machine`,
+      `${bal_column.header}__corrected`
+    );
+  }
+  return bal_headers;
 }
 
 export function bal_to_csv(bal_rows: Record<string, string>[], bal_headers: string[]): string {

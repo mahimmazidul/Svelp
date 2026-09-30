@@ -8,6 +8,7 @@
   import PrintPage from './features/print/PrintPage.svelte';
   import ScanPage from './features/scan/ScanPage.svelte';
   import ResponsesPage from './features/reading/ResponsesPage.svelte';
+  import ExportPage from './features/export/ExportPage.svelte';
   import PlaceholderPage from './features/placeholders/PlaceholderPage.svelte';
   import NotFoundPage from './features/placeholders/NotFoundPage.svelte';
 
@@ -34,6 +35,8 @@
       <ScanPage projectId={bal_route.projectId} />
     {:else if bal_route.area === 'responses'}
       <ResponsesPage projectId={bal_route.projectId} />
+    {:else if bal_route.area === 'export'}
+      <ExportPage projectId={bal_route.projectId} />
     {:else}
       <PlaceholderPage area={bal_route.area} />
     {/if}
