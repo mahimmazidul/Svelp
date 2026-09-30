@@ -12,6 +12,14 @@
   import type { ScanBatchRecord } from '../../models/scan_models';
   import type { ResponseRecord } from '../../models/response_models';
   import { bal_run_reading, type bal_ReadRunProgress, type bal_ReprocessMode } from '../../services/reading_run';
+  import {
+    BAL_RECOGNITION_CONTROL_BOUNDS,
+    bal_load_recognition_profile,
+    bal_profile_name_for_controls,
+    bal_profile_to_controls,
+    bal_save_recognition_profile,
+    type bal_RecognitionControls
+  } from '../../services/recognition_settings';
   import { bal_default_image_decode } from './reading_crops';
   import { bal_completeness_for_respondents, type bal_RespondentStatus } from './reading_completeness';
   import { bal_build_print_document } from '../print/print_layout';
@@ -52,6 +60,11 @@
   let bal_completeness = $state<Map<string, bal_RespondentStatus>>(new Map());
   let bal_filter = $state<'all' | 'review' | 'missing-required' | 'manual-only' | 'corrected' | 'blank'>('all');
   let bal_search = $state('');
+  let bal_controls = $state<bal_RecognitionControls>({
+    markSensitivity: BAL_RECOGNITION_CONTROL_BOUNDS.markSensitivity.default,
+    ambiguityTolerance: BAL_RECOGNITION_CONTROL_BOUNDS.ambiguityTolerance.default,
+    autoAcceptConfidence: BAL_RECOGNITION_CONTROL_BOUNDS.autoAcceptConfidence.default
+  });
 
   let bal_respondents = $derived([...new Set(bal_responses.map((bal_r) => bal_r.respondentId))].sort());
   let bal_variables = $derived.by(() => {
@@ -201,9 +214,13 @@
     bal_cancel_requested = false;
     bal_progress = null;
     try {
+      const bal_profile_record = await bal_load_recognition_profile();
+      const bal_name = bal_profile_name_for_controls(bal_profile_to_controls(bal_profile_record.thresholdProfile));
       const bal_result = await bal_run_reading({
         scope: { projectId, batchId: bal_batch_id === 'all' ? null : bal_batch_id, respondentId: null },
         mode: bal_mode,
+        profile: bal_profile_record.thresholdProfile,
+        profileName: bal_name,
         decode: bal_default_image_decode,
         onProgress: (bal_p) => (bal_progress = bal_p),
         isCancelled: () => bal_cancel_requested
@@ -216,6 +233,11 @@
       bal_reading = false;
       bal_progress = null;
     }
+  }
+
+  async function bal_apply_control_change(): Promise<void> {
+    await bal_save_recognition_profile(bal_controls);
+    bal_note = `Recognition settings saved. The next run uses profile ${bal_profile_name_for_controls(bal_controls)}; finished runs keep the profile they used.`;
   }
 
   function bal_summarize(bal_result: Awaited<ReturnType<typeof bal_run_reading>>): string {
@@ -240,6 +262,8 @@
       bal_status = 'ready';
       if (!bal_q) return;
       bal_batches = await ken_pori_scan_batches(projectId);
+      const bal_saved = await bal_load_recognition_profile();
+      bal_controls = bal_profile_to_controls(bal_saved.thresholdProfile);
       await bal_reload();
     })();
   });
@@ -297,6 +321,51 @@
       {#if bal_note}
         <p class="note">{bal_note}</p>
       {/if}
+      <details class="advanced">
+        <summary>Recognition settings</summary>
+        <div class="settings-grid">
+          <label class="setting">
+            <span>Mark sensitivity <strong>{bal_controls.markSensitivity.toFixed(2)}×</strong></span>
+            <input
+              type="range"
+              min={BAL_RECOGNITION_CONTROL_BOUNDS.markSensitivity.min}
+              max={BAL_RECOGNITION_CONTROL_BOUNDS.markSensitivity.max}
+              step={BAL_RECOGNITION_CONTROL_BOUNDS.markSensitivity.step}
+              bind:value={bal_controls.markSensitivity}
+              onchange={bal_apply_control_change}
+              disabled={bal_reading}
+            />
+          </label>
+          <label class="setting">
+            <span>Ambiguity tolerance <strong>{bal_controls.ambiguityTolerance.toFixed(2)}</strong></span>
+            <input
+              type="range"
+              min={BAL_RECOGNITION_CONTROL_BOUNDS.ambiguityTolerance.min}
+              max={BAL_RECOGNITION_CONTROL_BOUNDS.ambiguityTolerance.max}
+              step={BAL_RECOGNITION_CONTROL_BOUNDS.ambiguityTolerance.step}
+              bind:value={bal_controls.ambiguityTolerance}
+              onchange={bal_apply_control_change}
+              disabled={bal_reading}
+            />
+          </label>
+          <label class="setting">
+            <span>Auto-accept threshold <strong>{Math.round(bal_controls.autoAcceptConfidence * 100)}%</strong></span>
+            <input
+              type="range"
+              min={BAL_RECOGNITION_CONTROL_BOUNDS.autoAcceptConfidence.min}
+              max={BAL_RECOGNITION_CONTROL_BOUNDS.autoAcceptConfidence.max}
+              step={BAL_RECOGNITION_CONTROL_BOUNDS.autoAcceptConfidence.step}
+              bind:value={bal_controls.autoAcceptConfidence}
+              onchange={bal_apply_control_change}
+              disabled={bal_reading}
+            />
+          </label>
+        </div>
+        <p class="muted">
+          Higher sensitivity finds fainter marks but sends more answers to review. Changes apply to the next run;
+          finished runs keep the profile they used.
+        </p>
+      </details>
     </section>
 
     <section class="card summary">
@@ -534,6 +603,33 @@
   .summary {
     display: flex;
     flex-wrap: wrap;
+    gap: 8px;
+  }
+  .advanced {
+    margin-top: 12px;
+    border-top: 1px solid var(--border);
+    padding-top: 10px;
+  }
+  .advanced summary {
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin-top: 10px;
+  }
+  .setting {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 13px;
+  }
+  .setting span {
+    display: flex;
+    justify-content: space-between;
     gap: 8px;
   }
   .table-tools {

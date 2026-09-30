@@ -73,6 +73,7 @@ export interface bal_ReadRunOptions {
   scope: bal_ReadRunScope;
   mode?: bal_ReprocessMode;
   profile?: RecognitionThresholdProfile;
+  profileName?: string;
   blankRenderer?: bal_BlankRenderer;
   decode: (bal_blob: Blob) => Promise<{ data: Uint8ClampedArray; width: number; height: number }>;
   onProgress?: (bal_progress: bal_ReadRunProgress) => void;
@@ -190,7 +191,8 @@ function bal_machine_response(
   bal_run_id: string,
   bal_first_region: bal_ReadingRegion | null,
   bal_page_dims: { width: number; height: number },
-  bal_existing: ResponseRecord | null | undefined
+  bal_existing: ResponseRecord | null | undefined,
+  bal_profile_name: string
 ): ResponseRecord {
   const bal_now = Date.now();
   return {
@@ -219,7 +221,7 @@ function bal_machine_response(
       ? bal_normalized_region(bal_first_region, bal_page_dims.width, bal_page_dims.height)
       : null,
     algorithmVersion: BAL_READER_ALGORITHM_VERSION,
-    thresholdProfileName: BAL_THRESHOLD_PROFILE_NAME,
+    thresholdProfileName: bal_profile_name,
     recognitionRunId: bal_run_id,
     createdAt: bal_existing?.createdAt ?? bal_now,
     updatedAt: bal_now
@@ -241,6 +243,7 @@ function bal_estimator_record(bal_estimator: ReturnType<typeof bal_create_eta_es
 
 export async function bal_run_reading(bal_options: bal_ReadRunOptions): Promise<bal_ReadRunResult> {
   const bal_profile = bal_options.profile ?? BAL_DEFAULT_THRESHOLD_PROFILE;
+  const bal_profile_name = bal_options.profileName ?? BAL_THRESHOLD_PROFILE_NAME;
   const bal_mode = bal_options.mode ?? 'preserve-manual';
   const bal_render = bal_options.blankRenderer ?? bal_default_blank_renderer();
   const bal_run_id = bal_new_id();
@@ -393,7 +396,8 @@ export async function bal_run_reading(bal_options: bal_ReadRunOptions): Promise<
           bal_run_id,
           bal_group_regions[0] ?? null,
           bal_page_dims,
-          bal_existing
+          bal_existing,
+          bal_profile_name
         );
         if (bal_reading.status === 'accepted') bal_result.accepted += 1;
         else if (bal_reading.status === 'blank') bal_result.blanks += 1;
@@ -428,7 +432,8 @@ export async function bal_run_reading(bal_options: bal_ReadRunOptions): Promise<
           bal_run_id,
           bal_group_regions[0] ?? bal_written_region,
           bal_page_dims,
-          bal_existing
+          bal_existing,
+          bal_profile_name
         );
         bal_result.manualOnly += 1;
         await bal_save_response(bal_record);
