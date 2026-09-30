@@ -4,7 +4,7 @@
   import EmptyState from '../../components/ui/EmptyState.svelte';
   import StatusPill from '../../components/ui/StatusPill.svelte';
   import ConfirmDialog from '../../components/ui/ConfirmDialog.svelte';
-  import { dhon_questionnaire_by_project } from '../../db/questionnaires_repo';
+  import { dhon_questionnaire_for_responses } from '../../db/questionnaires_repo';
   import { ken_pori_scan_batches, ken_pori_scan_pages } from '../../db/scan_repo';
   import { ken_pori_scales } from '../../db/scales_repo';
   import { ken_pori_responses_by_project } from '../../db/response_repo';
@@ -171,6 +171,11 @@
     if (!bal_questionnaire) return;
     bal_responses = await ken_pori_responses_by_project(projectId);
     bal_items = bal_item_map(bal_questionnaire);
+    await bal_reload_completeness();
+  }
+
+  async function bal_reload_completeness(): Promise<void> {
+    if (!bal_questionnaire) return;
     const bal_scales = await ken_pori_scales();
     const bal_doc = bal_build_print_document({ questionnaire: bal_questionnaire, scales: bal_scales, respondentId: '' });
     const bal_found: Record<string, number[]> = {};
@@ -257,14 +262,17 @@
 
   onMount(() => {
     void (async () => {
-      const bal_q = await dhon_questionnaire_by_project(projectId);
+      const bal_rows = await ken_pori_responses_by_project(projectId);
+      const bal_q = await dhon_questionnaire_for_responses(projectId, bal_rows);
       bal_questionnaire = bal_q ?? null;
       bal_status = 'ready';
       if (!bal_q) return;
       bal_batches = await ken_pori_scan_batches(projectId);
       const bal_saved = await bal_load_recognition_profile();
       bal_controls = bal_profile_to_controls(bal_saved.thresholdProfile);
-      await bal_reload();
+      bal_responses = bal_rows;
+      bal_items = bal_item_map(bal_q);
+      await bal_reload_completeness();
     })();
   });
 </script>

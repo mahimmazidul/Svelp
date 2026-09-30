@@ -29,6 +29,26 @@ export async function dhon_questionnaire_by_project(
   return bal_rows.sort((bal_a, bal_b) => bal_b.version - bal_a.version)[0];
 }
 
+export async function dhon_questionnaire_for_responses(
+  bal_project_id: string,
+  bal_responses: { questionnaireId: string }[]
+): Promise<QuestionnaireRecord | undefined> {
+  const bal_rows = await bal_get_all_by_index<QuestionnaireRecord>(
+    'questionnaires',
+    'projectId',
+    bal_project_id
+  );
+  if (bal_rows.length <= 1) return bal_rows[0];
+  const bal_answered = new Set(bal_responses.map((bal_response) => bal_response.questionnaireId));
+  const bal_with_answers = bal_rows.filter((bal_row) => bal_answered.has(bal_row.id));
+  if (bal_with_answers.length > 0) {
+    return bal_with_answers.sort((bal_a, bal_b) => bal_b.version - bal_a.version)[0];
+  }
+  return bal_rows.sort(
+    (bal_a, bal_b) => bal_b.version - bal_a.version || bal_b.updatedAt - bal_a.updatedAt
+  )[0];
+}
+
 export async function bal_save_questionnaire(bal_row: QuestionnaireRecord): Promise<void> {
   await bal_put('questionnaires', bal_row);
 }

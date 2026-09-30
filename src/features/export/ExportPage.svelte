@@ -4,7 +4,7 @@
   import EmptyState from '../../components/ui/EmptyState.svelte';
   import Icon from '../../icons/Icon.svelte';
   import { dhon_project } from '../../db/projects_repo';
-  import { dhon_questionnaire_by_project } from '../../db/questionnaires_repo';
+  import { dhon_questionnaire_for_responses } from '../../db/questionnaires_repo';
   import { ken_pori_scales } from '../../db/scales_repo';
   import { ken_pori_responses_by_project } from '../../db/response_repo';
   import { malta_download_file } from '../../utils/download';
@@ -31,10 +31,10 @@
   let bal_include_diagnostics = $state(false);
 
   async function bal_download_csv(): Promise<void> {
-    const bal_q = await dhon_questionnaire_by_project(projectId);
+    const bal_responses = await ken_pori_responses_by_project(projectId);
+    const bal_q = await dhon_questionnaire_for_responses(projectId, bal_responses);
     if (!bal_q) return;
     const bal_scales = await ken_pori_scales();
-    const bal_responses = await ken_pori_responses_by_project(projectId);
     const bal_columns = bal_export_columns(bal_q);
     const bal_respondents = [...new Set(bal_responses.map((bal_r) => bal_r.respondentId))].sort();
     const bal_rows = bal_build_export_rows(
@@ -50,10 +50,10 @@
   }
 
   async function bal_download_json(): Promise<void> {
-    const bal_q = await dhon_questionnaire_by_project(projectId);
+    const bal_responses = await ken_pori_responses_by_project(projectId);
+    const bal_q = await dhon_questionnaire_for_responses(projectId, bal_responses);
     if (!bal_q) return;
     const bal_scales = await ken_pori_scales();
-    const bal_responses = await ken_pori_responses_by_project(projectId);
     const bal_columns = bal_export_columns(bal_q);
     const bal_respondents = [...new Set(bal_responses.map((bal_r) => bal_r.respondentId))].sort();
     const bal_names = bal_export_filenames(bal_project_title || 'Svelp', bal_q.version);
@@ -65,7 +65,8 @@
   }
 
   async function bal_download_codebook(): Promise<void> {
-    const bal_q = await dhon_questionnaire_by_project(projectId);
+    const bal_responses = await ken_pori_responses_by_project(projectId);
+    const bal_q = await dhon_questionnaire_for_responses(projectId, bal_responses);
     if (!bal_q) return;
     const bal_scales = await ken_pori_scales();
     const bal_columns = bal_export_columns(bal_q);
@@ -85,14 +86,14 @@
         return;
       }
       bal_project_title = bal_project.title;
-      const bal_q = await dhon_questionnaire_by_project(projectId);
+      const bal_responses = await ken_pori_responses_by_project(projectId);
+      const bal_q = await dhon_questionnaire_for_responses(projectId, bal_responses);
       if (!bal_q) {
         bal_status = 'missing';
         return;
       }
       bal_questionnaire_title = bal_q.title;
       bal_version = bal_q.version;
-      const bal_responses = await ken_pori_responses_by_project(projectId);
       bal_respondent_count = new Set(bal_responses.map((bal_r) => bal_r.respondentId)).size;
       bal_variable_count = bal_export_columns(bal_q).length;
       bal_review_count = bal_responses.filter(
