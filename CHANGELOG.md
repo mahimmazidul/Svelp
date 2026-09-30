@@ -3,6 +3,62 @@
 All notable changes to Svelp are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## 0.5.0 - Phase 5: answer recognition, review, and export
+
+Normalized scan pages now become structured research data through deterministic
+mark recognition, with uncertain evidence routed to human review instead of
+guessed.
+
+### Added
+
+- Answer recognition from printed geometry: per-region blank-template comparison,
+  added-ink feature extraction, page-level noise calibration, adaptive thresholds,
+  and a glare gate, supporting single choice, multiple choice, yes/no, Likert
+  scales, matrix/grid rows, and reusable response-scale questions.
+- Deterministic confidence scoring combining mark evidence, separation from the
+  runner-up, local noise, page quality, and ink depth, with category labels
+  (Accepted, Needs review, Ambiguous, Blank, Unreadable) instead of probabilities.
+- First-class blank detection; multiple marks, near-ties, over-selection, and
+  crossed-out corrections always go to review and never auto-accept.
+- Cached canonical blank references rendered by the same print renderer and layout
+  version, keyed by layout fingerprint and page number.
+- Recognition runs (scope, algorithm version R1, full threshold profile, counters,
+  timestamps) and a persisted recognition settings profile with three advanced
+  controls: mark sensitivity, ambiguity tolerance, auto-accept threshold.
+- Response persistence with machine-result preservation, manual review flags,
+  validation issues, source page and region references, and a full audit trail.
+- Review queue and inspector with source crops, detected values, confidence
+  categories, audit history, per-option diagnostics, keyboard shortcuts, and a
+  manual transcription flow for handwritten fields; responsive desktop and mobile
+  layouts.
+- Reprocessing with keep-manual-corrections default, reviewed-respondent skip, and
+  explicit full recompute with audit events; incremental, cancellable runs with a
+  real stage-aware ETA and a sixty-respondent batch test plus a matrix-heavy run.
+- Respondent completeness (complete, needs review, missing required, missing
+  page) on the responses page, with table filters (all, needs review, missing
+  required, manual only, corrected, blank) and search across respondents,
+  variables, and question labels.
+- Export page producing clean wide CSV and JSON datasets with schema-derived coded
+  values and deterministic matrix column naming (`variable_row`), a generated
+  codebook, sanitized `<Project>-v<version>-…` filenames, and an optional
+  diagnostics export (status, confidence, machine value, corrected flag).
+- MAHIM project backups now carry responses, recognition runs, review audit
+  events, blank reference metadata, and recognition settings, with a round-trip
+  test asserting identical review state on a clean device.
+- A deterministic benchmark suite (28 scenarios, 40 ground-truth checks) asserting
+  zero incorrect auto-accepts, correct review routing, blank detection, and
+  manual-only isolation, plus documented real-world validation and limitation
+  notes.
+
+### Fixed
+
+- The recompute-everything confirmation dialog could reopen endlessly instead of
+  starting the run.
+- The answer inspector could load a response for the wrong item when the exact
+  record was missing.
+- The builder toolbar could cover the mobile bottom navigation and nav tabs were
+  inert outside a project route (shipped during the phase as 2544a4b).
+
 ## 0.4.5 - Phase 4.5: portable data through MAHIM files
 
 Questionnaires and projects now travel between devices as integrity-verified `.mahim`

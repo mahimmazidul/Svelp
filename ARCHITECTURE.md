@@ -645,7 +645,147 @@ Nothing related to scanning leaves the device: no uploads, no remote APIs, no
 telemetry, and no network fetches in the pipeline. Filenames and respondent
 identifiers exist only in local IndexedDB.
 
-## 17. Testing
+## 19. Answer recognition, review, and export
+
+The Responses and Export areas turn recovered, identified, quality-assessed pages
+into structured research data. The pipeline is deterministic geometry and image
+difference only: no AI, no OCR, no cloud services, no local neural models, and no
+handwriting interpretation of any kind.
+
+### Recognition pipeline
+
+For every ready page the run service loads its normalized image from Phase 4,
+resolves the exact print document that produced it (questionnaire id and version,
+layout fingerprint), and takes the known answer regions from the stored scanner
+geometry. Recognition never searches the page for bubbles: each region is cropped
+from the scan and from the canonical blank reference with a small configurable
+margin, and compared there and only there.
+
+Blank references are rendered by the same print renderer and layout version that
+produced the paper, cached in the `blankReferences` store keyed by layout
+fingerprint and page number, and reused across respondents. No blank page is
+re-rendered per respondent.
+
+Per region the extractor measures added dark-pixel ratio, center-zone ratio,
+largest connected stroke area and dark stroke area, mean ink depth, ring noise,
+glare ratio (printed ink that vanished under a bright spot), and component count,
+all relative to the blank reference. A page-level noise floor (median ring noise
+across regions) raises the detection thresholds adaptively, so noisy paper needs
+stronger marks without a global fixed threshold. A glare gate sends a region to
+unreadable instead of guessing through a bright spot.
+
+### Interpretation
+
+Single choice, yes/no, and Likert rows read as single choice: one detected mark
+with enough evidence is accepted; zero marks is a first-class blank; two or more
+detected marks never auto-accept (multiple-marks, with near-tie called out as
+ambiguous); very light ink alone stays ambiguous rather than blank. Multiple
+choice and multi-selection matrix rows evaluate each option independently and
+enforce minimum/maximum selection rules; over-selection goes to review with all
+marks preserved, never silently trimmed. Matrix rows map results to stable row and
+column IDs; visible row numbers are never identity. Text, number, date, and time
+regions are surfaced as manual-only records for transcription. Signatures are not
+interpreted.
+
+### Confidence semantics
+
+Confidence is a deterministic evidence score: weighted mark evidence, separation
+from the runner-up, local noise, Phase 4 page quality, and ink depth. It is not a
+calibrated probability and is never shown as one; the UI shows derived categories
+(Accepted, Needs review, Ambiguous, Blank, Unreadable) plus a coarse clarity
+percentage. Auto-acceptance additionally requires the configured acceptance
+threshold from the recognition profile.
+
+### Recognition profiles and runs
+
+Defaults live in `BAL_DEFAULT_THRESHOLD_PROFILE` (algorithm version `R1`, profile
+`default-v1`). An advanced disclosure on the Responses page exposes three safe
+controls — mark sensitivity, ambiguity tolerance, auto-accept threshold — persisted
+in the settings store; custom values record profile name `custom-v1`. Every
+recognition run persists a `recognitionRuns` row with the full threshold profile,
+scope, counters, and timestamps, and every response records the algorithm version,
+profile name, and run id that produced it, so reprocessed results are always
+distinguishable from originals and history is never rewritten.
+
+### Persistence, audit, and reprocessing
+
+Schema version 5 adds `responses`, `recognitionRuns`, `responseAuditEvents`, and
+`blankReferences`. A response stores the final value and status alongside the
+original machine value, machine status, and machine confidence; manual review sets
+`manuallyReviewed` and appends a `responseAuditEvents` row (previous value/status,
+final value/status, action, timestamp). Reprocessing keeps manual corrections by
+default; skipping already-reviewed respondents and full recompute (which overwrites
+with an audit event) are explicit choices. Runs process page by page with bounded
+memory, persist incrementally, can be cancelled safely, and report a real
+stage-aware ETA; already-persisted results stay valid and a rerun resumes the
+remaining work.
+
+### Review workflow
+
+The review queue lists only problematic responses (ambiguous, multiple marks,
+needs review, unreadable, manual-only pending). The inspector shows the question,
+the source crop, detected result, confidence category, validation issues, and the
+audit history; reviewers accept the detection, pick another answer, mark blank or
+unreadable, or transcribe manual-only values, with optional keyboard shortcuts
+(numbers, B for blank). Desktop uses a side placement with a full grid; mobile
+uses a bottom sheet with stacked, large touch targets.
+
+### Completeness
+
+Each respondent gets a derived status — complete, needs review, missing required
+responses, or missing page — from their responses (confirmed answers or reviewed
+values count) against the questionnaire's required items and the pages actually
+identified in Phase 4. The responses table shows the status per respondent.
+
+### Exports
+
+The Export page produces a wide clean dataset: one respondent per row, one
+variable per column, coded values derived live from the questionnaire schema
+(option/matrix column coding, falling back to labels). Matrix items expand to
+`<variable>_<row-slug>` columns with deterministic collision suffixes, never row
+numbers. Cells carry final reviewed values only; answers still awaiting review are
+empty in the clean dataset. JSON export mirrors the wide shape with metadata. An
+optional diagnostics mode appends per-variable status, confidence, machine value,
+and corrected flag columns; diagnostics never enter the clean dataset by default.
+A generated codebook lists every variable with question label, type, required
+state, matrix row label, and per-option coded values from the schema. Filenames go
+through the shared sanitizer as `<Project>-v<version>-responses.csv` / `.json` and
+`<Project>-v<version>-codebook.csv`. XLSX is intentionally not produced: no
+spreadsheet library exists in the project and adding one (roughly a megabyte)
+would violate the dependency policy; the CSV opens directly in Excel and LibreOffice.
+
+### Benchmark methodology
+
+`reading_benchmark.ts` builds a fixed questionnaire through the real print layout,
+renders deterministic synthetic scans (filled, partial, tick, cross, slash, faint
+pen, rough pencil, noise, shadow, blur, glare away from and over the region, two
+marks, near-ties, over-selection, yes/no combinations, matrix rows, crossed-out
+corrections, untouched pages, and a manual-only field) and scores every fixture
+against ground truth. Counters track correct and incorrect auto-accepts, review
+routing, blank detection, false marks, and manual-only reporting. The test suite
+asserts zero incorrect auto-accepts — the primary objective — plus correct routing
+of every uncertain fixture; it does not optimize for maximum acceptance and claims
+nothing about real-world accuracy.
+
+### Real-world validation procedure
+
+To validate on physical forms: print one questionnaire version's batch, mark the
+copies by hand covering ballpoint pen fills, pencil shading, ticks, crosses,
+slashes, faint marks, mild shadow, and mild blur, scan or photograph them through
+the normal Scan flow, read the responses, then enter ground truth by hand in the
+review inspector for every machine-readable question and compare the table against
+the accepted answers. Report only counts measured this way on this hardware; the
+benchmark numbers above are synthetic and not real-world accuracy claims.
+
+### Limitations
+
+Very faint or textured pencil marks route to review rather than auto-accepting.
+Two strong marks in a mutually exclusive question always require human review, by
+design. Glare over an answer region makes that region unreadable. Crossed-out
+corrections are ambiguous by nature and go to review. Handwriting of any kind is
+never interpreted automatically. Confidence is not a probability.
+
+## 20. Testing
 
 Vitest covers the layers where correctness matters most, with IndexedDB emulated by
 fake-indexeddb:
@@ -664,5 +804,21 @@ fake-indexeddb:
   Phase 1 records,
 - `db.test.ts`, `backup_service.test.ts`, `numbering.test.ts` — project lifecycle
   transactions, bundle parsing and collision planning, derived numbering.
+
+- `reading_marks.test.ts` — added-ink extraction, calibration, mark scoring, and
+  page interpretation for every mark style and quality effect,
+- `reading_blank.test.ts`, `reading_geometry.test.ts` — blank reference caching and
+  geometry-to-region mapping,
+- `reading_benchmark.test.ts` — the deterministic fixture benchmark with zero
+  incorrect auto-accepts,
+- `reading_run.test.ts` — end-to-end runs including manual-preservation modes,
+  version mismatches, a sixty-respondent batch, and a matrix-heavy questionnaire,
+- `reading_completeness.test.ts` — respondent completeness levels,
+- `recognition_settings.test.ts` — recognition profile derivation and bounds,
+- `export_dataset.test.ts` — dataset columns, coded values, matrix naming,
+  codebook generation, CSV escaping, filenames,
+- `mahim_backup_roundtrip.test.ts` — full backup round trips including review
+  state, recognition runs, and audit events,
+- `migration_v5.test.ts` — the v5 migration adding response stores safely.
 
 Run them with `npm run test`; `npm run check` and `npm run lint` cover types and style.

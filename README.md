@@ -54,10 +54,28 @@ network dependency after the first load.
   template is missing are preserved and resume after the template is imported.
 - **PWA installation and offline operation** after the first load.
 
-Answer reading, OCR, and response data export are intentionally not part of the
-current phase. The Scan pipeline stops at recovered, identified, quality-assessed
-pages; Responses, Export, and Settings placeholders describe planned behavior
-instead of pretending to work.
+- **Deterministic answer reading and review**: scanned pages are read into
+  structured responses using the printed scanner geometry and blank-template
+  comparison only — filled bubbles, partial fills, ticks, crosses, slashes, and
+  strong pen or light-but-complete marks are recognized, while faint or uncertain
+  ink, two competing marks, over-selection, and glare over an answer area are
+  routed to a focused review queue instead of being guessed. Manual corrections
+  preserve the original machine result, append to an audit trail, and survive
+  reprocessing. Respondent completeness (complete, needs review, missing required,
+  missing page) is derived per respondent.
+- **Response data export**: a clean wide dataset (CSV or JSON) with one respondent
+  per row and coded values derived from the questionnaire schema, deterministic
+  matrix column names, a generated codebook, sanitized filenames, and an optional
+  diagnostics export with recognition status, confidence, machine values, and
+  correction flags.
+- **A deterministic accuracy benchmark**: controlled synthetic fixtures for every
+  supported mark style and quality condition, scored against ground truth with the
+  primary objective of zero incorrect auto-accepts.
+
+The Scan pipeline never interprets handwriting: short/long text, handwritten
+numbers, dates, and signatures stay manual-only or presence-checked, and Settings
+remains a planned area. Recognition is deterministic CV and geometry only — no AI,
+no OCR, no cloud services, no local neural models.
 
 ## Running Svelp
 
@@ -92,7 +110,11 @@ npm run test
   (coordinate model, pagination engine, matrix splitting, scanner-safe rules, page
   identifiers, respondent batches, scanner geometry schema, and PDF generation), and
   the scan ingestion pipeline (local computer vision, QR identification, canonical
-  normalization, quality model, worker strategy, and privacy).
+  normalization, quality model, worker strategy, and privacy), and the answer
+  recognition system (blank-template comparison, mark scoring, confidence
+  semantics, recognition profiles and runs, review workflow, reprocessing rules,
+  response schema and audit trail, completeness, export formats and codebook,
+  benchmark methodology, a real-world validation procedure, and limitations).
 - [CHANGELOG.md](./CHANGELOG.md) — release history.
 
 ## Source code policy
