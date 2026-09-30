@@ -62,7 +62,6 @@
     const bal_all = await ken_pori_responses_by_respondent(respondentId);
     bal_response =
       bal_all.find((bal_r) => bal_r.itemId === itemId && bal_r.rowId === rowId && bal_r.status !== 'manual-only') ??
-      bal_all.find((bal_r) => bal_r.itemId === bal_r.itemId && bal_r.rowId === rowId) ??
       bal_all.find((bal_r) => bal_r.itemId === itemId && bal_r.rowId === rowId) ??
       null;
     if (!bal_response) return;

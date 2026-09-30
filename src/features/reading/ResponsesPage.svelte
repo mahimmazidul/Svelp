@@ -111,6 +111,11 @@
       bal_confirm_recompute = true;
       return;
     }
+    await bal_execute_reading();
+  }
+
+  async function bal_execute_reading(): Promise<void> {
+    if (!bal_questionnaire || bal_reading) return;
     bal_reading = true;
     bal_note = null;
     bal_cancel_requested = false;
@@ -343,7 +348,7 @@
   body="Answers you corrected by hand will be replaced by new machine results. The corrected values stay in the audit trail."
   confirm_label="Recompute all"
   danger
-  onconfirm={bal_start_reading}
+  onconfirm={bal_execute_reading}
 />
 
 <style>
