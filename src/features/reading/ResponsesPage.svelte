@@ -50,6 +50,8 @@
   let bal_cell = $state<{ respondentId: string; itemId: string; rowId: string | null } | null>(null);
   let bal_tab = $state<'review' | 'table'>('review');
   let bal_completeness = $state<Map<string, bal_RespondentStatus>>(new Map());
+  let bal_filter = $state<'all' | 'review' | 'missing-required' | 'manual-only' | 'corrected' | 'blank'>('all');
+  let bal_search = $state('');
 
   let bal_respondents = $derived([...new Set(bal_responses.map((bal_r) => bal_r.respondentId))].sort());
   let bal_variables = $derived.by(() => {
@@ -81,6 +83,51 @@
           bal_a.respondentId.localeCompare(bal_b.respondentId) || bal_a.itemId.localeCompare(bal_b.itemId)
       )
   );
+
+  let bal_filtered_respondents = $derived.by(() => {
+    const bal_rows = bal_respondents.filter((bal_respondent) => {
+      const bal_cells = bal_responses.filter((bal_r) => bal_r.respondentId === bal_respondent);
+      if (bal_filter === 'review') return bal_cells.some((bal_r) => BAL_REVIEW_STATUSES.has(bal_r.status));
+      if (bal_filter === 'missing-required')
+        return bal_completeness.get(bal_respondent)?.completeness === 'missing-required';
+      if (bal_filter === 'manual-only')
+        return bal_cells.some((bal_r) => bal_r.status === 'manual-only' && !bal_r.manuallyReviewed);
+      if (bal_filter === 'corrected') return bal_cells.some((bal_r) => bal_r.manuallyReviewed);
+      if (bal_filter === 'blank') return bal_cells.some((bal_r) => bal_r.status === 'blank');
+      return true;
+    });
+    const bal_query = bal_search.trim().toLowerCase();
+    if (bal_query.length === 0) return bal_rows;
+    const bal_by_id = bal_rows.filter((bal_respondent) => bal_respondent.toLowerCase().includes(bal_query));
+    if (bal_by_id.length > 0) return bal_by_id;
+    return bal_rows;
+  });
+
+  let bal_filtered_variables = $derived.by(() => {
+    const bal_query = bal_search.trim().toLowerCase();
+    if (bal_query.length === 0) return bal_variables;
+    const bal_matched = bal_variables.filter(
+      (bal_variable) =>
+        bal_variable.label.toLowerCase().includes(bal_query) ||
+        (bal_items.get(bal_variable.itemId)?.label ?? '').toLowerCase().includes(bal_query)
+    );
+    if (bal_matched.length > 0) return bal_matched;
+    return bal_variables;
+  });
+
+  let bal_search_matches_nothing = $derived.by(() => {
+    const bal_query = bal_search.trim().toLowerCase();
+    if (bal_query.length === 0) return false;
+    const bal_respondent_match = bal_respondents.some((bal_respondent) =>
+      bal_respondent.toLowerCase().includes(bal_query)
+    );
+    const bal_variable_match = bal_variables.some(
+      (bal_variable) =>
+        bal_variable.label.toLowerCase().includes(bal_query) ||
+        (bal_items.get(bal_variable.itemId)?.label ?? '').toLowerCase().includes(bal_query)
+    );
+    return !bal_respondent_match && !bal_variable_match;
+  });
 
   let bal_counts = $derived.by(() => {
     const bal_result = { accepted: 0, review: 0, blank: 0, manual: 0, manualCorrected: 0 };
@@ -314,19 +361,39 @@
     {:else if bal_respondents.length === 0}
       <EmptyState icon="table" title="No responses yet" body="Read a scanned batch to fill the table." />
     {:else}
+      <div class="table-tools">
+        <label class="field-label" for="table-filter">Show</label>
+        <select id="table-filter" bind:value={bal_filter}>
+          <option value="all">All respondents</option>
+          <option value="review">Needs review</option>
+          <option value="missing-required">Missing required</option>
+          <option value="manual-only">Manual only</option>
+          <option value="corrected">Corrected</option>
+          <option value="blank">Blank</option>
+        </select>
+        <input
+          class="table-search"
+          type="search"
+          placeholder="Search respondent, variable, or question"
+          bind:value={bal_search}
+        />
+      </div>
+      {#if bal_search_matches_nothing}
+        <p class="muted">Nothing matches this search.</p>
+      {:else}
       <div class="table-wrap">
         <table class="data">
           <thead>
             <tr>
               <th>Respondent</th>
               <th scope="col">Status</th>
-              {#each bal_variables as bal_variable (bal_variable.key)}
+              {#each bal_filtered_variables as bal_variable (bal_variable.key)}
                 <th scope="col">{bal_variable.label}</th>
               {/each}
             </tr>
           </thead>
           <tbody>
-            {#each bal_respondents as bal_respondent (bal_respondent)}
+            {#each bal_filtered_respondents as bal_respondent (bal_respondent)}
               <tr>
                 <th scope="row">{bal_respondent}</th>
                 <td>
@@ -337,7 +404,7 @@
                     />
                   {/if}
                 </td>
-                {#each bal_variables as bal_variable (bal_variable.key)}
+                {#each bal_filtered_variables as bal_variable (bal_variable.key)}
                   {@const bal_cell_response = bal_responses.find(
                     (bal_r) =>
                       bal_r.respondentId === bal_respondent &&
@@ -368,6 +435,7 @@
           </tbody>
         </table>
       </div>
+      {/if}
     {/if}
   {/if}
 </div>
@@ -468,6 +536,22 @@
     flex-wrap: wrap;
     gap: 8px;
   }
+  .table-tools {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+  }
+  .table-search {
+    flex: 1 1 220px;
+    min-width: 180px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface-raised);
+    color: var(--text);
+    font-size: 14px;
+  }
   .tabs {
     display: flex;
     gap: 4px;
@@ -550,6 +634,9 @@
       padding: 12px;
     }
     .control-row select {
+      flex: 1 1 100%;
+    }
+    .table-tools select {
       flex: 1 1 100%;
     }
   }
