@@ -5,13 +5,16 @@
   import StatusPill from '../../components/ui/StatusPill.svelte';
   import ConfirmDialog from '../../components/ui/ConfirmDialog.svelte';
   import { dhon_questionnaire_by_project } from '../../db/questionnaires_repo';
-  import { ken_pori_scan_batches } from '../../db/scan_repo';
+  import { ken_pori_scan_batches, ken_pori_scan_pages } from '../../db/scan_repo';
+  import { ken_pori_scales } from '../../db/scales_repo';
   import { ken_pori_responses_by_project } from '../../db/response_repo';
   import type { QuestionnaireRecord } from '../../models/types';
   import type { ScanBatchRecord } from '../../models/scan_models';
   import type { ResponseRecord } from '../../models/response_models';
   import { bal_run_reading, type bal_ReadRunProgress, type bal_ReprocessMode } from '../../services/reading_run';
   import { bal_default_image_decode } from './reading_crops';
+  import { bal_completeness_for_respondents, type bal_RespondentStatus } from './reading_completeness';
+  import { bal_build_print_document } from '../print/print_layout';
   import { bal_format_eta } from '../scan/scan_eta';
   import {
     bal_item_map,
@@ -46,6 +49,7 @@
   let bal_cancel_requested = $state(false);
   let bal_cell = $state<{ respondentId: string; itemId: string; rowId: string | null } | null>(null);
   let bal_tab = $state<'review' | 'table'>('review');
+  let bal_completeness = $state<Map<string, bal_RespondentStatus>>(new Map());
 
   let bal_respondents = $derived([...new Set(bal_responses.map((bal_r) => bal_r.respondentId))].sort());
   let bal_variables = $derived.by(() => {
@@ -90,10 +94,39 @@
     return bal_result;
   });
 
+  function bal_completeness_label(bal_status: bal_RespondentStatus): string {
+    if (bal_status.completeness === 'complete') return 'Complete';
+    if (bal_status.completeness === 'missing-page') return `Missing page${bal_status.missingPages.length === 1 ? '' : 's'}`;
+    if (bal_status.completeness === 'missing-required') return 'Required missing';
+    return 'Needs review';
+  }
+
+  function bal_completeness_tone(bal_status: bal_RespondentStatus): 'neutral' | 'success' | 'warning' | 'accent' {
+    if (bal_status.completeness === 'complete') return 'success';
+    if (bal_status.completeness === 'missing-page') return 'accent';
+    return 'warning';
+  }
+
   async function bal_reload(): Promise<void> {
     if (!bal_questionnaire) return;
     bal_responses = await ken_pori_responses_by_project(projectId);
     bal_items = bal_item_map(bal_questionnaire);
+    const bal_scales = await ken_pori_scales();
+    const bal_doc = bal_build_print_document({ questionnaire: bal_questionnaire, scales: bal_scales, respondentId: '' });
+    const bal_found: Record<string, number[]> = {};
+    for (const bal_batch of bal_batches) {
+      for (const bal_page of await ken_pori_scan_pages(bal_batch.id)) {
+        if (bal_page.status !== 'ready' || !bal_page.respondentId || bal_page.pageNumber === null) continue;
+        bal_found[bal_page.respondentId] = [...(bal_found[bal_page.respondentId] ?? []), bal_page.pageNumber];
+      }
+    }
+    bal_completeness = bal_completeness_for_respondents(
+      bal_respondents,
+      bal_questionnaire,
+      bal_doc.pages.length,
+      bal_responses,
+      bal_found
+    );
   }
 
   function bal_progress_text(): string {
@@ -286,6 +319,7 @@
           <thead>
             <tr>
               <th>Respondent</th>
+              <th scope="col">Status</th>
               {#each bal_variables as bal_variable (bal_variable.key)}
                 <th scope="col">{bal_variable.label}</th>
               {/each}
@@ -295,6 +329,14 @@
             {#each bal_respondents as bal_respondent (bal_respondent)}
               <tr>
                 <th scope="row">{bal_respondent}</th>
+                <td>
+                  {#if bal_completeness.get(bal_respondent)}
+                    <StatusPill
+                      tone={bal_completeness_tone(bal_completeness.get(bal_respondent)!)}
+                      label={bal_completeness_label(bal_completeness.get(bal_respondent)!)}
+                    />
+                  {/if}
+                </td>
                 {#each bal_variables as bal_variable (bal_variable.key)}
                   {@const bal_cell_response = bal_responses.find(
                     (bal_r) =>

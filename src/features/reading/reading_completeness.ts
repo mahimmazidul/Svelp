@@ -78,3 +78,26 @@ export function bal_respondent_status(
     manualPendingCount: bal_manual_pending
   };
 }
+
+export function bal_completeness_for_respondents(
+  bal_respondent_ids: string[],
+  bal_questionnaire: QuestionnaireRecord,
+  bal_expected_pages: number,
+  bal_responses: ResponseRecord[],
+  bal_found_pages: Record<string, number[]>
+): Map<string, bal_RespondentStatus> {
+  const bal_map = new Map<string, bal_RespondentStatus>();
+  for (const bal_respondent of bal_respondent_ids) {
+    bal_map.set(
+      bal_respondent,
+      bal_respondent_status(
+        bal_respondent,
+        bal_questionnaire,
+        bal_expected_pages,
+        bal_responses.filter((bal_response) => bal_response.respondentId === bal_respondent),
+        new Set(bal_found_pages[bal_respondent] ?? [])
+      )
+    );
+  }
+  return bal_map;
+}
