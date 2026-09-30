@@ -310,14 +310,14 @@
 
   .mobile-toolbar {
     position: sticky;
-    bottom: 0;
+    bottom: calc(var(--bottomnav-height) + env(safe-area-inset-bottom));
     z-index: var(--z-topbar);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: var(--space-3);
-    padding: var(--space-2) var(--space-4);
-    padding-bottom: max(var(--space-2), env(safe-area-inset-bottom));
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
     background: var(--color-surface);
     border-top: var(--border-width) solid var(--color-border);
   }

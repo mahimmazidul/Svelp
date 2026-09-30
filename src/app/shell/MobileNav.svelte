@@ -1,5 +1,7 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { route_store } from '../router/route_store';
+  import { ken_pori_projects } from '../../db/projects_repo';
   import type { IconName } from '../../icons/icon_defs';
   import Icon from '../../icons/Icon.svelte';
 
@@ -14,14 +16,33 @@
 
   const bal_route = $derived($route_store);
   const bal_project_id = $derived(bal_route.name === 'project' ? bal_route.projectId : null);
+  let bal_recent_project_id = $state<string | null>(null);
+
+  onMount(() => {
+    void (async () => {
+      try {
+        const bal_rows = await ken_pori_projects();
+        const bal_sorted = [...bal_rows].sort((a, b) => b.updatedAt - a.updatedAt);
+        bal_recent_project_id = bal_sorted.length > 0 ? bal_sorted[0].id : null;
+      } catch {
+        bal_recent_project_id = null;
+      }
+    })();
+  });
 
   function bal_tab_area(bal_key: string): string {
     return bal_key === 'data' ? 'responses' : bal_key;
   }
 
-  function bal_tab_href(bal_key: string): string {
+  function bal_tab_target(bal_key: string): string | null {
     if (bal_key === 'projects') return '#/projects';
-    return `#/project/${bal_project_id}/${bal_tab_area(bal_key)}`;
+    return bal_project_id ?? bal_recent_project_id;
+  }
+
+  function bal_tab_href(bal_key: string): string {
+    const bal_target = bal_tab_target(bal_key);
+    if (bal_key === 'projects') return '#/projects';
+    return `#/project/${bal_target}/${bal_tab_area(bal_key)}`;
   }
 
   function bal_tab_active(bal_key: string): boolean {
@@ -33,8 +54,8 @@
 
 <nav class="bottomnav" aria-label="Primary">
   {#each BAL_TABS as bal_tab (bal_tab.key)}
-    {@const bal_enabled = bal_tab.key === 'projects' || bal_project_id !== null}
-    {#if bal_enabled}
+    {@const bal_target = bal_tab_target(bal_tab.key)}
+    {#if bal_target !== null}
       <a
         class="tab"
         class:active={bal_tab_active(bal_tab.key)}
@@ -45,9 +66,10 @@
         <span class="tab-label">{bal_tab.label}</span>
       </a>
     {:else}
-      <span class="tab tab-disabled" aria-disabled="true" title="Open a project first">
+      <span class="tab tab-disabled" aria-disabled="true">
         <Icon name={bal_tab.icon} size={20} />
         <span class="tab-label">{bal_tab.label}</span>
+        <span class="visually-hidden">Create a project first</span>
       </span>
     {/if}
   {/each}
