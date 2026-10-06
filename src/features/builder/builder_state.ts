@@ -5,6 +5,7 @@ import {
 } from '../../db/questionnaires_repo';
 import { bal_save_scale, ken_pori_scales } from '../../db/scales_repo';
 import { normalize_questionnaire } from '../../models/factories';
+import { new_id } from '../../utils/id';
 import type {
   ChoiceOption,
   ConsentSectionKind,
@@ -189,7 +190,22 @@ async function bal_load(bal_project_id: string): Promise<void> {
       bal_reset('missing');
       return;
     }
-    const bal_q = normalize_questionnaire(bal_q_raw);
+    if (bal_q_raw.status === 'published') {
+      await bal_save_questionnaire({
+        ...bal_q_raw,
+        id: new_id(),
+        version: bal_q_raw.version + 1,
+        status: 'draft',
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      });
+    }
+    const bal_loaded = await dhon_questionnaire_by_project(bal_project_id);
+    if (!bal_loaded) {
+      bal_reset('missing');
+      return;
+    }
+    const bal_q = normalize_questionnaire(bal_loaded);
     heda_state.set({
       status: 'ready',
       questionnaire: bal_q,
