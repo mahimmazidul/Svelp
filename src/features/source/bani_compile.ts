@@ -1,4 +1,5 @@
 import { bal_new_id } from '../../services/scan_service';
+import { bal_is_reserved_word } from './shobdo_lexer';
 import type {
   ChoiceOption,
   ConsentSection,
@@ -30,10 +31,14 @@ export function bal_slug_variable(bal_label: string): string {
 }
 
 export function bal_unique_slug(bal_base: string, bal_taken: Set<string>): string {
-  if (!bal_taken.has(bal_base)) return bal_base;
-  let bal_n = 2;
-  while (bal_taken.has(`${bal_base}_${bal_n}`)) bal_n += 1;
-  return `${bal_base}_${bal_n}`;
+  let bal_candidate = bal_base;
+  let bal_n = 1;
+  while (bal_taken.has(bal_candidate) || (bal_n === 1 && bal_is_reserved_word(bal_candidate))) {
+    bal_n += 1;
+    bal_candidate = `${bal_base}_${bal_n}`;
+  }
+  bal_taken.add(bal_candidate);
+  return bal_candidate;
 }
 
 const BAL_HEAD_TO_TYPE: Record<bal_ItemHead, ItemTypeName> = {

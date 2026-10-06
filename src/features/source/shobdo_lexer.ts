@@ -87,6 +87,10 @@ const BAL_KEYWORDS = new Set([
 
 const BAL_IDENTIFIER_START = /^[a-z_]$/;
 
+export function bal_is_reserved_word(bal_word: string): boolean {
+  return BAL_KEYWORDS.has(bal_word);
+}
+
 function bal_is_identifier_word(bal_word: string): boolean {
   if (bal_word.length === 0) return false;
   if (!BAL_IDENTIFIER_START.test(bal_word[0])) return false;
