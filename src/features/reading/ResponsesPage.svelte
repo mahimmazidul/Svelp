@@ -33,6 +33,17 @@
   } from '../../services/recognition_settings';
   import { bal_default_image_decode } from './reading_crops';
   import { bal_completeness_for_respondents, type bal_RespondentStatus } from './reading_completeness';
+  import {
+    BAL_TABLE_ROW_WINDOW,
+    bal_next_row_limit,
+    bal_respondent_matches_filter,
+    bal_search_matches_nothing,
+    bal_search_respondents,
+    bal_search_variables,
+    bal_sort_respondents,
+    bal_table_variables,
+    type bal_SortState
+  } from './response_table';
   import { bal_build_print_document } from '../print/print_layout';
   import { bal_new_id } from '../../services/scan_service';
   import { bal_format_eta } from '../scan/scan_eta';
@@ -78,6 +89,9 @@
     'all' | 'review' | 'missing-required' | 'manual-only' | 'corrected' | 'blank' | 'missing-page' | 'unreadable' | 'complete' | 'incomplete'
   >('all');
   let bal_search = $state('');
+  let bal_sort = $state<bal_SortState>({ key: null, dir: 'asc' });
+  let bal_row_limit = $state(BAL_TABLE_ROW_WINDOW);
+  let bal_hidden_columns = new SvelteSet<string>();
   let bal_controls = $state<bal_RecognitionControls>({
     markSensitivity: BAL_RECOGNITION_CONTROL_BOUNDS.markSensitivity.default,
     ambiguityTolerance: BAL_RECOGNITION_CONTROL_BOUNDS.ambiguityTolerance.default,
@@ -85,26 +99,7 @@
   });
 
   let bal_respondents = $derived([...new Set(bal_responses.map((bal_r) => bal_r.respondentId))].sort());
-  let bal_variables = $derived.by(() => {
-    const bal_keys: { key: string; itemId: string; rowId: string | null; label: string }[] = [];
-    for (const bal_r of bal_responses) {
-      const bal_key = bal_r.rowId ? `${bal_r.itemId}::${bal_r.rowId}` : bal_r.itemId;
-      if (bal_keys.some((bal_entry) => bal_entry.key === bal_key)) continue;
-      const bal_info = bal_items.get(bal_r.itemId);
-      const bal_row_label = bal_r.rowId
-        ? (bal_info?.rows.find((bal_row) => bal_row.id === bal_r.rowId)?.label ?? bal_r.rowId)
-        : null;
-      bal_keys.push({
-        key: bal_key,
-        itemId: bal_r.itemId,
-        rowId: bal_r.rowId,
-        label: bal_info
-          ? `${bal_info.number} ${bal_row_label ? `${bal_row_label} · ` : ''}${bal_info.label}`
-          : (bal_r.variableName ?? bal_r.itemId)
-      });
-    }
-    return bal_keys;
-  });
+  let bal_variables = $derived(bal_table_variables(bal_responses, bal_items));
 
   let bal_review_queue = $derived(
     bal_responses
@@ -116,53 +111,59 @@
   );
 
   let bal_filtered_respondents = $derived.by(() => {
-    const bal_rows = bal_respondents.filter((bal_respondent) => {
-      const bal_cells = bal_responses.filter((bal_r) => bal_r.respondentId === bal_respondent);
-      if (bal_filter === 'review') return bal_cells.some((bal_r) => BAL_REVIEW_STATUSES.has(bal_r.status));
-      if (bal_filter === 'missing-required')
-        return bal_completeness.get(bal_respondent)?.completeness === 'missing-required';
-      if (bal_filter === 'manual-only')
-        return bal_cells.some((bal_r) => bal_r.status === 'manual-only' && !bal_r.manuallyReviewed);
-      if (bal_filter === 'corrected') return bal_cells.some((bal_r) => bal_r.manuallyReviewed);
-      if (bal_filter === 'blank') return bal_cells.some((bal_r) => bal_r.status === 'blank');
-      if (bal_filter === 'missing-page') return bal_completeness.get(bal_respondent)?.completeness === 'missing-page';
-      if (bal_filter === 'unreadable') return bal_cells.some((bal_r) => bal_r.status === 'unreadable');
-      if (bal_filter === 'complete') return bal_completeness.get(bal_respondent)?.completeness === 'complete';
-      if (bal_filter === 'incomplete') return bal_completeness.get(bal_respondent)?.completeness !== 'complete';
-      return true;
-    });
-    const bal_query = bal_search.trim().toLowerCase();
-    if (bal_query.length === 0) return bal_rows;
-    const bal_by_id = bal_rows.filter((bal_respondent) => bal_respondent.toLowerCase().includes(bal_query));
-    if (bal_by_id.length > 0) return bal_by_id;
-    return bal_rows;
+    const bal_rows = bal_respondents.filter((bal_respondent) =>
+      bal_respondent_matches_filter(
+        bal_responses.filter((bal_r) => bal_r.respondentId === bal_respondent),
+        bal_filter,
+        bal_completeness.get(bal_respondent)?.completeness,
+        BAL_REVIEW_STATUSES
+      )
+    );
+    const bal_by_id = bal_search_respondents(bal_rows, bal_search);
+    return bal_by_id ?? bal_rows;
   });
 
   let bal_filtered_variables = $derived.by(() => {
-    const bal_query = bal_search.trim().toLowerCase();
-    if (bal_query.length === 0) return bal_variables;
-    const bal_matched = bal_variables.filter(
-      (bal_variable) =>
-        bal_variable.label.toLowerCase().includes(bal_query) ||
-        (bal_items.get(bal_variable.itemId)?.label ?? '').toLowerCase().includes(bal_query)
-    );
-    if (bal_matched.length > 0) return bal_matched;
-    return bal_variables;
+    const bal_matched = bal_search_variables(bal_variables, bal_search);
+    return (bal_matched ?? bal_variables).filter((bal_variable) => !bal_hidden_columns.has(bal_variable.key));
   });
 
-  let bal_search_matches_nothing = $derived.by(() => {
-    const bal_query = bal_search.trim().toLowerCase();
-    if (bal_query.length === 0) return false;
-    const bal_respondent_match = bal_respondents.some((bal_respondent) =>
-      bal_respondent.toLowerCase().includes(bal_query)
-    );
-    const bal_variable_match = bal_variables.some(
-      (bal_variable) =>
-        bal_variable.label.toLowerCase().includes(bal_query) ||
-        (bal_items.get(bal_variable.itemId)?.label ?? '').toLowerCase().includes(bal_query)
-    );
-    return !bal_respondent_match && !bal_variable_match;
-  });
+  let bal_sorted_respondents = $derived(
+    bal_sort_respondents(bal_filtered_respondents, bal_sort, (bal_respondent, bal_key) => {
+      const bal_response = bal_responses.find(
+        (bal_r) =>
+          bal_r.respondentId === bal_respondent &&
+          (bal_r.rowId ? `${bal_r.itemId}::${bal_r.rowId}` : bal_r.itemId) === bal_key
+      );
+      return bal_response ? bal_value_label(bal_response, bal_items) : '';
+    })
+  );
+
+  let bal_visible_respondents = $derived(bal_sorted_respondents.slice(0, bal_row_limit));
+  let bal_nothing_matches = $derived(bal_search_matches_nothing(bal_respondents, bal_variables, bal_search));
+  let bal_shown_column_count = $derived(bal_filtered_variables.length);
+  let bal_all_columns_visible = $derived(bal_filtered_variables.length === bal_variables.length && bal_hidden_columns.size === 0);
+
+  function bal_toggle_sort(bal_key: string): void {
+    if (bal_sort.key === bal_key) {
+      bal_sort = { key: bal_key, dir: bal_sort.dir === 'asc' ? 'desc' : 'asc' };
+    } else {
+      bal_sort = { key: bal_key, dir: 'asc' };
+    }
+  }
+
+  function bal_toggle_column(bal_key: string): void {
+    if (bal_hidden_columns.has(bal_key)) bal_hidden_columns.delete(bal_key);
+    else bal_hidden_columns.add(bal_key);
+  }
+
+  function bal_show_all_columns(): void {
+    bal_hidden_columns.clear();
+  }
+
+  function bal_show_no_columns(): void {
+    for (const bal_variable of bal_variables) bal_hidden_columns.add(bal_variable.key);
+  }
 
   let bal_counts = $derived.by(() => {
     const bal_result = { accepted: 0, review: 0, blank: 0, manual: 0, manualCorrected: 0 };
@@ -637,29 +638,57 @@
         <input
           class="table-search"
           type="search"
-          placeholder="Search respondent, variable, or question"
+          placeholder="Search respondent, variable, question, or section"
           bind:value={bal_search}
         />
+        <details class="cols">
+          <summary>Columns ({bal_shown_column_count}/{bal_variables.length})</summary>
+          <div class="cols-pop">
+            <div class="cols-actions">
+              <button type="button" onclick={bal_show_all_columns} disabled={bal_all_columns_visible}>All</button>
+              <button type="button" onclick={bal_show_no_columns} disabled={!bal_all_columns_visible}>None</button>
+            </div>
+            {#each bal_variables as bal_variable (bal_variable.key)}
+              <label class="col-toggle">
+                <input
+                  type="checkbox"
+                  checked={!bal_hidden_columns.has(bal_variable.key)}
+                  onchange={() => bal_toggle_column(bal_variable.key)}
+                />
+                <span>{bal_variable.label}</span>
+              </label>
+            {/each}
+          </div>
+        </details>
       </div>
-      {#if bal_search_matches_nothing}
+      <p class="muted table-count">
+        Showing {bal_visible_respondents.length} of {bal_sorted_respondents.length} respondent{bal_sorted_respondents.length === 1 ? '' : 's'}
+        · {bal_shown_column_count} of {bal_variables.length} variable{bal_variables.length === 1 ? '' : 's'}
+      </p>
+      {#if bal_nothing_matches}
         <p class="muted">Nothing matches this search.</p>
       {:else}
       <div class="table-wrap">
         <table class="data">
           <thead>
             <tr>
-              <th>Respondent</th>
-              <th scope="col">Status</th>
+              <th scope="col" class="sticky-id">Respondent</th>
+              <th scope="col" class="sticky-status">Status</th>
               {#each bal_filtered_variables as bal_variable (bal_variable.key)}
-                <th scope="col">{bal_variable.label}</th>
+                <th scope="col" aria-sort={bal_sort.key === bal_variable.key ? (bal_sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+                  <button class="sort-btn" onclick={() => bal_toggle_sort(bal_variable.key)}>
+                    {bal_variable.label}
+                    <span class="sort-arrow">{bal_sort.key === bal_variable.key ? (bal_sort.dir === 'asc' ? '↑' : '↓') : ''}</span>
+                  </button>
+                </th>
               {/each}
             </tr>
           </thead>
           <tbody>
-            {#each bal_filtered_respondents as bal_respondent (bal_respondent)}
+            {#each bal_visible_respondents as bal_respondent (bal_respondent)}
               <tr>
-                <th scope="row">{bal_respondent}</th>
-                <td>
+                <th scope="row" class="sticky-id">{bal_respondent}</th>
+                <td class="sticky-status">
                   {#if bal_completeness.get(bal_respondent)}
                     <StatusPill
                       tone={bal_completeness_tone(bal_completeness.get(bal_respondent)!)}
@@ -698,6 +727,14 @@
           </tbody>
         </table>
       </div>
+      {#if bal_sorted_respondents.length > bal_visible_respondents.length}
+        <div class="window-bar">
+          <Button size="sm" onclick={() => (bal_row_limit = bal_next_row_limit(bal_row_limit))}>
+            Show {Math.min(BAL_TABLE_ROW_WINDOW, bal_sorted_respondents.length - bal_visible_respondents.length)} more
+          </Button>
+          <span class="muted">{bal_sorted_respondents.length - bal_visible_respondents.length} respondents hidden</span>
+        </div>
+      {/if}
       {/if}
     {/if}
   {/if}
@@ -940,6 +977,111 @@
     position: sticky;
     top: 0;
     background: var(--surface);
+    z-index: 2;
+  }
+  table.data thead th.sticky-id,
+  table.data thead th.sticky-status {
+    z-index: 3;
+  }
+  table.data .sticky-id {
+    position: sticky;
+    left: 0;
+    background: var(--surface);
+    z-index: 1;
+    min-width: 110px;
+    border-right: 1px solid var(--border);
+  }
+  table.data thead th.sticky-id {
+    z-index: 4;
+  }
+  table.data .sticky-status {
+    position: sticky;
+    left: 110px;
+    background: var(--surface);
+    z-index: 1;
+    border-right: 1px solid var(--border);
+  }
+  table.data tbody tr:hover .sticky-id,
+  table.data tbody tr:hover .sticky-status {
+    background: var(--surface-raised, var(--surface));
+  }
+  .sort-btn {
+    border: none;
+    background: none;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .sort-arrow {
+    min-width: 10px;
+    color: var(--text-muted);
+  }
+  .table-count {
+    margin: 0;
+  }
+  .window-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .cols {
+    position: relative;
+  }
+  .cols summary {
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    background: var(--surface-raised);
+    white-space: nowrap;
+    user-select: none;
+  }
+  .cols-pop {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 6px);
+    z-index: 20;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px;
+    max-height: 300px;
+    max-width: 280px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  }
+  .cols-actions {
+    display: flex;
+    gap: 6px;
+  }
+  .cols-actions button {
+    border: 1px solid var(--border);
+    background: var(--surface-raised);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--text);
+  }
+  .cols-actions button:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  .col-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    white-space: nowrap;
   }
   .cell {
     border: none;

@@ -58,6 +58,7 @@ export interface bal_ItemInfo {
   label: string;
   type_label: string;
   number: string;
+  sectionTitle: string;
   options: { id: string; label: string }[];
   columns: { id: string; label: string }[];
   rows: { id: string; label: string }[];
@@ -73,6 +74,7 @@ export function bal_item_map(bal_questionnaire: QuestionnaireRecord): Map<string
         label: bal_item.label || bal_item.heading || bal_item.type,
         type_label: BAL_TYPE_LABELS[bal_item.type] ?? bal_item.type,
         number: bal_numbering.itemLabels[bal_item.id] ?? '',
+        sectionTitle: bal_section.title,
         options: bal_item.options.map((bal_option) => ({ id: bal_option.id, label: bal_option.label })),
         columns: bal_item.columns.map((bal_column) => ({ id: bal_column.id, label: bal_column.label })),
         rows: bal_item.rows.map((bal_row) => ({ id: bal_row.id, label: bal_row.label }))
