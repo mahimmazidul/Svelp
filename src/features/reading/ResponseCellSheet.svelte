@@ -88,7 +88,7 @@
             ?.columns.find((bal_column) => bal_column.id === bal_value_id);
           if (bal_col) return bal_col.coding ?? bal_col.label;
         }
-        const bal_opt = bal_info.options.find((bal_option) => bal_option.id === bal_value_id);
+        const bal_opt = bal_defs.options.find((bal_option) => bal_option.id === bal_value_id);
         return bal_opt ? (bal_opt.label ?? bal_value_id) : bal_value_id;
       });
       bal_coded_display = bal_code_parts.join(', ');
