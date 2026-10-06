@@ -3,6 +3,7 @@ import { bal_slex } from './shobdo_lexer';
 import { bal_sparse } from './naksha_parser';
 import { bal_plan_apply } from './bani_compile';
 import { bal_source_serialize, bal_questionnaire_source_diff } from './lekha_serialize';
+import { bal_source_format } from './bal_source_pipeline';
 import type { QuestionnaireRecord, ResponseScaleRecord } from '../../models/types';
 
 function bal_cycle(bal_source: string, bal_scales: ResponseScaleRecord[] = []) {
@@ -200,5 +201,17 @@ ${bal_body}
     const bal_result = bal_source_serialize(bal_questionnaire, []);
     expect(bal_result.skipped).toEqual([{ label: 'Rank options', type: 'ranking' }]);
     expect(bal_result.text).not.toContain('rank');
+  });
+});
+
+describe('source pipeline', () => {
+  it('formats unformatted source into canonical text', () => {
+    const bal_formatted = bal_source_format('svelp 1\ntitle   "Messy"\n\n\nsingle water "Water"\noption a "A" code 1\nrequired\n');
+    expect(bal_formatted).toContain('title "Messy"');
+    expect(bal_formatted).toContain('single water "Water"\n  required\n  option a "A" code 1');
+  });
+
+  it('returns null when formatting invalid source', () => {
+    expect(bal_source_format('svelp 1\ntitle "X"\nsingle broken\n')).toBeNull();
   });
 });
