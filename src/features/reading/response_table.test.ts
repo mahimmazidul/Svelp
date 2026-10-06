@@ -137,6 +137,8 @@ describe('filters and search', () => {
     expect(bal_search_variables(bal_vars, 'water_source')?.map((bal_v) => bal_v.key)).toEqual(['i1']);
     expect(bal_search_matches_nothing(bal_respondents, bal_vars, 'nonsense')).toBe(true);
     expect(bal_search_matches_nothing(bal_respondents, bal_vars, 'village')).toBe(false);
+    expect(bal_search_matches_nothing(bal_respondents, bal_vars, '')).toBe(false);
+    expect(bal_search_matches_nothing(bal_respondents, bal_vars, '   ')).toBe(false);
   });
 });
 

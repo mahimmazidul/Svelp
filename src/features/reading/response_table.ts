@@ -103,6 +103,7 @@ export function bal_search_matches_nothing(
   bal_variables: bal_TableVariable[],
   bal_query: string
 ): boolean {
+  if (bal_query.trim().length === 0) return false;
   return bal_search_respondents(bal_respondents, bal_query) === null && bal_search_variables(bal_variables, bal_query) === null;
 }
 
