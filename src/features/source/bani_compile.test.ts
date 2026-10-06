@@ -165,7 +165,7 @@ option well "Tube well" code 2
     expect(bal_section.id).toBe('sec-1');
     const bal_item = bal_section.items[0];
     expect(bal_item.id).toBe('item-1');
-    expect(bal_item.metadata.sourceKey).toBe('water_source');
+    expect(bal_item.metadata?.sourceKey).toBe('water_source');
     expect(bal_item.options.map((bal_o) => bal_o.id)).toEqual(['opt-1', 'opt-2']);
     expect(bal_item.label).toBe('Primary drinking water source');
     expect(bal_plan.changes.itemsAdded).toBe(0);
