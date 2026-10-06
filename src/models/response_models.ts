@@ -142,3 +142,28 @@ export const BAL_DEFAULT_THRESHOLD_PROFILE: RecognitionThresholdProfile = {
   noiseMultiplier: 3,
   regionMarginMm: 2.6
 };
+
+export interface DatasetSnapshotCounts {
+  autoAccepted: number;
+  reviewedCorrected: number;
+  blank: number;
+  needsReview: number;
+  manualOnly: number;
+  unreadable: number;
+}
+
+export interface DatasetSnapshotRecord {
+  id: string;
+  projectId: string;
+  questionnaireId: string;
+  questionnaireVersion: number;
+  algorithmVersion: string;
+  profileName: string;
+  respondentCount: number;
+  unresolvedCount: number;
+  missingPageRespondents: number;
+  counts: DatasetSnapshotCounts;
+  exportConfig: { format: string; optionColumns: boolean; bom: boolean; includeDiagnostics: boolean };
+  svelpVersion: string;
+  createdAt: number;
+}

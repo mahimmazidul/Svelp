@@ -268,3 +268,42 @@ export function bal_research_summary(bal_input: bal_ResearchSummaryInput): strin
     2
   );
 }
+
+export interface bal_ManifestInput {
+  svelpVersion: string;
+  questionnaireVersion: number;
+  mahimFormatVersion: number;
+  algorithmVersion: string;
+  profileName: string;
+  respondentCount: number;
+  unresolvedCount: number;
+  exportConfig: { format: string; optionColumns: boolean; bom: boolean; includeDiagnostics: boolean };
+  snapshotAt: string;
+  responsesCsv: string;
+  responsesJson: string;
+  codebookCsv: string;
+}
+
+export function bal_reproducibility_manifest(bal_input: bal_ManifestInput): string {
+  return JSON.stringify(
+    {
+      product: 'Svelp',
+      svelpVersion: bal_input.svelpVersion,
+      questionnaireVersion: bal_input.questionnaireVersion,
+      mahimFormatVersion: bal_input.mahimFormatVersion,
+      recognitionAlgorithmVersion: bal_input.algorithmVersion,
+      recognitionProfile: bal_input.profileName,
+      respondentCount: bal_input.respondentCount,
+      unresolvedCount: bal_input.unresolvedCount,
+      exportConfig: bal_input.exportConfig,
+      files: {
+        responsesCsv: bal_input.responsesCsv,
+        responsesJson: bal_input.responsesJson,
+        codebookCsv: bal_input.codebookCsv
+      },
+      snapshotAt: bal_input.snapshotAt
+    },
+    null,
+    2
+  );
+}

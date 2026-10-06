@@ -5,6 +5,7 @@ import {
   bal_diagnostics_to_csv,
   bal_audit_to_csv,
   bal_r_helper,
+  bal_reproducibility_manifest,
   bal_research_summary,
   bal_spss_syntax
 } from './export_scripts';
@@ -161,5 +162,30 @@ describe('diagnostics export', () => {
       'respondent_id,variable_name,final_value,machine_detected_value,recognition_status,evidence_score,manually_reviewed,algorithm_version,source_page_id'
     );
     expect(bal_csv.split('\r\n')[1]).toBe('R-001,water_source,well,piped,corrected,0.42,true,R1,');
+  });
+});
+
+describe('reproducibility manifest', () => {
+  it('records provenance and export configuration', () => {
+    const bal_json = bal_reproducibility_manifest({
+      svelpVersion: '0.1.0',
+      questionnaireVersion: 3,
+      mahimFormatVersion: 1,
+      algorithmVersion: 'R1',
+      profileName: 'custom-v1',
+      respondentCount: 42,
+      unresolvedCount: 2,
+      exportConfig: { format: 'csv', optionColumns: true, bom: false, includeDiagnostics: false },
+      snapshotAt: '2026-10-06T00:00:00.000Z',
+      responsesCsv: 'Study-v3-responses.csv',
+      responsesJson: 'Study-v3-responses.json',
+      codebookCsv: 'Study-v3-codebook.csv'
+    });
+    const bal_parsed = JSON.parse(bal_json) as Record<string, unknown>;
+    expect(bal_parsed.svelpVersion).toBe('0.1.0');
+    expect(bal_parsed.mahimFormatVersion).toBe(1);
+    expect((bal_parsed.exportConfig as Record<string, unknown>).optionColumns).toBe(true);
+    expect((bal_parsed.files as Record<string, string>).responsesCsv).toBe('Study-v3-responses.csv');
+    expect(bal_parsed.snapshotAt).toBe('2026-10-06T00:00:00.000Z');
   });
 });

@@ -10,6 +10,7 @@ import type {
   BlankReferenceRecord,
   RecognitionRunRecord,
   ResponseAuditEventRecord,
+  DatasetSnapshotRecord,
   ResponseRecord
 } from '../models/response_models';
 
@@ -66,6 +67,19 @@ export async function ken_pori_response_audit(
     'responseAuditEvents',
     'responseId',
     bal_response_id
+  );
+  return bal_rows.sort((bal_a, bal_b) => bal_b.createdAt - bal_a.createdAt);
+}
+
+export async function bal_save_dataset_snapshot(bal_row: DatasetSnapshotRecord): Promise<void> {
+  await bal_put('datasetSnapshots', bal_row);
+}
+
+export async function ken_pori_dataset_snapshots(bal_project_id: string): Promise<DatasetSnapshotRecord[]> {
+  const bal_rows = await bal_get_all_by_index<DatasetSnapshotRecord>(
+    'datasetSnapshots',
+    'projectId',
+    bal_project_id
   );
   return bal_rows.sort((bal_a, bal_b) => bal_b.createdAt - bal_a.createdAt);
 }

@@ -5,7 +5,13 @@
   import Icon from '../../icons/Icon.svelte';
   import { malta_download_file } from '../../utils/download';
   import { dhon_project } from '../../db/projects_repo';
-  import { ken_pori_response_audit_by_project } from '../../db/response_repo';
+  import {
+    bal_save_dataset_snapshot,
+    ken_pori_dataset_snapshots,
+    ken_pori_response_audit_by_project
+  } from '../../db/response_repo';
+  import type { DatasetSnapshotRecord } from '../../models/response_models';
+  import { BAL_MAHIM_PAYLOAD_VERSION } from '../mahim/mahim_container';
   import { BAL_READER_ALGORITHM_VERSION } from '../../models/response_models';
   import { bal_load_dataset_context, type bal_DatasetContext } from '../reading/reading_context';
   import {
@@ -27,6 +33,7 @@
     bal_audit_to_csv,
     bal_diagnostics_to_csv,
     bal_r_helper,
+    bal_reproducibility_manifest,
     bal_research_summary,
     bal_spss_syntax
   } from './export_scripts';
@@ -42,6 +49,7 @@
   let bal_bom = $state(false);
   let bal_warnings_acknowledged = $state(false);
   let bal_codebook_open = $state(false);
+  let bal_snapshots = $state<DatasetSnapshotRecord[]>([]);
   let bal_codebook_search = $state('');
   let bal_codebook_section = $state('');
   let bal_codebook_type = $state('');
@@ -106,6 +114,37 @@
     return bal_export_filenames(bal_project_title || 'Svelp', bal_context?.questionnaire.version ?? 1);
   }
 
+  function bal_record_snapshot(bal_format: string): void {
+    if (!bal_context) return;
+    const bal_responses = bal_context.responses;
+    const bal_counts = {
+      autoAccepted: bal_responses.filter((bal_r) => bal_r.status === 'accepted' && !bal_r.manuallyReviewed).length,
+      reviewedCorrected: bal_responses.filter((bal_r) => bal_r.manuallyReviewed).length,
+      blank: bal_responses.filter((bal_r) => bal_r.status === 'blank').length,
+      needsReview: bal_responses.filter((bal_r) => bal_r.status === 'needs-review' || bal_r.status === 'ambiguous' || bal_r.status === 'multiple-marks').length,
+      manualOnly: bal_responses.filter((bal_r) => bal_r.status === 'manual-only').length,
+      unreadable: bal_responses.filter((bal_r) => bal_r.status === 'unreadable').length
+    };
+    const bal_row: DatasetSnapshotRecord = {
+      id: `snap-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      projectId,
+      questionnaireId: bal_context.questionnaire.id,
+      questionnaireVersion: bal_context.questionnaire.version,
+      algorithmVersion: bal_responses.length > 0 ? bal_responses[0].algorithmVersion : BAL_READER_ALGORITHM_VERSION,
+      profileName: [...new Set(bal_responses.map((bal_r) => bal_r.thresholdProfileName))].join(', ') || 'default',
+      respondentCount: bal_context.respondents.length,
+      unresolvedCount: bal_unresolved_responses,
+      missingPageRespondents: bal_missing_page_respondents,
+      counts: bal_counts,
+      exportConfig: { format: bal_format, optionColumns: bal_option_columns, bom: bal_bom, includeDiagnostics: true },
+      svelpVersion: __SVELP_VERSION__,
+      createdAt: Date.now()
+    };
+    void bal_save_dataset_snapshot(bal_row).then(() => {
+      bal_snapshots = [bal_row, ...bal_snapshots];
+    });
+  }
+
   function bal_review_issues(): void {
     window.location.hash = `#/project/${encodeURIComponent(projectId)}/responses`;
   }
@@ -129,6 +168,7 @@
       bal_to_csv(bal_rows, bal_export_headers(bal_prepared.columns, false), bal_bom),
       'text/csv'
     );
+    bal_record_snapshot('csv');
   }
 
   async function bal_download_json(): Promise<void> {
@@ -145,6 +185,7 @@
       ),
       'application/json'
     );
+    bal_record_snapshot('json');
   }
 
   async function bal_download_codebook_csv(): Promise<void> {
@@ -207,6 +248,29 @@
     );
   }
 
+  async function bal_download_manifest(): Promise<void> {
+    if (!bal_context) return;
+    const bal_responses = bal_context.responses;
+    malta_download_file(
+      bal_names().base + '-manifest.json',
+      bal_reproducibility_manifest({
+        svelpVersion: __SVELP_VERSION__,
+        questionnaireVersion: bal_context.questionnaire.version,
+        mahimFormatVersion: BAL_MAHIM_PAYLOAD_VERSION,
+        algorithmVersion: bal_responses.length > 0 ? bal_responses[0].algorithmVersion : BAL_READER_ALGORITHM_VERSION,
+        profileName: [...new Set(bal_responses.map((bal_r) => bal_r.thresholdProfileName))].join(', ') || 'default',
+        respondentCount: bal_context.respondents.length,
+        unresolvedCount: bal_unresolved_responses,
+        exportConfig: { format: 'csv', optionColumns: bal_option_columns, bom: bal_bom, includeDiagnostics: true },
+        snapshotAt: new Date().toISOString(),
+        responsesCsv: bal_names().responsesCsv,
+        responsesJson: bal_names().responsesJson,
+        codebookCsv: bal_names().codebookCsv
+      }),
+      'application/json'
+    );
+  }
+
   async function bal_download_spss(): Promise<void> {
     if (!bal_context) return;
     const bal_prepared = bal_prepare(bal_context);
@@ -236,6 +300,7 @@
       }
       const bal_project = await dhon_project(projectId);
       bal_project_title = bal_project?.title ?? 'Svelp';
+      bal_snapshots = await ken_pori_dataset_snapshots(projectId);
       const bal_cols = bal_export_columns(bal_loaded.questionnaire);
       bal_context = bal_loaded;
       bal_columns = bal_cols;
@@ -427,6 +492,30 @@
         missing. The R helper reads the same CSV and converts coded answers to labelled factors. XLSX is
         intentionally not produced; the CSV opens directly in Excel, LibreOffice, Google Sheets, R, Python, and SPSS.
       </p>
+      <div class="actions">
+        <Button onclick={bal_download_manifest}>
+          <Icon name="file-text" size={16} />
+          Reproducibility manifest
+        </Button>
+      </div>
+      {#if bal_snapshots.length > 0}
+        <div class="snapshots">
+          <h3>Recorded exports</h3>
+          {#each bal_snapshots.slice(0, 8) as bal_snapshot (bal_snapshot.id)}
+            <div class="snapshot-row">
+              <span class="mono">{new Date(bal_snapshot.createdAt).toLocaleString()}</span>
+              <span>
+                {bal_snapshot.respondentCount} respondents · {bal_snapshot.exportConfig.format}
+                {bal_snapshot.exportConfig.optionColumns ? ' · binary columns' : ''}{bal_snapshot.exportConfig.bom ? ' · BOM' : ''}
+              </span>
+              <span class="muted">
+                {bal_snapshot.unresolvedCount} unresolved · v{bal_snapshot.questionnaireVersion} · {bal_snapshot.algorithmVersion} · {bal_snapshot.profileName}
+              </span>
+            </div>
+          {/each}
+          <p class="muted">Snapshots record export configuration and data counts; no response data is duplicated.</p>
+        </div>
+      {/if}
     </section>
   {/if}
 </div>
@@ -559,6 +648,23 @@
     color: var(--text-muted);
     font-size: 13px;
     margin: 0;
+  }
+  .snapshots {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .snapshots h3 {
+    margin: 0;
+    font-size: 13px;
+  }
+  .snapshot-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 14px;
+    font-size: 13px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 6px;
   }
   @media (max-width: 768px) {
     .page {

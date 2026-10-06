@@ -11,7 +11,7 @@ export interface BalStoreSpec {
 }
 
 export const BAL_DB_NAME = 'svelp';
-export const BAL_DB_VERSION = 5;
+export const BAL_DB_VERSION = 6;
 
 export const PSTU_CDI_STORES: Record<number, BalStoreSpec[]> = {
   1: [
@@ -130,6 +130,16 @@ export const PSTU_CDI_STORES: Record<number, BalStoreSpec[]> = {
       name: 'blankReferences',
       keyPath: 'id',
       indexes: [{ name: 'fingerprint', keyPath: 'fingerprint' }]
+    }
+  ],
+  6: [
+    {
+      name: 'datasetSnapshots',
+      keyPath: 'id',
+      indexes: [
+        { name: 'projectId', keyPath: 'projectId' },
+        { name: 'createdAt', keyPath: 'createdAt' }
+      ]
     }
   ]
 };
