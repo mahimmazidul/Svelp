@@ -58,6 +58,88 @@ function bal_check_scale_options(
   }
 }
 
+
+const BAL_DIRECTIVE_ALLOWED: Record<string, string[]> = {
+  unit: ['number'],
+  step: ['number'],
+  maxlen: ['shorttext', 'longtext'],
+  min: ['number', 'multiple'],
+  max: ['number', 'multiple'],
+  option: ['single', 'multiple'],
+  use: ['single', 'likert'],
+  scale: ['matrix'],
+  columns: ['matrix'],
+  column: ['matrix'],
+  rows: ['matrix'],
+  single_per_row: ['matrix'],
+  multiple_per_row: ['matrix'],
+  keep_together: ['matrix'],
+  yes: ['yesno'],
+  no: ['yesno'],
+  introduction: ['consent'],
+  acknowledgement: ['consent'],
+  printed_name: ['participant_signature', 'researcher_signature'],
+  no_printed_name: ['participant_signature', 'researcher_signature'],
+  no_date: ['participant_signature', 'researcher_signature'],
+  date: ['participant_signature', 'researcher_signature'],
+  role: ['participant_signature', 'researcher_signature'],
+  callout: ['instruction'],
+  required: [
+    'single',
+    'multiple',
+    'yesno',
+    'shorttext',
+    'longtext',
+    'number',
+    'date',
+    'time',
+    'likert',
+    'matrix',
+    'consent',
+    'participant_signature',
+    'researcher_signature'
+  ]
+};
+
+function bal_check_directives(bal_item: bal_AstItem, bal_issues: bal_SemanticIssue[]): void {
+  const bal_flags: [string, boolean][] = [
+    ['unit', bal_item.unit !== null],
+    ['step', bal_item.step !== null],
+    ['maxlen', bal_item.maxlen !== null],
+    ['min', bal_item.min !== null],
+    ['max', bal_item.max !== null],
+    ['option', bal_item.options.length > 0],
+    ['use', bal_item.useScale !== null],
+    ['scale', bal_item.matrixScale !== null],
+    ['column', bal_item.matrixColumns.length > 0],
+    ['rows', bal_item.rows.length > 0],
+    ['yes', bal_item.yesCode !== null],
+    ['no', bal_item.noCode !== null],
+    ['introduction', bal_item.consentIntroduction !== null],
+    ['acknowledgement', bal_item.acknowledgement !== null],
+    ['printed_name', bal_item.printedName === true],
+    ['no_printed_name', bal_item.printedName === false],
+    ['date', bal_item.date === true],
+    ['no_date', bal_item.date === false],
+    ['role', bal_item.role !== null],
+    ['callout', bal_item.callout],
+    ['single_per_row', !bal_item.singlePerRow && false],
+    ['multiple_per_row', bal_item.multiplePerRow]
+  ];
+  for (const [bal_directive, bal_present] of bal_flags) {
+    if (!bal_present) continue;
+    const bal_allowed = BAL_DIRECTIVE_ALLOWED[bal_directive];
+    if (bal_allowed && !bal_allowed.includes(bal_item.head)) {
+      bal_issues.push({
+        line: bal_item.line,
+        column: 1,
+        severity: 'error',
+        message: `"${bal_directive}" is not valid for a ${bal_item.head} question.`
+      });
+    }
+  }
+}
+
 export function bal_svalidate(bal_doc: bal_AstDocument): bal_SemanticIssue[] {
   const bal_issues: bal_SemanticIssue[] = [];
 
@@ -131,6 +213,7 @@ export function bal_svalidate(bal_doc: bal_AstDocument): bal_SemanticIssue[] {
       }
       bal_taken_names.add(bal_bulk.variableName);
     }
+    bal_check_directives(bal_item, bal_issues);
     if (bal_item.head === 'likert' && bal_item.useScale && bal_item.likertPoints.length > 0) {
       bal_issues.push({
         line: bal_item.line,
