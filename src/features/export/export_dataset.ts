@@ -497,10 +497,29 @@ export function bal_codebook_to_json(
 export function bal_export_filenames(
   bal_project_title: string,
   bal_version: number
-): { responsesCsv: string; responsesJson: string; codebookCsv: string } {
+): {
+  base: string;
+  responsesCsv: string;
+  responsesJson: string;
+  codebookCsv: string;
+  codebookJson: string;
+  diagnosticsCsv: string;
+  auditCsv: string;
+  summaryJson: string;
+  spssSyntax: string;
+  rHelper: string;
+} {
+  const bal_base = `${bal_project_title}-v${bal_version}`;
   return {
-    responsesCsv: bal_sanitize_filename(`${bal_project_title}-v${bal_version}-responses`, '.csv'),
-    responsesJson: bal_sanitize_filename(`${bal_project_title}-v${bal_version}-responses`, '.json'),
-    codebookCsv: bal_sanitize_filename(`${bal_project_title}-v${bal_version}-codebook`, '.csv')
+    base: bal_base,
+    responsesCsv: bal_sanitize_filename(`${bal_base}-responses`, '.csv'),
+    responsesJson: bal_sanitize_filename(`${bal_base}-responses`, '.json'),
+    codebookCsv: bal_sanitize_filename(`${bal_base}-codebook`, '.csv'),
+    codebookJson: bal_sanitize_filename(`${bal_base}-codebook`, '.json'),
+    diagnosticsCsv: bal_sanitize_filename(`${bal_base}-responses-diagnostics`, '.csv'),
+    auditCsv: bal_sanitize_filename(`${bal_base}-audit`, '.csv'),
+    summaryJson: bal_sanitize_filename(`${bal_base}-summary`, '.json'),
+    spssSyntax: bal_sanitize_filename(`${bal_base}-import`, '.sps'),
+    rHelper: bal_sanitize_filename(`${bal_base}-import`, '.R')
   };
 }

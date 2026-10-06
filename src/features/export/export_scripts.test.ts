@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ResponseAuditEventRecord } from '../../models/response_models';
 import {
   bal_audit_rows,
+  bal_diagnostics_to_csv,
   bal_audit_to_csv,
   bal_r_helper,
   bal_research_summary,
@@ -134,5 +135,31 @@ describe('research summary', () => {
     expect(bal_parsed.recognitionAlgorithmVersion).toBe('R1');
     expect(bal_json).toContain('evidence scores, not probabilities');
     expect(bal_json).not.toContain('%');
+  });
+});
+
+describe('diagnostics export', () => {
+  it('exposes machine values and evidence scores without touching the clean dataset', () => {
+    const bal_csv = bal_diagnostics_to_csv(
+      [
+        {
+          id: 'r1',
+          respondentId: 'R-001',
+          variableName: 'water_source',
+          value: ['well'],
+          machineValue: ['piped'],
+          status: 'corrected' as never,
+          confidence: 0.42,
+          manuallyReviewed: true,
+          algorithmVersion: 'R1',
+          sourcePageId: null
+        } as never
+      ],
+      ['R-001']
+    );
+    expect(bal_csv.split('\r\n')[0]).toBe(
+      'respondent_id,variable_name,final_value,machine_detected_value,recognition_status,evidence_score,manually_reviewed,algorithm_version,source_page_id'
+    );
+    expect(bal_csv.split('\r\n')[1]).toBe('R-001,water_source,well,piped,corrected,0.42,true,R1,');
   });
 });

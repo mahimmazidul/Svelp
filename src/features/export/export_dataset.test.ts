@@ -456,5 +456,11 @@ describe('export dataset', () => {
     expect(bal_names.responsesCsv).toBe('Water-Study-Phase-2-v3-responses.csv');
     expect(bal_names.responsesJson).toBe('Water-Study-Phase-2-v3-responses.json');
     expect(bal_names.codebookCsv).toBe('Water-Study-Phase-2-v3-codebook.csv');
+    expect(bal_names.codebookJson).toBe('Water-Study-Phase-2-v3-codebook.json');
+    expect(bal_names.diagnosticsCsv).toBe('Water-Study-Phase-2-v3-responses-diagnostics.csv');
+    expect(bal_names.auditCsv).toBe('Water-Study-Phase-2-v3-audit.csv');
+    expect(bal_names.summaryJson).toBe('Water-Study-Phase-2-v3-summary.json');
+    expect(bal_names.spssSyntax).toBe('Water-Study-Phase-2-v3-import.sps');
+    expect(bal_names.rHelper).toBe('Water-Study-Phase-2-v3-import.R');
   });
 });

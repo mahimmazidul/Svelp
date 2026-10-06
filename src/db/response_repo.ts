@@ -70,6 +70,16 @@ export async function ken_pori_response_audit(
   return bal_rows.sort((bal_a, bal_b) => bal_b.createdAt - bal_a.createdAt);
 }
 
+export async function ken_pori_response_audit_by_project(
+  bal_project_id: string
+): Promise<ResponseAuditEventRecord[]> {
+  return bal_get_all_by_index<ResponseAuditEventRecord>(
+    'responseAuditEvents',
+    'projectId',
+    bal_project_id
+  );
+}
+
 export async function ken_pori_respondent_audit(
   bal_respondent_id: string
 ): Promise<ResponseAuditEventRecord[]> {

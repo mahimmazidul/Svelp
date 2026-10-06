@@ -199,6 +199,49 @@ export interface bal_ResearchSummaryInput {
   svelpVersion: string;
 }
 
+export function bal_diagnostics_to_csv(
+  bal_responses: ResponseRecord[],
+  bal_respondent_order: string[] | null = null,
+  bal_bom = false
+): string {
+  const bal_order = new Map((bal_respondent_order ?? []).map((bal_respondent, bal_index) => [bal_respondent, bal_index]));
+  const bal_rank = (bal_response: ResponseRecord): number =>
+    bal_order.get(bal_response.respondentId) ?? Number.MAX_SAFE_INTEGER;
+  const bal_variable = (bal_response: ResponseRecord): string => bal_response.variableName ?? '';
+  const bal_sorted = [...bal_responses].sort((bal_a, bal_b) => {
+    const bal_rank_a = bal_rank(bal_a);
+    const bal_rank_b = bal_rank(bal_b);
+    if (bal_rank_a !== bal_rank_b) return bal_rank_a - bal_rank_b;
+    return bal_variable(bal_a).localeCompare(bal_variable(bal_b));
+  });
+  const bal_serialized = bal_sorted.map((bal_response) => ({
+    respondent_id: bal_response.respondentId,
+    variable_name: bal_response.variableName ?? '',
+    final_value: (bal_response.value ?? []).join('; '),
+    machine_detected_value: (bal_response.machineValue ?? []).join('; '),
+    recognition_status: bal_response.status,
+    evidence_score: bal_response.confidence === null ? '' : String(bal_response.confidence),
+    manually_reviewed: bal_response.manuallyReviewed ? 'true' : 'false',
+    algorithm_version: bal_response.algorithmVersion,
+    source_page_id: bal_response.sourcePageId ?? ''
+  }));
+  return bal_to_csv(
+    bal_serialized,
+    [
+      'respondent_id',
+      'variable_name',
+      'final_value',
+      'machine_detected_value',
+      'recognition_status',
+      'evidence_score',
+      'manually_reviewed',
+      'algorithm_version',
+      'source_page_id'
+    ],
+    bal_bom
+  );
+}
+
 export function bal_research_summary(bal_input: bal_ResearchSummaryInput): string {
   return JSON.stringify(
     {
