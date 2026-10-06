@@ -53,6 +53,7 @@
   >([]);
   let bal_diagnostic_note = $state<string | null>(null);
   let bal_transcript = $state('');
+  let bal_coded_display = $state<string | null>(null);
   let bal_busy = $state(false);
   let bal_error = $state<string | null>(null);
 
@@ -74,6 +75,26 @@
       (bal_a, bal_b) => bal_b.createdAt - bal_a.createdAt
     );
     bal_transcript = bal_response.value.join(' ');
+    const bal_current = bal_response;
+    const bal_defs = bal_info;
+    if (!bal_defs) return;
+    const bal_option_defs = bal_defs.options.length > 0 ? bal_defs.options : bal_defs.columns;
+    if (bal_current.value.length > 0 && bal_option_defs.length > 0) {
+      const bal_code_parts = bal_current.value.map((bal_value_id) => {
+        if (bal_current.rowId) {
+          const bal_col = bal_q.sections
+            .flatMap((bal_section) => bal_section.items)
+            .find((bal_item) => bal_item.id === itemId)
+            ?.columns.find((bal_column) => bal_column.id === bal_value_id);
+          if (bal_col) return bal_col.coding ?? bal_col.label;
+        }
+        const bal_opt = bal_info.options.find((bal_option) => bal_option.id === bal_value_id);
+        return bal_opt ? (bal_opt.label ?? bal_value_id) : bal_value_id;
+      });
+      bal_coded_display = bal_code_parts.join(', ');
+    } else {
+      bal_coded_display = null;
+    }
     await bal_load_crop();
     void bal_load_diagnostics(bal_q);
   }
@@ -220,6 +241,16 @@
     }
   }
 
+  async function bal_restore_machine(): Promise<void> {
+    if (!bal_response || bal_busy) return;
+    if (!bal_response.machineValue) return;
+    await bal_apply(
+      [...bal_response.machineValue],
+      bal_response.machineStatus ?? 'accepted',
+      'accepted-machine'
+    );
+  }
+
   function bal_on_key(bal_event: KeyboardEvent): void {
     if (!bal_response || bal_busy) return;
     if (bal_event.key === 'b' || bal_event.key === 'B') {
@@ -260,10 +291,26 @@
         {#if bal_response.confidence !== null}
           · clarity {Math.round(bal_response.confidence * 100)}%
         {/if}
+        · {bal_info.number ? `${bal_info.number} ` : ''}{bal_info.label} ({bal_info.type_label})
+        {#if bal_coded_display}
+          · code: {bal_coded_display}
+        {/if}
         {#if bal_response.validationIssues.length > 0}
           · {bal_response.validationIssues.join(', ')}
         {/if}
       </p>
+
+      {#if bal_response.manuallyReviewed && bal_response.machineValue && bal_response.machineValue.length > 0}
+        <div class="machine-restore">
+          <span class="muted">
+            Machine result: {bal_response.machineValue.join(', ')}
+            {#if bal_response.machineConfidence !== null}(clarity {Math.round(bal_response.machineConfidence * 100)}%){/if}
+          </span>
+          <Button size="sm" disabled={bal_busy} onclick={() => void bal_restore_machine()}>
+            Restore machine result
+          </Button>
+        </div>
+      {/if}
 
       <div class="crop-box">
         {#if bal_crop}
@@ -405,6 +452,16 @@
     display: block;
     max-width: 100%;
     margin-top: 8px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .machine-restore {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 10px;
     border: 1px solid var(--border);
     border-radius: 8px;
   }

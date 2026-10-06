@@ -34,9 +34,29 @@ export function bal_status_label(bal_status: RecognitionStatus): string {
   return bal_labels[bal_status];
 }
 
+const BAL_TYPE_LABELS: Record<string, string> = {
+  single_choice: 'single choice',
+  multiple_choice: 'multiple choice',
+  yes_no: 'yes / no',
+  likert_scale: 'scale',
+  matrix: 'matrix',
+  short_text: 'short text',
+  long_text: 'long text',
+  number: 'number',
+  date: 'date',
+  time: 'time',
+  ranking: 'ranking',
+  consent: 'consent',
+  participant_signature: 'signature',
+  researcher_signature: 'signature',
+  instruction: 'instruction',
+  section: 'section'
+};
+
 export interface bal_ItemInfo {
   itemId: string;
   label: string;
+  type_label: string;
   number: string;
   options: { id: string; label: string }[];
   columns: { id: string; label: string }[];
@@ -51,6 +71,7 @@ export function bal_item_map(bal_questionnaire: QuestionnaireRecord): Map<string
       bal_map.set(bal_item.id, {
         itemId: bal_item.id,
         label: bal_item.label || bal_item.heading || bal_item.type,
+        type_label: BAL_TYPE_LABELS[bal_item.type] ?? bal_item.type,
         number: bal_numbering.itemLabels[bal_item.id] ?? '',
         options: bal_item.options.map((bal_option) => ({ id: bal_option.id, label: bal_option.label })),
         columns: bal_item.columns.map((bal_column) => ({ id: bal_column.id, label: bal_column.label })),
