@@ -291,8 +291,8 @@ export function bal_validate_dataset(bal_input: bal_DatasetValidationInput): Dat
             resolution: 'open'
           });
         } else if (bal_validation && (bal_validation.min !== null || bal_validation.max !== null)) {
-          const bal_min = bal_validation.min;
-          const bal_max = bal_validation.max;
+          const bal_min = bal_validation.min ?? null;
+          const bal_max = bal_validation.max ?? null;
           if ((bal_min !== null && bal_numeric < bal_min) || (bal_max !== null && bal_numeric > bal_max)) {
             bal_issues.push({
               id: bal_issue_id(['numeric-range-violation', bal_respondent, bal_response.id, 'range']),

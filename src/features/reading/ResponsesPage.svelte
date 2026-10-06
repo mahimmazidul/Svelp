@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { SvelteSet } from 'svelte/reactivity';
   import Button from '../../components/ui/Button.svelte';
   import EmptyState from '../../components/ui/EmptyState.svelte';
   import StatusPill from '../../components/ui/StatusPill.svelte';
@@ -7,11 +8,21 @@
   import { dhon_questionnaire_for_responses } from '../../db/questionnaires_repo';
   import { ken_pori_scan_batches, ken_pori_scan_pages } from '../../db/scan_repo';
   import { ken_pori_scales } from '../../db/scales_repo';
-  import { ken_pori_responses_by_project } from '../../db/response_repo';
+  import {
+    bal_save_response,
+    bal_save_response_audit_event,
+    ken_pori_responses_by_project
+  } from '../../db/response_repo';
   import type { QuestionnaireRecord } from '../../models/types';
   import type { ScanBatchRecord } from '../../models/scan_models';
   import type { ResponseRecord } from '../../models/response_models';
   import { bal_run_reading, type bal_ReadRunProgress, type bal_ReprocessMode } from '../../services/reading_run';
+  import {
+    bal_validate_dataset,
+    bal_count_issues_by_severity,
+    type DatasetIssue,
+    type DatasetIssueSeverity
+  } from '../export/dataset_validation';
   import {
     BAL_RECOGNITION_CONTROL_BOUNDS,
     bal_load_recognition_profile,
@@ -23,6 +34,7 @@
   import { bal_default_image_decode } from './reading_crops';
   import { bal_completeness_for_respondents, type bal_RespondentStatus } from './reading_completeness';
   import { bal_build_print_document } from '../print/print_layout';
+  import { bal_new_id } from '../../services/scan_service';
   import { bal_format_eta } from '../scan/scan_eta';
   import {
     bal_item_map,
@@ -56,9 +68,15 @@
   let bal_note = $state<string | null>(null);
   let bal_cancel_requested = $state(false);
   let bal_cell = $state<{ respondentId: string; itemId: string; rowId: string | null } | null>(null);
-  let bal_tab = $state<'review' | 'table'>('review');
+  let bal_tab = $state<'review' | 'checks' | 'table'>('review');
   let bal_completeness = $state<Map<string, bal_RespondentStatus>>(new Map());
-  let bal_filter = $state<'all' | 'review' | 'missing-required' | 'manual-only' | 'corrected' | 'blank'>('all');
+  let bal_issues = $state<DatasetIssue[]>([]);
+  let bal_issue_counts = $state<Record<DatasetIssueSeverity, number>>({ error: 0, warning: 0, info: 0 });
+  let bal_selected = new SvelteSet<string>();
+  let bal_confirm_bulk_blank = $state(false);
+  let bal_filter = $state<
+    'all' | 'review' | 'missing-required' | 'manual-only' | 'corrected' | 'blank' | 'missing-page' | 'unreadable' | 'complete' | 'incomplete'
+  >('all');
   let bal_search = $state('');
   let bal_controls = $state<bal_RecognitionControls>({
     markSensitivity: BAL_RECOGNITION_CONTROL_BOUNDS.markSensitivity.default,
@@ -107,6 +125,10 @@
         return bal_cells.some((bal_r) => bal_r.status === 'manual-only' && !bal_r.manuallyReviewed);
       if (bal_filter === 'corrected') return bal_cells.some((bal_r) => bal_r.manuallyReviewed);
       if (bal_filter === 'blank') return bal_cells.some((bal_r) => bal_r.status === 'blank');
+      if (bal_filter === 'missing-page') return bal_completeness.get(bal_respondent)?.completeness === 'missing-page';
+      if (bal_filter === 'unreadable') return bal_cells.some((bal_r) => bal_r.status === 'unreadable');
+      if (bal_filter === 'complete') return bal_completeness.get(bal_respondent)?.completeness === 'complete';
+      if (bal_filter === 'incomplete') return bal_completeness.get(bal_respondent)?.completeness !== 'complete';
       return true;
     });
     const bal_query = bal_search.trim().toLowerCase();
@@ -158,13 +180,39 @@
     if (bal_status.completeness === 'complete') return 'Complete';
     if (bal_status.completeness === 'missing-page') return `Missing page${bal_status.missingPages.length === 1 ? '' : 's'}`;
     if (bal_status.completeness === 'missing-required') return 'Required missing';
+    if (bal_status.completeness === 'transcription-pending') return 'Transcription pending';
+    if (bal_status.completeness === 'unreadable-source') return 'Unreadable source';
+    if (bal_status.completeness === 'version-conflict') return 'Version conflict';
     return 'Needs review';
   }
 
   function bal_completeness_tone(bal_status: bal_RespondentStatus): 'neutral' | 'success' | 'warning' | 'accent' {
     if (bal_status.completeness === 'complete') return 'success';
-    if (bal_status.completeness === 'missing-page') return 'accent';
+    if (bal_status.completeness === 'missing-page' || bal_status.completeness === 'transcription-pending') return 'accent';
     return 'warning';
+  }
+
+  function bal_issue_label(bal_issue: DatasetIssue): string {
+    const bal_labels: Record<DatasetIssue['type'], string> = {
+      'duplicate-respondent-page': 'Duplicate page',
+      'missing-required': 'Required response missing',
+      'invalid-coded-value': 'Value not in questionnaire options',
+      'selection-rule-violation': 'Selection rule broken',
+      'matrix-rule-violation': 'Matrix rule broken',
+      'numeric-range-violation': 'Number outside range',
+      'missing-source-page': 'Source page missing',
+      'unresolved-review': 'Unresolved review',
+      'version-mismatch': 'Questionnaire version mismatch',
+      'schema-mismatch': 'Response without a question',
+      'duplicate-response': 'Duplicate response record'
+    };
+    return bal_labels[bal_issue.type];
+  }
+
+  function bal_severity_tone(bal_severity: DatasetIssueSeverity): 'neutral' | 'success' | 'warning' | 'accent' {
+    if (bal_severity === 'error') return 'warning';
+    if (bal_severity === 'info') return 'neutral';
+    return 'accent';
   }
 
   async function bal_reload(): Promise<void> {
@@ -179,10 +227,17 @@
     const bal_scales = await ken_pori_scales();
     const bal_doc = bal_build_print_document({ questionnaire: bal_questionnaire, scales: bal_scales, respondentId: '' });
     const bal_found: Record<string, number[]> = {};
+    const bal_ready_pages: { id: string; respondentId: string | null; pageNumber: number | null; questionnaireVersion: number | null }[] = [];
     for (const bal_batch of bal_batches) {
       for (const bal_page of await ken_pori_scan_pages(bal_batch.id)) {
         if (bal_page.status !== 'ready' || !bal_page.respondentId || bal_page.pageNumber === null) continue;
         bal_found[bal_page.respondentId] = [...(bal_found[bal_page.respondentId] ?? []), bal_page.pageNumber];
+        bal_ready_pages.push({
+          id: bal_page.id,
+          respondentId: bal_page.respondentId,
+          pageNumber: bal_page.pageNumber,
+          questionnaireVersion: bal_page.questionnaireVersion
+        });
       }
     }
     bal_completeness = bal_completeness_for_respondents(
@@ -192,6 +247,55 @@
       bal_responses,
       bal_found
     );
+    bal_issues = bal_validate_dataset({
+      questionnaire: bal_questionnaire,
+      scales: bal_scales,
+      responses: bal_responses,
+      readyPages: bal_ready_pages,
+      expectedPages: bal_doc.pages.length
+    });
+    bal_issue_counts = bal_count_issues_by_severity(bal_issues);
+  }
+
+  async function bal_mark_blank(bal_target: ResponseRecord): Promise<void> {
+    await bal_save_response_audit_event({
+      id: bal_new_id(),
+      projectId: bal_target.projectId,
+      responseId: bal_target.id,
+      respondentId: bal_target.respondentId,
+      itemId: bal_target.itemId,
+      rowId: bal_target.rowId,
+      previousValue: bal_target.value,
+      previousStatus: bal_target.status,
+      finalValue: [],
+      finalStatus: 'blank',
+      action: 'marked-blank',
+      createdAt: Date.now()
+    });
+    await bal_save_response({
+      ...bal_target,
+      value: [],
+      codedValue: null,
+      status: 'blank',
+      confidence: null,
+      manuallyReviewed: true,
+      updatedAt: Date.now()
+    });
+  }
+
+  async function bal_mark_selected_blank(): Promise<void> {
+    const bal_targets = bal_responses.filter((bal_r) => bal_selected.has(bal_r.id));
+    for (const bal_target of bal_targets) {
+      await bal_mark_blank(bal_target);
+    }
+    bal_selected.clear();
+    bal_confirm_bulk_blank = false;
+    await bal_reload();
+  }
+
+  function bal_toggle_selected(bal_id: string): void {
+    if (bal_selected.has(bal_id)) bal_selected.delete(bal_id);
+    else bal_selected.add(bal_id);
   }
 
   function bal_progress_text(): string {
@@ -382,11 +486,21 @@
       <StatusPill tone="neutral" label={`${bal_counts.blank} blank`} />
       <StatusPill tone="neutral" label={`${bal_counts.manual} to transcribe`} />
       <StatusPill tone="accent" label={`${bal_counts.manualCorrected} hand-corrected`} />
+      <StatusPill
+        tone="neutral"
+        label={`${[...bal_completeness.values()].filter((bal_s) => bal_s.completeness === 'complete').length} of ${bal_completeness.size} respondents complete`}
+      />
+      {#if bal_issue_counts.error > 0}
+        <StatusPill tone="warning" label={`${bal_issue_counts.error} data check${bal_issue_counts.error === 1 ? '' : 's'} failed`} />
+      {/if}
     </section>
 
     <nav class="tabs">
       <button class="tab" class:active={bal_tab === 'review'} onclick={() => (bal_tab = 'review')}>
         Review queue{bal_review_queue.length > 0 ? ` (${bal_review_queue.length})` : ''}
+      </button>
+      <button class="tab" class:active={bal_tab === 'checks'} onclick={() => (bal_tab = 'checks')}>
+        Data checks{bal_issues.length > 0 ? ` (${bal_issues.length})` : ''}
       </button>
       <button class="tab" class:active={bal_tab === 'table'} onclick={() => (bal_tab = 'table')}>Data table</button>
     </nav>
@@ -404,6 +518,14 @@
             <article class="card queue-card">
               <div class="queue-head">
                 <div>
+                  <label class="queue-select">
+                    <input
+                      type="checkbox"
+                      checked={bal_selected.has(bal_response.id)}
+                      onchange={() => bal_toggle_selected(bal_response.id)}
+                    />
+                    <span class="visually-hidden">Select for bulk action</span>
+                  </label>
                   <strong>
                     {bal_items.get(bal_response.itemId)?.number ?? ''}
                     {bal_items.get(bal_response.itemId)?.label ?? bal_response.itemId}
@@ -427,11 +549,71 @@
                       rowId: bal_response.rowId
                     })}
                 >Open</Button>
+                <Button size="sm" disabled={bal_reading} onclick={() => void bal_mark_blank(bal_response).then(() => bal_reload())}>
+                  Mark blank
+                </Button>
               </div>
             </article>
           {/each}
           {#if bal_review_queue.length > 40}
             <p class="muted">Showing the first 40 of {bal_review_queue.length}.</p>
+          {:else if bal_selected.size > 0}
+            <div class="bulk-bar">
+              <span class="muted">{bal_selected.size} selected</span>
+              <Button size="sm" variant="danger" onclick={() => (bal_confirm_bulk_blank = true)}>
+                Mark selected as reviewed blank
+              </Button>
+            </div>
+          {/if}
+        </div>
+      {/if}
+    {:else if bal_tab === 'checks'}
+      {#if bal_issues.length === 0}
+        <EmptyState
+          icon="circle-check"
+          title="No data issues found"
+          body="Required answers, option values, selection rules, versions, and source references all check out."
+        />
+      {:else}
+        <div class="checks-head">
+          <StatusPill tone={bal_issue_counts.error > 0 ? 'warning' : 'neutral'} label={`${bal_issue_counts.error} errors`} />
+          <StatusPill tone="accent" label={`${bal_issue_counts.warning} warnings`} />
+          <StatusPill tone="neutral" label={`${bal_issue_counts.info} info`} />
+        </div>
+        <div class="checks">
+          {#each bal_issues.slice(0, 120) as bal_issue (bal_issue.id)}
+            <article class="card check-card">
+              <div class="queue-head">
+                <div>
+                  <strong>{bal_issue_label(bal_issue)}</strong>
+                  <span class="muted">
+                    {#if bal_issue.respondentId} · {bal_issue.respondentId}{/if}
+                    {#if bal_issue.variableName} · {bal_issue.variableName}{/if}
+                    {#if bal_issue.currentValue && bal_issue.currentValue.length > 0} · now: {bal_issue.currentValue.join(', ')}{/if}
+                  </span>
+                </div>
+                <StatusPill tone={bal_severity_tone(bal_issue.severity)} label={bal_issue.severity} />
+              </div>
+              {#if bal_issue.expectedRule}
+                <p class="muted">Expected: {bal_issue.expectedRule}</p>
+              {/if}
+              {#if bal_issue.respondentId && bal_issue.itemId}
+                <div class="queue-actions">
+                  <Button
+                    size="sm"
+                    onclick={() =>
+                      (bal_cell = {
+                        respondentId: bal_issue.respondentId ?? '',
+                        itemId: bal_issue.itemId ?? '',
+                        rowId: null
+                      })}
+                  >Open</Button>
+                </div>
+              {/if}
+            </article>
+          {/each}
+          {#if bal_issues.length > 120}
+            <p class="muted">Showing the first 120 of {bal_issues.length} issues.</p>
           {/if}
         </div>
       {/if}
@@ -444,9 +626,13 @@
           <option value="all">All respondents</option>
           <option value="review">Needs review</option>
           <option value="missing-required">Missing required</option>
+          <option value="missing-page">Missing page</option>
+          <option value="unreadable">Unreadable</option>
           <option value="manual-only">Manual only</option>
           <option value="corrected">Corrected</option>
           <option value="blank">Blank</option>
+          <option value="complete">Complete respondents</option>
+          <option value="incomplete">Incomplete respondents</option>
         </select>
         <input
           class="table-search"
@@ -528,6 +714,15 @@
     }}
   />
 {/if}
+
+<ConfirmDialog
+  bind:open={bal_confirm_bulk_blank}
+  title="Mark selected as reviewed blank?"
+  body="The selected responses will be recorded as intentional blanks in your name, and each change is added to the audit trail."
+  confirm_label="Mark blank"
+  danger
+  onconfirm={bal_mark_selected_blank}
+/>
 
 <ConfirmDialog
   bind:open={bal_confirm_recompute}
@@ -688,6 +883,41 @@
   }
   .queue-actions {
     margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .queue-select {
+    display: inline-flex;
+    align-items: center;
+    margin-right: 8px;
+  }
+  .queue-select input {
+    width: 16px;
+    height: 16px;
+  }
+  .bulk-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+  }
+  .checks-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .checks {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .check-card .muted {
+    margin: 6px 0 0;
   }
   .table-wrap {
     overflow-x: auto;

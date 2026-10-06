@@ -68,7 +68,7 @@ function bal_questionnaire(): QuestionnaireRecord {
               { id: 'c3', label: 'Wheat', coding: '3' }
             ],
             coding: null,
-            validation: { minSelections: 1, maxSelections: 2, maxLength: null, min: null, max: null, step: null, decimalAllowed: true, requireAllRows: null },
+            validation: { minSelections: 1, maxSelections: 2, maxLength: null, min: null, max: null, step: null, decimalAllowed: true, requireAllRows: undefined },
             scannerConfig: null,
             printConfig: null,
             metadata: null,
@@ -117,7 +117,7 @@ function bal_questionnaire(): QuestionnaireRecord {
             required: false,
             options: [],
             coding: null,
-            validation: { min: 0, max: 100, step: null, decimalAllowed: true, maxLength: null, minSelections: null, maxSelections: null, requireAllRows: null },
+            validation: { min: 0, max: 100, step: null, decimalAllowed: true, maxLength: null, minSelections: null, maxSelections: null, requireAllRows: undefined },
             scannerConfig: null,
             printConfig: null,
             metadata: null,
