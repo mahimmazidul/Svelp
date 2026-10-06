@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
   import Button from '../../components/ui/Button.svelte';
+  import Sheet from '../../components/ui/Sheet.svelte';
   import Icon from '../../icons/Icon.svelte';
   import { builder_state } from '../builder/builder_state';
   import { project_context } from '../../app/project_context';
@@ -25,6 +26,7 @@
   let bal_outcome = $state<bal_ParseOutcome>({ ok: false, problems: { errors: [], warnings: [], infos: [] }, applyPlan: null });
   let bal_data_variables = new Set<string>();
   let bal_preview_open = $state(false);
+  let bal_problems_open = $state(false);
   let bal_goto_open = $state(false);
   let bal_goto_value = $state('');
   let bal_copied = $state(false);
@@ -200,6 +202,13 @@
       {bal_dirty ? (bal_outcome.ok ? 'Unapplied changes · valid' : 'Unapplied changes · invalid') : bal_outcome.ok ? 'Valid' : 'Invalid'}
     </span>
     <span class="spacer"></span>
+    <Button
+      size="sm"
+      class="problems-toggle"
+      onclick={() => (bal_problems_open = true)}
+    >
+      Problems{bal_all_problems.length > 0 ? ` · ${bal_all_problems.length}` : ''}
+    </Button>
     <Button size="sm" onclick={() => (bal_goto_open = !bal_goto_open)}>Go to line</Button>
     <Button size="sm" onclick={() => void bal_copy()}>{bal_copied ? 'Copied' : 'Copy'}</Button>
     <Button size="sm" onclick={() => void bal_paste()}>Paste</Button>
@@ -231,6 +240,28 @@
   {/if}
   <div class="editor-host" bind:this={bal_host_el} class:hidden={!bal_editor_ready}></div>
 
+  {#snippet bal_problem_rows()}
+    <ul>
+      {#each bal_all_problems.slice(0, 50) as bal_problem (bal_problem.line + bal_problem.message)}
+        <li class={bal_problem.severity}>
+          <button
+            type="button"
+            onclick={() => {
+              bal_editor?.focus_line(bal_problem.line, bal_problem.column);
+              bal_problems_open = false;
+            }}
+          >
+            <span class="loc">Line {bal_problem.line}</span>
+            {bal_problem.message}
+          </button>
+        </li>
+      {/each}
+      {#if bal_all_problems.length > 50}
+        <li class="muted">Showing the first 50 of {bal_all_problems.length}.</li>
+      {/if}
+    </ul>
+  {/snippet}
+
   <aside class="problems" class:empty={bal_all_problems.length === 0}>
     <h3>
       Problems
@@ -247,23 +278,14 @@
         <span class="count ok">No problems</span>
       {/if}
     </h3>
-    <ul>
-      {#each bal_all_problems.slice(0, 50) as bal_problem (bal_problem.line + bal_problem.message)}
-        <li class={bal_problem.severity}>
-          <button
-            type="button"
-            onclick={() => bal_editor?.focus_line(bal_problem.line, bal_problem.column)}
-          >
-            <span class="loc">Line {bal_problem.line}</span>
-            {bal_problem.message}
-          </button>
-        </li>
-      {/each}
-      {#if bal_all_problems.length > 50}
-        <li class="muted">Showing the first 50 of {bal_all_problems.length}.</li>
-      {/if}
-    </ul>
+    {@render bal_problem_rows()}
   </aside>
+
+  <Sheet bind:open={bal_problems_open} side="bottom" title="Problems">
+    <div class="problems sheet-body" class:empty={bal_all_problems.length === 0}>
+      {@render bal_problem_rows()}
+    </div>
+  </Sheet>
 
   {#if bal_preview_open && bal_plan?.ok}
     <div class="overlay" role="dialog" aria-modal="true">
@@ -370,6 +392,21 @@
   }
   .problems.empty {
     opacity: 0.85;
+  }
+  .problems-toggle {
+    display: none;
+  }
+  @media (max-width: 768px) {
+    .problems:not(.sheet-body) {
+      display: none;
+    }
+    .problems-toggle {
+      display: inline-flex;
+    }
+    .sheet-body {
+      border: none;
+      max-height: 50vh;
+    }
   }
   .problems h3 {
     margin: 0 0 6px;
