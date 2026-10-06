@@ -6,6 +6,7 @@ import {
   bal_build_export_rows,
   bal_cell_value,
   bal_codebook_to_csv,
+  bal_codebook_to_json,
   bal_export_columns,
   bal_export_filenames,
   bal_slug_variable_part,
@@ -61,6 +62,33 @@ function bal_questionnaire(): QuestionnaireRecord {
             consent: null,
             signature: null,
             unitLabel: null
+          },
+          {
+            id: 'i-mc',
+            type: 'multiple_choice',
+            variableName: 'crops',
+            label: 'Crops grown',
+            required: false,
+            options: [
+              { id: 'mc-rice', label: 'Rice', coding: '1' },
+              { id: 'mc-jute', label: 'Jute', coding: '2' },
+              { id: 'mc-wheat', label: 'Wheat', coding: '3' }
+            ],
+            coding: null,
+            validation: { minSelections: 1, maxSelections: 2, maxLength: null, min: null, max: null, step: null, decimalAllowed: true, requireAllRows: undefined },
+            scannerConfig: null,
+            printConfig: null,
+            metadata: null,
+            scaleId: null,
+            placeholder: null,
+            heading: null,
+            emphasis: 'normal',
+            rows: [],
+            columns: [],
+            selectionMode: 'multiple',
+            consent: null,
+            signature: null,
+            unitLabel: 'hectares'
           },
           {
             id: 'i2',
@@ -273,9 +301,109 @@ describe('export dataset', () => {
     expect(bal_village).toHaveLength(1);
     expect(bal_village[0].optionLabel).toBeNull();
     const bal_csv = bal_codebook_to_csv(bal_rows);
-    expect(bal_csv.startsWith('variable_name,question_number,question_label,item_type,required,matrix_row_label,option_label,option_code\r\n')).toBe(
+    expect(
+      bal_csv.startsWith(
+        'variable_name,section,question_number,question_label,item_type,required,validation,unit,matrix_row_label,matrix_column_label,option_label,option_code\r\n'
+      )
+    ).toBe(true);
+    expect(bal_csv.includes(',Section 1,')).toBe(true);
+  });
+
+  it('exports multiple choice as separate binary option columns by default', () => {
+    const bal_q = bal_questionnaire();
+    const bal_columns = bal_export_columns(bal_q, { optionColumns: true });
+    const bal_headers = bal_columns.map((bal_c) => bal_c.header);
+    expect(bal_headers).toEqual([
+      'water_source',
+      'crops_rice',
+      'crops_jute',
+      'crops_wheat',
+      'food_frequency_rice',
+      'food_frequency_fish_curry',
+      'food_frequency_rice_2',
+      'village_name'
+    ]);
+    const bal_responses = [
+      bal_response({}),
+      bal_response({ id: 'resp::i-mc', itemId: 'i-mc', variableName: 'crops', itemType: 'multiple_choice', value: ['mc-rice', 'mc-wheat'], codedValue: null })
+    ];
+    const bal_rows = bal_build_export_rows(bal_columns, bal_q, [], bal_responses, ['R-001']);
+    expect(bal_rows[0]['crops_rice']).toBe('1');
+    expect(bal_rows[0]['crops_jute']).toBe('0');
+    expect(bal_rows[0]['crops_wheat']).toBe('1');
+    const bal_unanswered = bal_build_export_rows(bal_columns, bal_q, [], [bal_response({})], ['R-002']);
+    expect(bal_unanswered[0]['crops_rice']).toBe('');
+    const bal_book = bal_build_codebook(bal_columns, bal_q, []);
+    expect(bal_book.filter((bal_r) => bal_r.variableName === 'crops_rice').map((bal_r) => bal_r.optionCode)).toEqual(['1']);
+  });
+
+  it('keeps a delimited multiple-choice column when option columns are off', () => {
+    const bal_q = bal_questionnaire();
+    const bal_columns = bal_export_columns(bal_q);
+    expect(bal_columns.map((bal_c) => bal_c.header)).toContain('crops');
+    const bal_rows = bal_build_export_rows(
+      bal_columns,
+      bal_q,
+      [],
+      [bal_response({ id: 'resp::i-mc', itemId: 'i-mc', variableName: 'crops', itemType: 'multiple_choice', value: ['mc-rice', 'mc-wheat'] })],
+      ['R-001']
+    );
+    expect(bal_rows[0]['crops']).toBe('1; 3');
+  });
+
+  it('adds a UTF-8 byte order mark when requested', () => {
+    const bal_csv = bal_to_csv([{ respondent_id: 'R-1' }], ['respondent_id'], true);
+    expect(bal_csv.charCodeAt(0)).toBe(0xfeff);
+    const bal_plain = bal_to_csv([{ respondent_id: 'R-1' }], ['respondent_id']);
+    expect(bal_plain.charCodeAt(0)).toBe('r'.charCodeAt(0));
+    const bal_book = bal_codebook_to_csv(
+      [
+        {
+          variableName: 'village_name',
+          sectionTitle: 'Section 1',
+          questionNumber: '4',
+          questionLabel: 'Village name',
+          itemType: 'short_text',
+          required: false,
+          validationRule: null,
+          unit: null,
+          matrixRowLabel: null,
+          matrixColumnLabel: null,
+          optionLabel: null,
+          optionCode: null
+        }
+      ],
       true
     );
+    expect(bal_book.charCodeAt(0)).toBe(0xfeff);
+  });
+
+  it('escapes unicode labels and newlines in csv cells', () => {
+    const bal_csv = bal_to_csv([{ respondent_id: 'আর-১', water_source: 'line1\nline2' }], ['respondent_id', 'water_source']);
+    expect(bal_csv).toContain('"line1\nline2"');
+    expect(bal_csv).toContain('আর-১');
+  });
+
+  it('includes section, validation, unit, and matrix column labels in the codebook', () => {
+    const bal_q = bal_questionnaire();
+    bal_q.sections[0].items[0].unitLabel = null;
+    const bal_columns = bal_export_columns(bal_q);
+    const bal_rows = bal_build_codebook(bal_columns, bal_q, []);
+    const bal_multi = bal_rows.find((bal_r) => bal_r.variableName === 'crops');
+    expect(bal_multi?.validationRule).toBe('min selections 1; max selections 2');
+    expect(bal_multi?.sectionTitle).toBe('Section 1');
+    const bal_rice = bal_rows.find((bal_r) => bal_r.variableName === 'food_frequency_rice' && bal_r.optionCode === 'D');
+    expect(bal_rice?.matrixColumnLabel).toBe('Daily');
+    expect(bal_rice?.matrixRowLabel).toBe('Rice');
+  });
+
+  it('serializes the codebook as json with questionnaire metadata', () => {
+    const bal_q = bal_questionnaire();
+    const bal_columns = bal_export_columns(bal_q);
+    const bal_json = bal_codebook_to_json(bal_build_codebook(bal_columns, bal_q, []), bal_q);
+    const bal_parsed = JSON.parse(bal_json) as { questionnaireVersion: number; variables: unknown[] };
+    expect(bal_parsed.questionnaireVersion).toBe(3);
+    expect(bal_parsed.variables.length).toBeGreaterThan(5);
   });
 
   it('honours scale-defined options for likert items', () => {

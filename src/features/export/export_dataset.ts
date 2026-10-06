@@ -13,16 +13,42 @@ export interface bal_ExportColumn {
   questionNumber: string;
   itemType: string;
   required: boolean;
+  sectionTitle: string;
   matrixRowLabel: string | null;
+  binaryOptionId: string | null;
+  binaryOptionLabel: string | null;
 }
+
+export interface bal_ColumnOptions {
+  optionColumns?: boolean;
+}
+
+export const BAL_CODEBOOK_HEADERS = [
+  'variable_name',
+  'section',
+  'question_number',
+  'question_label',
+  'item_type',
+  'required',
+  'validation',
+  'unit',
+  'matrix_row_label',
+  'matrix_column_label',
+  'option_label',
+  'option_code'
+] as const;
 
 export interface bal_CodebookRow {
   variableName: string;
+  sectionTitle: string;
   questionNumber: string;
   questionLabel: string;
   itemType: string;
   required: boolean;
+  validationRule: string | null;
+  unit: string | null;
   matrixRowLabel: string | null;
+  matrixColumnLabel: string | null;
   optionLabel: string | null;
   optionCode: string | null;
 }
@@ -81,7 +107,25 @@ function bal_options_for_item(
   return bal_item.options;
 }
 
-export function bal_export_columns(bal_questionnaire: QuestionnaireRecord): bal_ExportColumn[] {
+export function bal_validation_rule(bal_item: QuestionnaireItem): string | null {
+  const bal_parts: string[] = [];
+  const bal_validation = bal_item.validation;
+  if (bal_validation) {
+    if (bal_validation.minSelections != null) bal_parts.push(`min selections ${bal_validation.minSelections}`);
+    if (bal_validation.maxSelections != null) bal_parts.push(`max selections ${bal_validation.maxSelections}`);
+    if (bal_validation.min != null) bal_parts.push(`min ${bal_validation.min}`);
+    if (bal_validation.max != null) bal_parts.push(`max ${bal_validation.max}`);
+    if (bal_validation.step != null) bal_parts.push(`step ${bal_validation.step}`);
+    if (bal_validation.maxLength != null) bal_parts.push(`max length ${bal_validation.maxLength}`);
+    if (bal_validation.requireAllRows) bal_parts.push('all rows required');
+  }
+  return bal_parts.length > 0 ? bal_parts.join('; ') : null;
+}
+
+export function bal_export_columns(
+  bal_questionnaire: QuestionnaireRecord,
+  bal_options: bal_ColumnOptions = {}
+): bal_ExportColumn[] {
   const bal_numbering = derive_numbering(bal_questionnaire);
   const bal_columns: bal_ExportColumn[] = [];
   for (const bal_section of bal_questionnaire.sections) {
@@ -89,6 +133,35 @@ export function bal_export_columns(bal_questionnaire: QuestionnaireRecord): bal_
       if (!BAL_EXPORTABLE_TYPES.has(bal_item.type)) continue;
       const bal_variable = bal_item.variableName ?? bal_item.id;
       const bal_label = bal_item.label || bal_item.heading || bal_item.type;
+      if (bal_options.optionColumns && bal_item.type === 'multiple_choice') {
+        const bal_used = new Set<string>();
+        for (const bal_option of bal_item.options) {
+          const bal_base = `${bal_variable}_${bal_slug_variable_part(bal_option.label)}`;
+          let bal_header = bal_base;
+          let bal_suffix = 2;
+          while (bal_used.has(bal_header)) {
+            bal_header = `${bal_base}_${bal_suffix}`;
+            bal_suffix += 1;
+          }
+          bal_used.add(bal_header);
+          bal_columns.push({
+            key: `${bal_item.id}#${bal_option.id}`,
+            itemId: bal_item.id,
+            rowId: null,
+            variableName: bal_header,
+            header: bal_header,
+            questionLabel: bal_label,
+            questionNumber: bal_numbering.itemLabels[bal_item.id] ?? '',
+            itemType: bal_item.type,
+            required: bal_item.required,
+            sectionTitle: bal_section.title,
+            matrixRowLabel: null,
+            binaryOptionId: bal_option.id,
+            binaryOptionLabel: bal_option.label
+          });
+        }
+        continue;
+      }
       if (bal_item.type === 'matrix') {
         const bal_used = new Map<string, string>();
         for (const bal_row of bal_item.rows) {
@@ -112,7 +185,10 @@ export function bal_export_columns(bal_questionnaire: QuestionnaireRecord): bal_
             questionNumber: bal_numbering.itemLabels[bal_item.id] ?? '',
             itemType: bal_item.type,
             required: bal_item.required,
-            matrixRowLabel: bal_row.label
+            sectionTitle: bal_section.title,
+            matrixRowLabel: bal_row.label,
+            binaryOptionId: null,
+            binaryOptionLabel: null
           });
         }
         continue;
@@ -127,7 +203,10 @@ export function bal_export_columns(bal_questionnaire: QuestionnaireRecord): bal_
         questionNumber: bal_numbering.itemLabels[bal_item.id] ?? '',
         itemType: bal_item.type,
         required: bal_item.required,
-        matrixRowLabel: null
+        sectionTitle: bal_section.title,
+        matrixRowLabel: null,
+        binaryOptionId: null,
+        binaryOptionLabel: null
       });
     }
   }
@@ -214,6 +293,16 @@ export function bal_build_export_rows(
         (bal_candidate) => bal_candidate.itemId === bal_column.itemId && bal_candidate.rowId === bal_column.rowId
       );
       const bal_item = bal_item_by_id.get(bal_column.itemId);
+      if (bal_column.binaryOptionId) {
+        const bal_confirmed =
+          bal_response && (bal_response.status === 'accepted' || (bal_response.manuallyReviewed && bal_response.value.length > 0));
+        bal_row[bal_column.header] =
+          bal_confirmed && bal_response.value.includes(bal_column.binaryOptionId) ? '1' : bal_confirmed ? '0' : '';
+        if (bal_include_diagnostics) {
+          bal_row[`${bal_column.header}__status`] = bal_response ? bal_response.status : 'missing-source';
+        }
+        continue;
+      }
       if (!bal_item) {
         bal_row[bal_column.header] = '';
         if (bal_include_diagnostics) {
@@ -254,7 +343,7 @@ export function bal_export_headers(bal_columns: bal_ExportColumn[], bal_include_
   return bal_headers;
 }
 
-export function bal_to_csv(bal_rows: Record<string, string>[], bal_headers: string[]): string {
+export function bal_to_csv(bal_rows: Record<string, string>[], bal_headers: string[], bal_bom = false): string {
   const bal_escape = (bal_value: string): string => {
     if (/[",\n\r]/.test(bal_value)) return `"${bal_value.replace(/"/g, '""')}"`;
     return bal_value;
@@ -263,7 +352,8 @@ export function bal_to_csv(bal_rows: Record<string, string>[], bal_headers: stri
   for (const bal_row of bal_rows) {
     bal_lines.push(bal_headers.map((bal_header) => bal_escape(bal_row[bal_header] ?? '')).join(','));
   }
-  return `${bal_lines.join('\r\n')}\r\n`;
+  const bal_body = `${bal_lines.join('\r\n')}\r\n`;
+  return bal_bom ? `\uFEFF${bal_body}` : bal_body;
 }
 
 export function bal_build_json_dataset(
@@ -293,8 +383,12 @@ export function bal_build_codebook(
   bal_scales: ResponseScaleRecord[]
 ): bal_CodebookRow[] {
   const bal_item_by_id = new Map<string, QuestionnaireItem>();
+  const bal_section_by_item = new Map<string, string>();
   for (const bal_section of bal_questionnaire.sections) {
-    for (const bal_item of bal_section.items) bal_item_by_id.set(bal_item.id, bal_item);
+    for (const bal_item of bal_section.items) {
+      bal_item_by_id.set(bal_item.id, bal_item);
+      bal_section_by_item.set(bal_item.id, bal_section.title);
+    }
   }
   const bal_rows: bal_CodebookRow[] = [];
   for (const bal_column of bal_columns) {
@@ -302,14 +396,26 @@ export function bal_build_codebook(
     if (!bal_item) continue;
     const bal_base: bal_CodebookRow = {
       variableName: bal_column.variableName,
+      sectionTitle: bal_section_by_item.get(bal_column.itemId) ?? '',
       questionNumber: bal_column.questionNumber,
       questionLabel: bal_column.questionLabel,
       itemType: bal_item.type,
       required: bal_item.required,
+      validationRule: bal_validation_rule(bal_item),
+      unit: bal_item.unitLabel,
       matrixRowLabel: bal_column.matrixRowLabel,
+      matrixColumnLabel: null,
       optionLabel: null,
       optionCode: null
     };
+    if (bal_column.binaryOptionId) {
+      bal_rows.push({
+        ...bal_base,
+        optionLabel: bal_column.binaryOptionLabel,
+        optionCode: '1'
+      });
+      continue;
+    }
     if (bal_column.rowId) {
       const bal_column_defs = bal_item.columns;
       if (bal_column_defs.length === 0) {
@@ -317,7 +423,12 @@ export function bal_build_codebook(
         continue;
       }
       for (const bal_def of bal_column_defs) {
-        bal_rows.push({ ...bal_base, optionLabel: bal_def.label, optionCode: bal_def.coding ?? bal_def.label });
+        bal_rows.push({
+          ...bal_base,
+          matrixColumnLabel: bal_def.label,
+          optionLabel: bal_def.label,
+          optionCode: bal_def.coding ?? bal_def.label
+        });
       }
       continue;
     }
@@ -337,38 +448,50 @@ export function bal_build_codebook(
   return bal_rows;
 }
 
-export function bal_codebook_to_csv(bal_rows: bal_CodebookRow[]): string {
-  const bal_headers = [
-    'variable_name',
-    'question_number',
-    'question_label',
-    'item_type',
-    'required',
-    'matrix_row_label',
-    'option_label',
-    'option_code'
-  ];
-  const bal_escape = (bal_value: string | null | boolean): string => {
-    const bal_text = bal_value === null ? '' : String(bal_value);
+export function bal_codebook_to_csv(bal_rows: bal_CodebookRow[], bal_bom = false): string {
+  const bal_escape = (bal_value: string | number | boolean | null | undefined): string => {
+    const bal_text = bal_value === null || bal_value === undefined ? '' : String(bal_value);
     if (/[",\n\r]/.test(bal_text)) return `"${bal_text.replace(/"/g, '""')}"`;
     return bal_text;
   };
-  const bal_lines = [bal_headers.join(',')];
+  const bal_lines = [BAL_CODEBOOK_HEADERS.join(',')];
   for (const bal_row of bal_rows) {
     bal_lines.push(
       [
         bal_escape(bal_row.variableName),
+        bal_escape(bal_row.sectionTitle),
         bal_escape(bal_row.questionNumber),
         bal_escape(bal_row.questionLabel),
         bal_escape(bal_row.itemType),
         bal_escape(bal_row.required),
+        bal_escape(bal_row.validationRule),
+        bal_escape(bal_row.unit),
         bal_escape(bal_row.matrixRowLabel),
+        bal_escape(bal_row.matrixColumnLabel),
         bal_escape(bal_row.optionLabel),
         bal_escape(bal_row.optionCode)
       ].join(',')
     );
   }
-  return `${bal_lines.join('\r\n')}\r\n`;
+  const bal_body = `${bal_lines.join('\r\n')}\r\n`;
+  return bal_bom ? `\uFEFF${bal_body}` : bal_body;
+}
+
+export function bal_codebook_to_json(
+  bal_rows: bal_CodebookRow[],
+  bal_questionnaire: QuestionnaireRecord
+): string {
+  return JSON.stringify(
+    {
+      questionnaireId: bal_questionnaire.id,
+      questionnaireVersion: bal_questionnaire.version,
+      title: bal_questionnaire.title,
+      exportedAt: new Date().toISOString(),
+      variables: bal_rows
+    },
+    null,
+    2
+  );
 }
 
 export function bal_export_filenames(
