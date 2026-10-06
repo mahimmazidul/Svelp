@@ -13,7 +13,7 @@ import {
   bal_to_csv
 } from './export_dataset';
 
-function bal_questionnaire(): QuestionnaireRecord {
+export function bal_questionnaire(): QuestionnaireRecord {
   return {
     id: 'q1',
     projectId: 'p1',
