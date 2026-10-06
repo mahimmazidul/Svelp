@@ -358,7 +358,13 @@ Planned flow:
    they always remain attached to the exact version — including its frozen scale
    snapshots — that produced them.
 
-Publishing is intentionally not implemented yet.
+Publishing is intentionally not implemented yet. A `published` record can still
+arrive through a MAHIM transfer, so the builder defends the no-direct-edit rule
+when it loads a project: if the newest record is `published`, the builder
+immediately derives a fresh `draft` record (new id, `version + 1`, copied
+content) and edits that. The published record is never modified, responses keep
+pointing at it, and reloading cannot create a second draft because the derived
+draft then has the highest version.
 
 ## 14. Offline behavior and PWA
 
@@ -823,3 +829,65 @@ fake-indexeddb:
 - `migration_v5.test.ts` — the v5 migration adding response stores safely.
 
 Run them with `npm run test`; `npm run check` and `npm run lint` cover types and style.
+
+## 21. Questionnaire source mode
+
+The builder has a Source tab beside the visual builder, backed by the declarative
+`Svelp Questionnaire Source v1` language specified in `docs/source-language.md`.
+The language is data only: no expressions, functions, loops, evaluation, dynamic
+imports, network access, or comments. Keywords are fixed reserved words; nothing
+internal leaks into them.
+
+### Pipeline
+
+`source → shobdo_lexer → naksha_parser (recursive descent, AST, multi-error
+recovery with line/column/snippet) → bhul_validate (semantic checks) →
+bani_compile (bal_plan_apply) → the existing questionnaire schema`. There is no
+second model: Source mode compiles into the same records the visual builder
+edits, so preview, print, scanning, recognition, responses, and exports are
+untouched. The reverse path is `lekha_serialize`, a proper serializer module
+used for the canonical text, the Format action, and the formatter
+(`format = serialize(parse(source))`). Round-trips are semantic, not
+byte-exact; the normalizations are documented in the language spec.
+
+`bal_source_pipeline.ts` exposes the three entry points the UI uses:
+problem-only parsing for live validation, full apply planning against the
+previous questionnaire (added/removed/modified/renamed plus data-loss
+detection), and formatting.
+
+### Identity and Apply
+
+Every item and section created from source carries a hidden stable
+`metadata.sourceKey`, matched on later applies so variable renames keep ids.
+Label, option-label, required, and validation edits never regenerate ids.
+Removing questions or rows, renaming variables that already hold responses, or
+touching anything else destructive requires an explicit preview confirmation;
+parse or validation errors block Apply, warnings do not. A failed or cancelled
+Apply leaves the stored questionnaire untouched because planning runs on a
+scratch copy and only commits through the existing save and undo pipeline.
+
+### Editor
+
+The editor is CodeMirror 6, chosen over Monaco after evaluating bundle cost:
+the whole source-mode chunk (editor, language, search, lint) builds to about
+330 KB raw (roughly 105 KB served gzip) and is lazy-loaded on first Source-tab
+visit, so the main bundle is unchanged. It provides line numbers, syntax
+highlighting, auto-indent, bracket matching, search, go-to-line, error markers,
+and a problems panel whose entries click through to the offending line. On
+mobile the editor is full width with problems in a bottom sheet; Apply stays
+reachable and there are never three side-by-side panels.
+
+### Files
+
+`.svelp.txt` is the only source file extension. Import accepts `.svelp.txt` or
+plain `.txt` with header detection; export names follow
+`<Project>-v<n>-questionnaire.svelp.txt`. Clipboard copy and paste work inside
+the editor. MAHIM and JSON exports are unrelated to source files; the three
+concepts never merge.
+
+### Performance
+
+A 125-item questionnaire (five sections, five 60-row matrices) parses,
+validates, compiles, and serializes in well under 100 ms in the performance
+test, far inside the interactive budget; live validation is debounced at
+400 ms.

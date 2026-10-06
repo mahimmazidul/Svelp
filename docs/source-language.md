@@ -17,14 +17,15 @@ consent content, signature options, and print page breaks.
 
 The canonical serializer may normalize formatting. Whitespace, indentation,
 blank lines, quote escaping style, and directive order inside one question are
-not preserved. Long text bodies are emitted as multiline `"""` blocks.
+not preserved. A string that contains a line break is emitted as a `"""`
+text block at column zero; a single-line string stays quoted on one line.
 
 ## Lexical structure
 
 | Token       | Form                                                        |
 | ----------- | ----------------------------------------------------------- |
 | keyword     | one of the reserved words below, case sensitive             |
-| identifier  | `[a-z][a-z0-9_]*` (keys, variables, scale names)             |
+| identifier  | `[a-z_][a-z0-9_]*` (keys, variables, scale names)            |
 | integer     | `-?[0-9]+`                                                  |
 | string      | `"…"` on one line, with `\"` `\\` `\n` escapes               |
 | text block  | `"""` … line containing only `"""` (raw content, no escapes) |
@@ -150,7 +151,11 @@ label. Matrix rows and columns match by stable slug first, then label.
 ## Canonical formatting
 
 The serializer emits, in order: `svelp 1`, `title`, `description` (if set),
-`language` (if not `en`), `paper`/`orientation` (if not defaults), then sections
-and items. Two blank lines between sections, one between items. Options indent
-by two spaces. Long consent bodies and matrix row text blocks use `"""`.
-Double quotes always use `"` with `\` escapes; text blocks never escape.
+`language` (if not `en`), `paper`/`orientation` (if not defaults), scale
+definitions, then sections and items. Two blank lines between sections, one
+between items. Options indent by two spaces, matrix rows by four. A string
+that contains a line break is emitted as a `"""` text block at column zero;
+single-line strings stay quoted inline. Consent `introduction` and
+consent-section bodies are emitted on the line after their keyword. `yes`/`no`
+codes are omitted when they equal the `1`/`0` defaults. Double quotes always
+use `\"` with `\\` escapes; text blocks never escape.
