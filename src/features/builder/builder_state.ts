@@ -3,7 +3,7 @@ import {
   bal_save_questionnaire,
   dhon_questionnaire_by_project
 } from '../../db/questionnaires_repo';
-import { ken_pori_scales } from '../../db/scales_repo';
+import { bal_save_scale, ken_pori_scales } from '../../db/scales_repo';
 import { normalize_questionnaire } from '../../models/factories';
 import type {
   ChoiceOption,
@@ -436,6 +436,7 @@ function bal_detach_scale(bal_item_id: string, bal_options: ChoiceOption[]): voi
 }
 
 export const builder_state = {
+  current: (): BuilderState => get(heda_state),
   subscribe: heda_state.subscribe,
   load: bal_load,
   reload: bal_reload,
@@ -566,5 +567,21 @@ export const builder_state = {
     const bal_s = get(heda_state);
     if (!bal_s.questionnaire) return [];
     return bal_taken_variable_names(bal_s.questionnaire);
+  },
+  apply_source: (bal_questionnaire: QuestionnaireRecord, bal_scales: ResponseScaleRecord[]): void => {
+    heda_state.update((bal_s) => {
+      if (bal_s.status !== 'ready' || !bal_s.questionnaire) return bal_s;
+      bal_mark_history(bal_s, null);
+      const bal_next = { ...bal_questionnaire, updatedAt: Date.now() };
+      return { ...bal_s, questionnaire: bal_next, scales: bal_scales, saveStatus: 'dirty', canUndo: true, canRedo: false };
+    });
+    const bal_known = new Set(get(heda_state).scales.map((bal_s) => bal_s.id));
+    for (const bal_scale of bal_scales) {
+      if (!bal_known.has(bal_scale.id)) void bal_save_scale(bal_scale);
+    }
+    void ken_pori_scales().then((bal_rows) => {
+      heda_state.update((bal_s) => ({ ...bal_s, scales: bal_rows }));
+    });
+    bal_schedule_save();
   }
 };

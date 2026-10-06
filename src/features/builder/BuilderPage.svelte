@@ -12,6 +12,7 @@
   import StructurePanel from './StructurePanel.svelte';
   import ValidationPanel from './ValidationPanel.svelte';
   import ScalesManagerSheet from './ScalesManagerSheet.svelte';
+  import SourceMode from '../source/SourceMode.svelte';
   import { builder_state } from './builder_state';
 
   let { projectId }: { projectId: string } = $props();
@@ -19,6 +20,27 @@
   let shawya_structure_open = $state(false);
   let shawya_check_open = $state(false);
   let shawya_scales_open = $state(false);
+  let shawya_build_tab = $state<'visual' | 'source'>('visual');
+  let shawya_unsaved_open = $state(false);
+  let shawya_pending_tab = $state<'visual' | 'source'>('visual');
+  let shawya_source_ref = $state<{ bal_is_dirty(): boolean; bal_apply_now(): void; bal_discard(): void } | null>(null);
+
+  function bal_switch_tab(bal_next: 'visual' | 'source'): void {
+    if (bal_next === shawya_build_tab) return;
+    if (shawya_build_tab === 'source' && shawya_source_ref?.bal_is_dirty()) {
+      shawya_pending_tab = bal_next;
+      shawya_unsaved_open = true;
+      return;
+    }
+    shawya_build_tab = bal_next;
+  }
+
+  function bal_leave_source(bal_apply: boolean): void {
+    if (bal_apply) shawya_source_ref?.bal_apply_now();
+    else shawya_source_ref?.bal_discard();
+    shawya_unsaved_open = false;
+    shawya_build_tab = shawya_pending_tab;
+  }
 
   const bal_mode = $derived<LayoutMode>($ghora_layout);
   const bal_state = $derived($builder_state);
@@ -94,7 +116,7 @@
   </div>
 {:else if bal_state.questionnaire}
   <div class="builder" data-mode={bal_mode}>
-    {#if bal_mode !== 'mobile'}
+    {#if bal_mode !== 'mobile' && shawya_build_tab === 'visual'}
       <div class="panel structure-panel">
         <StructurePanel />
       </div>
@@ -103,26 +125,48 @@
       <header class="canvas-head">
         <span class="canvas-crumb">{bal_state.questionnaire.title}</span>
         <div class="canvas-tools">
-          <IconButton
-            label="Undo"
-            icon="undo"
-            glyph={17}
-            disabled={!bal_state.canUndo}
-            onclick={() => builder_state.undo()}
-          />
-          <IconButton
-            label="Redo"
-            icon="redo"
-            glyph={17}
-            disabled={!bal_state.canRedo}
-            onclick={() => builder_state.redo()}
-          />
-          <Button variant="secondary" size="sm" icon="check" onclick={() => (shawya_check_open = true)}>
-            Check
-          </Button>
-          <Button variant="secondary" size="sm" icon="sliders" onclick={() => (shawya_scales_open = true)}>
-            Scales
-          </Button>
+          <div class="mode-switch" role="tablist" aria-label="Authoring mode">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={shawya_build_tab === 'visual'}
+              class:active={shawya_build_tab === 'visual'}
+              onclick={() => bal_switch_tab('visual')}
+            >
+              Visual
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={shawya_build_tab === 'source'}
+              class:active={shawya_build_tab === 'source'}
+              onclick={() => bal_switch_tab('source')}
+            >
+              Source
+            </button>
+          </div>
+          {#if shawya_build_tab === 'visual'}
+            <IconButton
+              label="Undo"
+              icon="undo"
+              glyph={17}
+              disabled={!bal_state.canUndo}
+              onclick={() => builder_state.undo()}
+            />
+            <IconButton
+              label="Redo"
+              icon="redo"
+              glyph={17}
+              disabled={!bal_state.canRedo}
+              onclick={() => builder_state.redo()}
+            />
+            <Button variant="secondary" size="sm" icon="check" onclick={() => (shawya_check_open = true)}>
+              Check
+            </Button>
+            <Button variant="secondary" size="sm" icon="sliders" onclick={() => (shawya_scales_open = true)}>
+              Scales
+            </Button>
+          {/if}
           <span class="save-state" data-state={bal_state.saveStatus}>
             <span class="save-dot" aria-hidden="true"></span>
             {bal_save_label}
@@ -130,10 +174,14 @@
         </div>
       </header>
       <div class="canvas-body">
-        <ItemEditor mode={bal_mode} />
+        {#if shawya_build_tab === 'source'}
+          <SourceMode bind:this={shawya_source_ref} />
+        {:else}
+          <ItemEditor mode={bal_mode} />
+        {/if}
       </div>
     </div>
-    {#if bal_mode === 'desktop'}
+    {#if bal_mode === 'desktop' && shawya_build_tab === 'visual'}
       <div class="panel inspector-panel">
         <InspectorPanel />
       </div>
@@ -183,6 +231,22 @@
         </div>
       </Sheet>
     {/if}
+    {#if shawya_unsaved_open}
+      <div class="overlay" role="dialog" aria-modal="true">
+        <div class="dialog">
+          <h3>Source changes have not been applied</h3>
+          <p class="dialog-body">
+            Your edits in the source editor are not part of the questionnaire yet. Apply them, discard them, or stay
+            in Source.
+          </p>
+          <div class="dialog-actions">
+            <Button onclick={() => (shawya_unsaved_open = false)}>Stay in Source</Button>
+            <Button variant="secondary" onclick={() => bal_leave_source(false)}>Discard</Button>
+            <Button variant="primary" onclick={() => bal_leave_source(true)}>Apply</Button>
+          </div>
+        </div>
+      </div>
+    {/if}
   </div>
 {/if}
 
@@ -201,6 +265,58 @@
 <ScalesManagerSheet bind:open={shawya_scales_open} />
 
 <style>
+  .mode-switch {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .mode-switch button {
+    border: none;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 13px;
+    padding: 6px 14px;
+    cursor: pointer;
+  }
+  .mode-switch button.active {
+    background: var(--accent, #1c5d99);
+    color: #ffffff;
+  }
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(9, 18, 30, 0.45);
+    display: grid;
+    place-items: center;
+    z-index: 70;
+    padding: 16px;
+  }
+  .dialog {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px;
+    max-width: 440px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .dialog h3 {
+    margin: 0;
+    font-size: 16px;
+  }
+  .dialog-body {
+    margin: 0;
+    font-size: 14px;
+  }
+  .dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
   .builder {
     display: grid;
     min-height: 0;
