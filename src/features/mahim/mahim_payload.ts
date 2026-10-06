@@ -5,6 +5,7 @@ import type {
   QuestionnaireRecord,
   ResponseScaleRecord
 } from '../../models/types';
+import type { DatasetSnapshotRecord } from '../../models/response_models';
 import type {
   PrintBatchRecord,
   PrintLayoutRecord
@@ -64,6 +65,7 @@ export interface BalResponsePackage {
   recognitionRuns: RecognitionRunRecord[];
   auditEvents: ResponseAuditEventRecord[];
   blankReferences: BlankReferenceMetadata[];
+  datasetSnapshots?: DatasetSnapshotRecord[];
 }
 
 export interface BlankReferenceMetadata {
@@ -878,6 +880,10 @@ export function bal_validate_response_package(
       bal_payload_issue(bal_issues, `${bal_path}.${bal_key}`, 'Response metadata lists invalid.');
       return null;
     }
+  }
+  if (bal_value.datasetSnapshots !== undefined && !bal_is_arr(bal_value.datasetSnapshots)) {
+    bal_payload_issue(bal_issues, `${bal_path}.datasetSnapshots`, 'Dataset snapshot list invalid.');
+    return null;
   }
   return bal_value as unknown as BalResponsePackage;
 }

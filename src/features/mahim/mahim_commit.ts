@@ -1,4 +1,5 @@
 import {
+  bal_put,
   bal_get,
   bal_get_all,
   bal_get_all_by_index_tx,
@@ -51,6 +52,7 @@ export interface BalImportCounts {
   recognitionRuns: number;
   responseAuditEvents: number;
   blankReferences: number;
+  datasetSnapshots: number;
   settings: number;
 }
 
@@ -77,6 +79,7 @@ const BAL_ALL_STORES = [
   'recognitionRuns',
   'responseAuditEvents',
   'blankReferences',
+  'datasetSnapshots',
   'settings'
 ];
 
@@ -95,6 +98,7 @@ function bal_zero_counts(): BalImportCounts {
     recognitionRuns: 0,
     responseAuditEvents: 0,
     blankReferences: 0,
+    datasetSnapshots: 0,
     settings: 0
   };
 }
@@ -234,6 +238,12 @@ export async function bal_commit_import(
       if (bal_local && bal_payload_equal(bal_local, bal_event)) continue;
       bal_response_audit_rows.push(bal_event);
       bal_report.written.responseAuditEvents += 1;
+    }
+    for (const bal_snapshot of bal_inspected.responses.datasetSnapshots ?? []) {
+      const bal_local = await bal_get('datasetSnapshots', bal_snapshot.id);
+      if (bal_local && bal_payload_equal(bal_local, bal_snapshot)) continue;
+      await bal_put('datasetSnapshots', bal_snapshot);
+      bal_report.written.datasetSnapshots += 1;
     }
   }
 

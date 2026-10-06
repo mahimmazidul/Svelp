@@ -57,6 +57,7 @@ export interface BalBackupSections {
     responses: import('../../models/response_models').ResponseRecord[];
     recognitionRuns: import('../../models/response_models').RecognitionRunRecord[];
     auditEvents: import('../../models/response_models').ResponseAuditEventRecord[];
+    datasetSnapshots?: import('../../models/response_models').DatasetSnapshotRecord[];
     blankReferences: {
       id: string;
       fingerprint: string;

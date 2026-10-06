@@ -31,6 +31,7 @@ import type {
   BlankReferenceRecord,
   RecognitionRunRecord,
   ResponseAuditEventRecord,
+  DatasetSnapshotRecord,
   ResponseRecord
 } from '../../models/response_models';
 import { dhon_scan_asset } from '../../db/scan_repo';
@@ -49,8 +50,27 @@ const BAL_ALL_STORES = [
   'recognitionRuns',
   'responseAuditEvents',
   'blankReferences',
+  'datasetSnapshots',
   'settings'
 ];
+
+function bal_dataset_snapshot(): DatasetSnapshotRecord {
+  return {
+    id: 'snap-1',
+    projectId: 'proj-1',
+    questionnaireId: 'q-1',
+    questionnaireVersion: 3,
+    algorithmVersion: 'R1',
+    profileName: 'custom-v1',
+    respondentCount: 1,
+    unresolvedCount: 0,
+    missingPageRespondents: 0,
+    counts: { autoAccepted: 1, reviewedCorrected: 0, blank: 0, needsReview: 0, manualOnly: 0, unreadable: 0 },
+    exportConfig: { format: 'csv', optionColumns: true, bom: false, includeDiagnostics: false },
+    svelpVersion: '0.1.0',
+    createdAt: 1727600500000
+  };
+}
 
 function bal_options(bal_overrides: Partial<BalBackupOptions> = {}): BalBackupOptions {
   return {
@@ -263,6 +283,7 @@ describe('mahim backup round trip', () => {
       recognitionRuns: [],
       responseAuditEvents: [],
       blankReferences: [bal_blank_reference()],
+      datasetSnapshots: [bal_dataset_snapshot()],
       assets: [bal_scan_asset('scan-asset-1', 'source'), bal_scan_asset('scan-asset-2', 'normalized')],
       settings: [{ key: 'recognition.profile', value: { name: 'default-v1' } }],
       options: bal_options()
@@ -295,6 +316,9 @@ describe('mahim backup round trip', () => {
     const bal_response_row = await bal_get<ResponseRecord>('responses', 'R-001::i1');
     expect(bal_response_row?.confidence).toBeCloseTo(0.95, 9);
     expect(bal_response_row?.value).toEqual(['o1']);
+    const bal_snapshot_row = await bal_get<DatasetSnapshotRecord>('datasetSnapshots', 'snap-1');
+    expect(bal_snapshot_row?.profileName).toBe('custom-v1');
+    expect(bal_snapshot_row?.counts.autoAccepted).toBe(1);
     const bal_page_row = await bal_get<ScanPageRecord>('scanPages', 'scan-page-1');
     expect(bal_page_row?.thumbSource).toBe('data:image/jpeg;base64,AAAA');
     expect(bal_page_row?.issues).toEqual(['poor-quality']);
@@ -317,6 +341,7 @@ describe('mahim backup round trip', () => {
       recognitionRuns: [],
       responseAuditEvents: [],
       blankReferences: [bal_blank_reference()],
+      datasetSnapshots: [],
       assets: [bal_scan_asset('scan-asset-1', 'source'), bal_scan_asset('scan-asset-2', 'normalized')],
       settings: [],
       options: bal_options({
@@ -424,6 +449,7 @@ describe('mahim backup round trip', () => {
       recognitionRuns: [bal_run],
       responseAuditEvents: [bal_event],
       blankReferences: [bal_blank_reference()],
+      datasetSnapshots: [],
       assets: [bal_scan_asset('scan-asset-1', 'source'), bal_scan_asset('scan-asset-2', 'normalized')],
       settings: [],
       options: bal_options()
@@ -468,6 +494,7 @@ describe('mahim backup round trip', () => {
       recognitionRuns: [],
       responseAuditEvents: [],
       blankReferences: [bal_blank_reference()],
+      datasetSnapshots: [],
       assets: [bal_scan_asset('scan-asset-1', 'source')],
       settings: [],
       options: bal_options()

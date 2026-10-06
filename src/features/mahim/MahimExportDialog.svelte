@@ -17,6 +17,7 @@
     ken_pori_scan_audit_by_project,
     ken_pori_response_runs_by_project,
     ken_pori_response_audit_by_project,
+    ken_pori_dataset_snapshots,
     ken_pori_responses_for_project,
     ken_pori_blank_references_for_fingerprints
   } from './mahim_read_helpers';
@@ -168,6 +169,9 @@
       const bal_blanks = await ken_pori_blank_references_for_fingerprints(
         bal_layouts.map((bal_layout) => bal_layout.fingerprint)
       );
+      const bal_snapshots = bal_backup_options.includeResponses
+        ? await ken_pori_dataset_snapshots(project.id)
+        : [];
       const bal_settings = await bal_get_all<SettingRow<unknown>>('settings');
       bal_stage = 'encoding';
       const bal_backup = await bal_build_backup_package({
@@ -183,6 +187,7 @@
         recognitionRuns: bal_runs,
         responseAuditEvents: bal_response_audit,
         blankReferences: bal_blanks,
+        datasetSnapshots: bal_snapshots,
         assets: bal_scan_assets,
         settings: bal_settings,
         options: bal_backup_options

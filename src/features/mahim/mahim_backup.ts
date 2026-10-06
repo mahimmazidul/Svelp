@@ -17,7 +17,8 @@ import type {
   BlankReferenceRecord,
   RecognitionRunRecord,
   ResponseAuditEventRecord,
-  ResponseRecord
+  ResponseRecord,
+  DatasetSnapshotRecord
 } from '../../models/response_models';
 import type { SettingRow } from '../../db/settings_repo';
 import {
@@ -51,6 +52,7 @@ export interface BalBackupInput {
   recognitionRuns: RecognitionRunRecord[];
   responseAuditEvents: ResponseAuditEventRecord[];
   blankReferences: BlankReferenceRecord[];
+  datasetSnapshots: DatasetSnapshotRecord[];
   assets: ScanAssetRecord[];
   settings: SettingRow<unknown>[];
   options: BalBackupOptions;
@@ -95,6 +97,7 @@ export interface BalBackupResponsePayload {
   responses: ResponseRecord[];
   recognitionRuns: RecognitionRunRecord[];
   auditEvents: ResponseAuditEventRecord[];
+  datasetSnapshots: DatasetSnapshotRecord[];
   blankReferences: {
     id: string;
     fingerprint: string;
@@ -205,6 +208,7 @@ export async function bal_build_backup_package(
   };
   const bal_responses: BalBackupResponsePayload = {
     responses: bal_input.options.includeResponses ? bal_input.responses : [],
+    datasetSnapshots: bal_input.options.includeResponses ? bal_input.datasetSnapshots : [],
     recognitionRuns: bal_input.options.includeResponses ? bal_input.recognitionRuns : [],
     auditEvents: bal_input.options.includeResponses ? bal_input.responseAuditEvents : [],
     blankReferences: bal_blank_meta

@@ -6,6 +6,7 @@ import type {
   ScanPageRecord
 } from '../../models/scan_models';
 import type {
+  DatasetSnapshotRecord,
   BlankReferenceRecord,
   RecognitionRunRecord,
   ResponseAuditEventRecord,
@@ -68,6 +69,12 @@ export async function ken_pori_response_audit_by_project(
     'projectId',
     bal_project_id
   );
+}
+
+export async function ken_pori_dataset_snapshots(
+  bal_project_id: string
+): Promise<DatasetSnapshotRecord[]> {
+  return bal_get_all_by_index<DatasetSnapshotRecord>('datasetSnapshots', 'projectId', bal_project_id);
 }
 
 export async function ken_pori_responses_for_project(
