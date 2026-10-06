@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { QuestionnaireRecord } from '../../models/types';
 import type { ResponseRecord } from '../../models/response_models';
-import { bal_completeness_for_respondents, bal_respondent_status } from './reading_completeness';
+import { bal_completeness_for_respondents, bal_questionnaire_summary, bal_respondent_status } from './reading_completeness';
 import { dhon_banaitesi_item, dhon_banaitesi_questionnaire } from '../../models/factories';
 
 function bal_questionnaire(): QuestionnaireRecord {
@@ -135,5 +135,80 @@ describe('respondent completeness', () => {
     );
     expect(bal_map.get('R1')?.completeness).toBe('complete');
     expect(bal_map.get('R2')?.completeness).toBe('missing-required');
+  });
+
+  it('distinguishes transcription pending from needs review', () => {
+    const bal_q = bal_questionnaire();
+    const bal_pending = bal_respondent_status(
+      'R1',
+      bal_q,
+      1,
+      [bal_response({ itemId: 'i9', itemType: 'short_text', status: 'manual-only' })],
+      new Set([1])
+    );
+    expect(bal_pending.completeness).toBe('transcription-pending');
+    expect(bal_pending.manualPendingCount).toBe(1);
+    const bal_review = bal_respondent_status(
+      'R2',
+      bal_q,
+      1,
+      [
+        bal_response({ respondentId: 'R2', itemId: 'i9', itemType: 'short_text', status: 'manual-only' }),
+        bal_response({ respondentId: 'R2', itemId: 'i-x', itemType: 'single_choice', status: 'ambiguous' })
+      ],
+      new Set([1])
+    );
+    expect(bal_review.completeness).toBe('needs-review');
+  });
+
+  it('reports unreadable source separately from ordinary review', () => {
+    const bal_q = bal_questionnaire();
+    const bal_status = bal_respondent_status(
+      'R1',
+      bal_q,
+      1,
+      [bal_response({ itemId: 'i-x', itemType: 'single_choice', status: 'unreadable' })],
+      new Set([1])
+    );
+    expect(bal_status.completeness).toBe('unreadable-source');
+    expect(bal_status.unreadableCount).toBe(1);
+  });
+
+  it('reports version conflicts before anything else', () => {
+    const bal_q = bal_questionnaire();
+    const bal_status = bal_respondent_status(
+      'R1',
+      bal_q,
+      2,
+      [
+        bal_response({ itemId: 'i-x', itemType: 'single_choice', status: 'unreadable', questionnaireVersion: 0 }),
+        bal_response({ itemId: 'i-y', itemType: 'short_text', status: 'manual-only', questionnaireVersion: 0 })
+      ],
+      new Set([1])
+    );
+    expect(bal_status.completeness).toBe('version-conflict');
+    expect(bal_status.versionConflicts).toBe(2);
+  });
+
+  it('summarizes the questionnaire with exact counts', () => {
+    const bal_q = bal_questionnaire();
+    const bal_required = bal_q.sections[0].items[0];
+    const bal_map = bal_completeness_for_respondents(
+      ['R1', 'R2', 'R3'],
+      bal_q,
+      1,
+      [
+        bal_response({ respondentId: 'R1', itemId: bal_required.id, status: 'accepted', value: ['o1'] }),
+        bal_response({ respondentId: 'R2', itemId: bal_required.id, status: 'ambiguous' }),
+        bal_response({ respondentId: 'R3', itemId: 'i9', itemType: 'short_text', status: 'manual-only' })
+      ],
+      { R1: [1], R2: [1], R3: [1] }
+    );
+    const bal_summary = bal_questionnaire_summary([...bal_map.values()]);
+    expect(bal_summary.totalRespondents).toBe(3);
+    expect(bal_summary.complete).toBe(1);
+    expect(bal_summary.needsReview).toBe(1);
+    expect(bal_summary.transcriptionPending).toBe(1);
+    expect(bal_summary.unresolvedAmbiguous).toBe(1);
   });
 });
