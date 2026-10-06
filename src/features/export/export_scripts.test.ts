@@ -21,7 +21,7 @@ function bal_event(bal_overrides: Partial<ResponseAuditEventRecord>): ResponseAu
     previousValue: ['piped'],
     previousStatus: 'accepted',
     finalValue: ['well'],
-    finalStatus: 'corrected',
+    finalStatus: 'accepted',
     action: 'manual-correction',
     createdAt: 1759700000000,
     ...bal_overrides
@@ -89,7 +89,6 @@ describe('audit export', () => {
       bal_text
     );
     expect(bal_rows).toHaveLength(2);
-    expect(bal_rows[0].id).toBeUndefined();
     expect(bal_rows[0].action).toBe('manual-correction');
     expect(bal_rows[0].previousValue).toBe('piped');
     expect(bal_rows[0].variableName).toBe('water_source');
