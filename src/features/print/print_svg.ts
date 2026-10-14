@@ -10,7 +10,8 @@ import type {
   bal_ScaleTableHeadChunk,
   bal_ScaleTableRowChunk,
   bal_SectionHeadChunk,
-  bal_SignatureChunk
+  bal_SignatureChunk,
+  bal_SignaturePairChunk
 } from './print_blocks';
 import type { PrintSettings } from '../../models/types';
 
@@ -285,6 +286,38 @@ function bal_draw_chunk(
       bal_parts.push(
         `<line x1="${bal_px(bal_x)}" y1="${bal_px(bal_y + bal_row.rowHeight)}" x2="${bal_px(bal_x + bal_content_width)}" y2="${bal_px(bal_y + bal_row.rowHeight)}" stroke="${BAL_RULE_INK}" stroke-width="0.5" />`
       );
+      return bal_parts.join('');
+    }
+    case 'signature-pair': {
+      const bal_pair = bal_chunk as bal_SignaturePairChunk;
+      const bal_lh = bal_settings.theme.baseFontSize * 1.38 * 0.352778;
+      const bal_parts: string[] = [];
+      const bal_col_width = bal_content_width / 2;
+      bal_pair.columns.forEach((bal_col, bal_col_index) => {
+        const bal_col_x = bal_x + bal_col_index * bal_col_width;
+        let bal_cursor = bal_y;
+        bal_parts.push(bal_text(bal_col_x, bal_cursor, bal_col.roleLabel, bal_settings, { bold: true }));
+        bal_cursor += bal_lh + 4.5;
+        const bal_line_width = Math.min(46, bal_col_width - 40);
+        bal_parts.push(
+          `<line x1="${bal_px(bal_col_x + 2)}" y1="${bal_px(bal_cursor)}" x2="${bal_px(bal_col_x + 2 + bal_line_width)}" y2="${bal_px(bal_cursor)}" stroke="${BAL_INK}" stroke-width="1" />`
+        );
+        bal_parts.push(bal_text(bal_col_x + 2, bal_cursor + 1, 'Signature', bal_settings, { size: 0.8, color: BAL_SOFT_INK }));
+        if (bal_col.includeDate) {
+          const bal_date_x = bal_col_x + bal_col_width - 36;
+          bal_parts.push(
+            `<line x1="${bal_px(bal_date_x)}" y1="${bal_px(bal_cursor)}" x2="${bal_px(bal_date_x + 34)}" y2="${bal_px(bal_cursor)}" stroke="${BAL_INK}" stroke-width="1" />`
+          );
+          bal_parts.push(bal_text(bal_date_x, bal_cursor + 1, 'Date', bal_settings, { size: 0.8, color: BAL_SOFT_INK }));
+        }
+        bal_cursor += bal_lh + 4.2;
+        if (bal_col.includePrintedName) {
+          bal_parts.push(
+            `<line x1="${bal_px(bal_col_x + 2)}" y1="${bal_px(bal_cursor)}" x2="${bal_px(bal_col_x + 2 + bal_line_width)}" y2="${bal_px(bal_cursor)}" stroke="${BAL_SOFT_INK}" stroke-width="0.8" />`
+          );
+          bal_parts.push(bal_text(bal_col_x + 2, bal_cursor + 1, 'Printed name', bal_settings, { size: 0.8, color: BAL_SOFT_INK }));
+        }
+      });
       return bal_parts.join('');
     }
     case 'consent-para': {

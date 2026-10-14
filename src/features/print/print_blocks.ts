@@ -22,7 +22,8 @@ export type bal_PrintChunk =
   | bal_ScaleTableRowChunk
   | bal_ConsentParaChunk
   | bal_ConsentAckChunk
-  | bal_SignatureChunk;
+  | bal_SignatureChunk
+  | bal_SignaturePairChunk;
 
 export interface bal_ChunkBase {
   kind: string;
@@ -158,6 +159,19 @@ export interface bal_SignatureChunk extends bal_ChunkBase {
   includePrintedName: boolean;
   includeDate: boolean;
   signerLabel: string;
+}
+
+export interface bal_SignatureColumn {
+  itemId: string;
+  roleLabel: string;
+  includePrintedName: boolean;
+  includeDate: boolean;
+  signerLabel: string;
+}
+
+export interface bal_SignaturePairChunk extends bal_ChunkBase {
+  kind: 'signature-pair';
+  columns: [bal_SignatureColumn, bal_SignatureColumn];
 }
 
 export interface bal_PrintContext {
@@ -880,6 +894,40 @@ function bal_build_consent_chunks(
   return bal_chunks;
 }
 
+function bal_signature_column(bal_item: QuestionnaireItem): bal_SignatureColumn {
+  const bal_signature = bal_item.signature;
+  return {
+    itemId: bal_item.id,
+    roleLabel: bal_signature?.signerRole
+      ? bal_signature.signerRole
+      : item_descriptor(bal_item.type).label,
+    includePrintedName: bal_signature?.includePrintedName ?? true,
+    includeDate: bal_signature?.includeDate ?? true,
+    signerLabel: item_descriptor(bal_item.type).label
+  };
+}
+
+function bal_build_signature_pair_chunk(
+  bal_left: QuestionnaireItem,
+  bal_right: QuestionnaireItem,
+  bal_section_id: string,
+  bal_ctx: bal_PrintContext
+): bal_SignaturePairChunk {
+  const bal_settings = bal_ctx.settings;
+  const bal_lh = bal_line_h(bal_settings);
+  const bal_height = bal_lh + 4.5 + bal_lh + 4.2 + 1;
+  return {
+    kind: 'signature-pair',
+    itemType: bal_left.type,
+    itemId: null,
+    sectionId: bal_section_id,
+    height: bal_height + (bal_left.signature?.includePrintedName ?? true ? bal_lh + 2.4 : 0),
+    keepWithNext: false,
+    forcedBreakBefore: false,
+    columns: [bal_signature_column(bal_left), bal_signature_column(bal_right)]
+  };
+}
+
 function bal_build_signature_chunk(
   bal_item: QuestionnaireItem,
   bal_section_id: string,
@@ -983,11 +1031,18 @@ export function bal_build_chunks(
         continue;
       }
       if (bal_item.type === 'participant_signature' || bal_item.type === 'researcher_signature') {
-        const bal_sig_chunk = bal_build_signature_chunk(bal_item, bal_section.id, bal_ctx);
         const bal_next_item = bal_section.items[bal_item_index + 1];
-        bal_sig_chunk.keepWithNext =
-          bal_next_item?.type === 'participant_signature' || bal_next_item?.type === 'researcher_signature';
-        bal_chunks.push(bal_sig_chunk);
+        if (
+          bal_next_item?.type === 'participant_signature' ||
+          bal_next_item?.type === 'researcher_signature'
+        ) {
+          bal_chunks.push(
+            bal_build_signature_pair_chunk(bal_item, bal_next_item, bal_section.id, bal_ctx)
+          );
+          bal_item_index += 1;
+          continue;
+        }
+        bal_chunks.push(bal_build_signature_chunk(bal_item, bal_section.id, bal_ctx));
         continue;
       }
       const bal_yesno_options = [

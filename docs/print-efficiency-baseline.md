@@ -145,6 +145,10 @@ Recognition geometry (`print_layout.ts`):
    loosen. Row floors now follow the mark cell (matrix rows 8.8 -> 6.6 mm in
    dense). Legacy density value 'standard' maps to 'compact'; new values are
    identity. Benchmark: comfortable 9, compact 6, dense 6. Bangla compact 4.
+6b. **Signature pairing**: two consecutive signature items draw side by side
+   as one `signature-pair` chunk (per-column item bounds, full sign space
+   retained). Benchmark: comfortable 9, compact 6, dense 5 (preferred band).
+   Bangla: comfortable 4, compact 3, dense 3.
 7. **Utilization diagnostics** (dev-only) + print-readiness validator gates
    (mark proximity, overlap, clipped Bangla, small QR, margin violations).
 8. **Batch page estimates** (sheets with duplex), streaming-friendly.

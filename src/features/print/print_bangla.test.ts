@@ -69,7 +69,7 @@ describe('bangla print layout', () => {
       scales: [bal_frequency_scale_bn()],
       respondentId: 'BN-017'
     });
-    expect(bal_doc.pageCount).toBeGreaterThanOrEqual(4);
+    expect(bal_doc.pageCount).toBeGreaterThanOrEqual(3);
     const bal_payloads = new Set<string>();
     for (const bal_page of bal_doc.pages) {
       if (bal_page.identifier) bal_payloads.add(bal_page.identifier.payload);

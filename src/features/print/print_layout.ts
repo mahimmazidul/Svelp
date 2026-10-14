@@ -24,7 +24,8 @@ import type {
   bal_ConsentAckChunk,
   bal_MatrixRowChunk,
   bal_QuestionChunk,
-  bal_ScaleTableRowChunk
+  bal_ScaleTableRowChunk,
+  bal_SignaturePairChunk
 } from './print_blocks';
 import {
   bal_clean_study_code,
@@ -430,6 +431,27 @@ export function bal_build_print_document(bal_input: {
             }
           });
         }
+      }
+
+      if (bal_chunk.kind === 'signature-pair') {
+        const bal_pair = bal_chunk as bal_SignaturePairChunk;
+        bal_pair.columns.forEach((bal_col, bal_col_index) => {
+          const bal_col_rect: PhysicalRect = {
+            x: bal_x + (bal_col_index * bal_regions.content.width) / 2,
+            y: bal_placed.y,
+            width: bal_regions.content.width / 2,
+            height: bal_chunk.height
+          };
+          bal_item_bounds.push({
+            itemId: bal_col.itemId,
+            sectionId: bal_chunk.sectionId,
+            itemType: bal_chunk.itemType,
+            chunkKind: bal_chunk.kind,
+            pageNumber: bal_page.pageNumber,
+            rect: bal_col_rect,
+            normalized: bal_normalized_rect(bal_col_rect, bal_regions.width, bal_regions.height)
+          });
+        });
       }
 
       const bal_mark_cell = bal_settings.marker.diameterMm + bal_settings.marker.regionPaddingMm * 2;

@@ -330,6 +330,25 @@ describe('shared-scale table grouping', () => {
     expect(bal_tops_comfy.size).toBe(3);
   });
 
+  it('pairs consecutive signatures side by side in one chunk', () => {
+    const bal_q = dhon_banaitesi_questionnaire({ projectId: 'p-t', title: 'Sig pair' });
+    const bal_section = dhon_banaitesi_section('Consent');
+    const bal_sig1 = dhon_banaitesi_item('participant_signature', null);
+    const bal_sig2 = dhon_banaitesi_item('researcher_signature', null);
+    bal_section.items = [bal_sig1, bal_sig2];
+    bal_q.sections = [bal_section];
+    const bal_chunks = bal_build_chunks(bal_q, bal_context(bal_q, []));
+    const bal_pairs = bal_chunks.filter((bal_c) => bal_c.kind === 'signature-pair');
+    expect(bal_pairs).toHaveLength(1);
+    const bal_single = bal_chunks.filter((bal_c) => bal_c.kind === 'signature');
+    expect(bal_single).toHaveLength(0);
+    const bal_doc = bal_build_print_document({ questionnaire: bal_q, scales: [] });
+    const bal_bounds = bal_doc.pages[0].geometry.itemBounds.filter((bal_b) => bal_b.chunkKind === 'signature-pair');
+    expect(bal_bounds).toHaveLength(2);
+    const bal_second_x = bal_bounds[1].rect.x;
+    expect(bal_second_x).toBeGreaterThan(bal_bounds[0].rect.x + 40);
+  });
+
   it('keeps signature groups with their consent acknowledgement', () => {
     const bal_q = dhon_banaitesi_questionnaire({ projectId: 'p-t', title: 'Signatures' });
     const bal_section = dhon_banaitesi_section('Consent');
@@ -347,10 +366,8 @@ describe('shared-scale table grouping', () => {
     bal_section.items = [bal_consent, bal_sig1, bal_sig2];
     bal_q.sections = [bal_section];
     const bal_chunks = bal_build_chunks(bal_q, bal_context(bal_q, []));
-    const bal_sig_chunks = bal_chunks.filter((bal_c) => bal_c.kind === 'signature');
-    expect(bal_sig_chunks).toHaveLength(2);
-    expect(bal_sig_chunks[0].keepWithNext).toBe(true);
-    expect(bal_sig_chunks[1].keepWithNext).toBe(false);
+    const bal_sig_pairs = bal_chunks.filter((bal_c) => bal_c.kind === 'signature-pair');
+    expect(bal_sig_pairs).toHaveLength(1);
     const bal_acks = bal_chunks.filter((bal_c) => bal_c.kind === 'consent-ack');
     expect(bal_acks[0].keepWithNext).toBe(true);
   });

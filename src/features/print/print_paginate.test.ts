@@ -82,8 +82,14 @@ describe('keep-together rules', () => {
 
   it('keeps signature chunks whole', () => {
     const bal_result = bal_paginate({ questionnaire: bal_consent_heavy(), scales: [] });
-    const bal_signatures = bal_result.chunks.filter((bal_p) => bal_p.chunk.kind === 'signature');
-    expect(bal_signatures.length).toBe(2);
+    const bal_signatures = bal_result.chunks.filter(
+      (bal_p) => bal_p.chunk.kind === 'signature' || bal_p.chunk.kind === 'signature-pair'
+    );
+    expect(bal_signatures.length).toBe(1);
+    const bal_pages_with_pair = bal_result.chunks.filter(
+      (bal_p) => bal_p.chunk.kind === 'signature-pair'
+    );
+    expect(bal_pages_with_pair.length).toBe(1);
   });
 });
 
