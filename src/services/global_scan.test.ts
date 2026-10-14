@@ -85,9 +85,8 @@ function bal_layout_for(
           quietZoneModules: 4,
           textBounds: null
         },
-        alignmentMarkers: bal_geometry.markerRects.map((bal_r) => ({
-          id: 'm',
-          role: 'corner',
+        alignmentMarkers: bal_geometry.markerRects.map((bal_r, bal_m) => ({
+          corner: (['topLeft', 'topRight', 'bottomRight', 'bottomLeft'] as const)[Math.min(bal_m, 3)],
           rect: bal_r,
           normalized: { x: bal_r.x / 210, y: bal_r.y / 297, width: bal_r.width / 210, height: bal_r.height / 297 }
         })),
