@@ -105,17 +105,21 @@ Recognition geometry (`print_layout.ts`):
 
 ## Plan (commit sequence, measure page count after each)
 
-1. **Density profiles**: add `dense` to `PrintDensity` and rename labels to
-   Comfortable / Compact / Dense mapping (comfortable = old comfortable,
-   compact = old standard-ish, dense = new floor); centralize scanner-safe
-   minimums (bubble diameter, c2c, QR mm, marker inset) in one module;
-   density selects typography/spacing/mark overrides in mm only.
-   Benchmark: expect ~18 -> stays (behavior neutral), dense ≈ 14.
-2. **Compact shared-scale tables**: group adjacent items that share a scale and
-   marker type into one printed table (print-renderer-only; head + row chunks;
-   response columns shared and aligned; column labels once; never across
-   section/type/scale/break/instruction boundaries; yes/no renders inline
-   `text ○ Yes ○ No`). Benchmark: expect ~7–8.
+1. **Density profiles**: DONE (commit 80bfebf). `PrintDensity` is now
+   `comfortable | compact | dense`; legacy persisted values map
+   standard->compact, compact->dense so old forms render identically.
+   Scanner minimums centralized in `src/features/print/print_scan_minimums.ts`.
+   Measured benchmark: comfortable 22, compact 18, dense 19 pages
+   (density alone barely helps; option-row geometry dominates).
+2. **Compact shared-scale tables**: DONE. Adjacent items with identical
+   resolved options (label+coding signature) and single selection group into
+   `scale-table-head` + `scale-table-row` chunks (labels once, shared aligned
+   columns, continuation headers on page turns). Runs never cross section,
+   signature, page-break or instruction boundaries. Isolated yes_no renders
+   inline (`text ○ Yes ○ No`); answer regions stay per member item + option so
+   recognition is unchanged. Item-level pageBreakBefore now honored on
+   questions too. Benchmark: comfortable 11, compact 10, dense 11 pages
+   (from 22/18/19). Bangla survey unchanged at 5 pages.
 3. **Typography/spacing**: compact theme lift (10 pt), trim per-chunk trailing
    spacing, denser section heads, smaller header/footer bands, scanner-safe
    margins default 15 mm. Benchmark: expect ~6.

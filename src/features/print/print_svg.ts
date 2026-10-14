@@ -7,6 +7,8 @@ import type {
   bal_MatrixRowChunk,
   bal_PrintChunk,
   bal_QuestionChunk,
+  bal_ScaleTableHeadChunk,
+  bal_ScaleTableRowChunk,
   bal_SectionHeadChunk,
   bal_SignatureChunk
 } from './print_blocks';
@@ -232,6 +234,53 @@ function bal_draw_chunk(
             `<circle cx="${bal_px(bal_cx)}" cy="${bal_px(bal_cy)}" r="${bal_px(bal_r)}" fill="none" stroke="${BAL_INK}" stroke-width="0.9" />`
           );
         }
+      }
+      bal_parts.push(
+        `<line x1="${bal_px(bal_x)}" y1="${bal_px(bal_y + bal_row.rowHeight)}" x2="${bal_px(bal_x + bal_content_width)}" y2="${bal_px(bal_y + bal_row.rowHeight)}" stroke="${BAL_RULE_INK}" stroke-width="0.5" />`
+      );
+      return bal_parts.join('');
+    }
+    case 'scale-table-head': {
+      const bal_head = bal_chunk as bal_ScaleTableHeadChunk;
+      const bal_lh = bal_settings.theme.baseFontSize * 1.38 * 0.352778;
+      const bal_parts: string[] = [];
+      const bal_header_top = bal_y + bal_head.height - bal_head.headerHeight;
+      bal_head.columnLabels.forEach((bal_lines, bal_col_index) => {
+        const bal_col_left =
+          bal_x + bal_head.labelColumnWidth + bal_head.columnWidths.slice(0, bal_col_index).reduce((bal_a, bal_b) => bal_a + bal_b, 0);
+        bal_lines.forEach((bal_line, bal_line_index) => {
+          bal_parts.push(
+            bal_text(bal_col_left + bal_head.columnWidths[0] / 2, bal_header_top + bal_line_index * bal_lh, bal_line, bal_settings, {
+              bold: true,
+              size: 0.85,
+              anchor: 'middle'
+            })
+          );
+        });
+      });
+      bal_parts.push(
+        `<line x1="${bal_px(bal_x)}" y1="${bal_px(bal_y + bal_head.height - 0.4)}" x2="${bal_px(bal_x + bal_content_width)}" y2="${bal_px(bal_y + bal_head.height - 0.4)}" stroke="${BAL_INK}" stroke-width="1.1" />`
+      );
+      return bal_parts.join('');
+    }
+    case 'scale-table-row': {
+      const bal_row = bal_chunk as bal_ScaleTableRowChunk;
+      const bal_lh = bal_settings.theme.baseFontSize * 1.38 * 0.352778;
+      const bal_parts: string[] = [];
+      bal_parts.push(bal_text(bal_x + 2, bal_y + (bal_row.rowHeight - bal_row.labelLines.length * bal_lh) / 2, `${bal_row.numberLabel}.`, bal_settings, { bold: true }));
+      bal_row.labelLines.forEach((bal_line, bal_i) => {
+        bal_parts.push(
+          bal_text(bal_x + 2 + bal_row.numberIndent, bal_y + (bal_row.rowHeight - bal_row.labelLines.length * bal_lh) / 2 + bal_i * bal_lh, bal_line, bal_settings, {})
+        );
+      });
+      const bal_r = bal_settings.marker.diameterMm / 2;
+      for (let bal_col = 0; bal_col < bal_row.columnCount; bal_col++) {
+        const bal_col_width = bal_row.columnWidths[bal_col] ?? bal_row.columnWidths[0];
+        const bal_cx = bal_x + bal_row.labelColumnWidth + bal_col * bal_col_width + bal_col_width / 2;
+        const bal_cy = bal_y + bal_row.rowHeight / 2;
+        bal_parts.push(
+          `<circle cx="${bal_px(bal_cx)}" cy="${bal_px(bal_cy)}" r="${bal_px(bal_r)}" fill="none" stroke="${BAL_INK}" stroke-width="0.9" />`
+        );
       }
       bal_parts.push(
         `<line x1="${bal_px(bal_x)}" y1="${bal_px(bal_y + bal_row.rowHeight)}" x2="${bal_px(bal_x + bal_content_width)}" y2="${bal_px(bal_y + bal_row.rowHeight)}" stroke="${BAL_RULE_INK}" stroke-width="0.5" />`

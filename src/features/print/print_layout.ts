@@ -22,7 +22,8 @@ import { bal_paginate, type bal_PlacedChunk } from './print_paginate';
 import type {
   bal_ConsentAckChunk,
   bal_MatrixRowChunk,
-  bal_QuestionChunk
+  bal_QuestionChunk,
+  bal_ScaleTableRowChunk
 } from './print_blocks';
 import {
   bal_clean_study_code,
@@ -428,12 +429,40 @@ export function bal_build_print_document(bal_input: {
         }
       }
 
+      const bal_mark_cell = bal_settings.marker.diameterMm + bal_settings.marker.regionPaddingMm * 2;
+      if (bal_chunk.kind === 'scale-table-row') {
+        const bal_row = bal_chunk as bal_ScaleTableRowChunk;
+        bal_row.optionIds.forEach((bal_option_id, bal_col_index) => {
+          const bal_col_width = bal_row.columnWidths[bal_col_index] ?? bal_row.columnWidths[0];
+          const bal_cell_center_x =
+            bal_x + bal_row.labelColumnWidth + bal_col_index * bal_col_width + bal_col_width / 2;
+          const bal_cell_center_y = bal_placed.y + bal_row.rowHeight / 2;
+          bal_push_region({
+            itemId: bal_row.itemId as string,
+            variableName: bal_row.variableName,
+            itemType: bal_row.itemType,
+            kind: 'choice',
+            optionId: bal_option_id,
+            optionCode: bal_row.optionCodes[bal_col_index] ?? null,
+            rowId: null,
+            columnId: null,
+            markerType: 'bubble',
+            selection: 'single',
+            rect: {
+              x: bal_cell_center_x - bal_mark_cell / 2,
+              y: bal_cell_center_y - bal_mark_cell / 2,
+              width: bal_mark_cell,
+              height: bal_mark_cell
+            }
+          });
+        });
+      }
+
       if (bal_chunk.kind === 'matrix-row') {
         const bal_row = bal_chunk as bal_MatrixRowChunk;
         const bal_ctx = bal_matrix_context.get(bal_row.itemId as string);
         if (bal_ctx) {
-          const bal_marker_size =
-            bal_settings.marker.diameterMm + bal_settings.marker.regionPaddingMm * 2;
+          const bal_marker_size = bal_mark_cell;
           bal_ctx.columns.forEach((bal_col, bal_col_index) => {
             const bal_col_width = bal_row.columnWidths[bal_col_index] ?? bal_row.columnWidths[0];
             const bal_cell_center_x =

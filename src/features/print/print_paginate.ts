@@ -14,7 +14,8 @@ import {
   bal_split_chunk,
   type bal_MatrixHeadChunk,
   type bal_PrintChunk,
-  type bal_PrintContext
+  type bal_PrintContext,
+  type bal_ScaleTableHeadChunk
 } from './print_blocks';
 
 export interface bal_PlacedChunk {
@@ -41,7 +42,7 @@ export interface bal_LayoutInput {
 }
 
 interface bal_ActiveMatrix {
-  head: bal_MatrixHeadChunk;
+  head: bal_MatrixHeadChunk | bal_ScaleTableHeadChunk;
   headPage: number;
 }
 
@@ -67,7 +68,10 @@ export function bal_paginate(bal_input: bal_LayoutInput): bal_LayoutResult {
   };
   const bal_bottom = bal_regions.content.y + bal_regions.content.height;
 
-  const bal_make_continuation = (bal_head: bal_MatrixHeadChunk): bal_MatrixHeadChunk => {
+  const bal_make_continuation = (bal_head: bal_MatrixHeadChunk | bal_ScaleTableHeadChunk): bal_MatrixHeadChunk | bal_ScaleTableHeadChunk => {
+    if (bal_head.kind === 'scale-table-head') {
+      return { ...bal_head, keepWithNext: true };
+    }
     const bal_lh = bal_line_height(bal_ctx.settings.theme.baseFontSize);
     const bal_title = bal_head.stemLines
       .join(' ')
@@ -126,9 +130,9 @@ export function bal_paginate(bal_input: bal_LayoutInput): bal_LayoutResult {
   while (bal_queue.length > 0) {
     const bal_chunk = bal_queue.shift() as bal_PrintChunk;
 
-    if (bal_chunk.kind === 'matrix-head') {
+    if (bal_chunk.kind === 'matrix-head' || bal_chunk.kind === 'scale-table-head') {
       bal_active_matrix = { head: bal_chunk, headPage: bal_page_number };
-    } else if (bal_chunk.kind !== 'matrix-row') {
+    } else if (bal_chunk.kind !== 'matrix-row' && bal_chunk.kind !== 'scale-table-row') {
       bal_active_matrix = null;
     }
 

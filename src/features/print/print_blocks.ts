@@ -18,6 +18,8 @@ export type bal_PrintChunk =
   | bal_QuestionChunk
   | bal_MatrixHeadChunk
   | bal_MatrixRowChunk
+  | bal_ScaleTableHeadChunk
+  | bal_ScaleTableRowChunk
   | bal_ConsentParaChunk
   | bal_ConsentAckChunk
   | bal_SignatureChunk;
@@ -67,6 +69,7 @@ export interface bal_QuestionChunk extends bal_ChunkBase {
   stemIndent: number;
   stemTop: number;
   optionRows: bal_OptionRowLayout[];
+  inlineOptions: boolean;
   tail: 'none' | 'line' | 'small-box' | 'wide-box' | 'date-box';
   tailTop: number;
   tailHeight: number;
@@ -100,6 +103,35 @@ export interface bal_MatrixRowChunk extends bal_ChunkBase {
   columnCount: number;
   labelColumnWidth: number;
   columnWidths: number[];
+  rowTop: number;
+  rowHeight: number;
+}
+
+export interface bal_ScaleTableHeadChunk extends bal_ChunkBase {
+  kind: 'scale-table-head';
+  itemType: ItemTypeName;
+  columnLabels: string[][];
+  columnWidths: number[];
+  headerHeight: number;
+  labelColumnWidth: number;
+  memberCount: number;
+  continuationOf: string | null;
+}
+
+export interface bal_ScaleTableRowChunk extends bal_ChunkBase {
+  kind: 'scale-table-row';
+  numberLabel: string;
+  variableName: string | null;
+  rowId: string;
+  rowLabel: string;
+  labelLines: string[];
+  numberIndent: number;
+  rowIndex: number;
+  columnCount: number;
+  labelColumnWidth: number;
+  columnWidths: number[];
+  optionIds: string[];
+  optionCodes: (string | null)[];
   rowTop: number;
   rowHeight: number;
 }
@@ -227,6 +259,95 @@ function bal_choice_marker_x(): number {
   return BAL_STEM_INDENT + BAL_OPTION_INDENT;
 }
 
+function bal_measure_inline_block(
+  bal_options: { id: string; label: string; coding: string | null }[],
+  bal_settings: PrintSettings
+): { bal_widths: number[]; bal_block: number } {
+  const bal_marker_size = Math.max(
+    bal_settings.marker.diameterMm + bal_settings.marker.regionPaddingMm * 2,
+    bal_line_height(bal_size(bal_settings))
+  );
+  const bal_widths = bal_options.map(
+    (bal_option) =>
+      bal_measure_text(bal_option.label, bal_font(bal_settings), bal_size(bal_settings)) +
+      bal_settings.marker.diameterMm +
+      BAL_OPTION_TEXT_GAP +
+      1.6
+  );
+  const bal_gap = 3.6;
+  const bal_block =
+    bal_widths.reduce((bal_a, bal_b) => bal_a + bal_b, 0) + bal_gap * (bal_options.length - 1);
+  void bal_marker_size;
+  return { bal_widths, bal_block };
+}
+
+function bal_build_inline_question_chunk(
+  bal_item: QuestionnaireItem,
+  bal_section_id: string,
+  bal_ctx: bal_PrintContext,
+  bal_options: { id: string; label: string; coding: string | null }[]
+): bal_QuestionChunk {
+  const bal_settings = bal_ctx.settings;
+  const bal_lh = bal_line_height(bal_size(bal_settings));
+  const bal_marker_size = Math.max(
+    bal_settings.marker.diameterMm + bal_settings.marker.regionPaddingMm * 2,
+    bal_lh
+  );
+  const { bal_widths, bal_block } = bal_measure_inline_block(bal_options, bal_settings);
+  const bal_number_label = bal_ctx.numbering.itemLabels[bal_item.id] ?? '';
+  const bal_stem_indent = bal_measure_text(
+    `${bal_number_label}.`,
+    bal_font(bal_settings, true),
+    bal_size(bal_settings)
+  ) + 2.4;
+  const bal_stem_width = bal_ctx.contentWidth - bal_block - bal_stem_indent - 2.6;
+  const bal_stacked = bal_build_question_chunk(bal_item, bal_section_id, bal_ctx, null, bal_options);
+  if (bal_stem_width < bal_ctx.contentWidth * 0.3) return { ...bal_stacked, inlineOptions: false };
+  const bal_stem_text = `${bal_item.label}${bal_required_suffix(bal_item)}`;
+  const bal_stem_lines = bal_wrapped(bal_stem_text, bal_settings, bal_stem_width);
+  const bal_row_height = Math.max(bal_marker_size, bal_lh);
+  const bal_gap = 3.6;
+  let bal_cursor = bal_ctx.contentWidth - bal_block;
+  const bal_rows: bal_OptionRowLayout[] = bal_options.map((bal_option, bal_index) => {
+    const bal_marker_x = bal_cursor;
+    bal_cursor += bal_widths[bal_index] + bal_gap;
+    return {
+      optionId: bal_option.id,
+      optionCode: bal_option.coding,
+      labelLines: [bal_option.label],
+      markerCenterY: bal_row_height / 2,
+      markerX: bal_marker_x,
+      region: bal_marker_region(bal_marker_x + bal_settings.marker.diameterMm / 2, bal_row_height / 2, bal_settings),
+      rowTop: 0,
+      rowHeight: bal_row_height
+    };
+  });
+  const bal_height = Math.max(bal_stem_lines.length * (bal_lh + 0.5), bal_row_height) + 0.4;
+  return {
+    kind: 'question',
+    itemType: bal_item.type,
+    itemId: bal_item.id,
+    sectionId: bal_section_id,
+    height: bal_height,
+    keepWithNext: false,
+    forcedBreakBefore: bal_item.printConfig?.pageBreakBefore === true,
+    numberLabel: bal_number_label,
+    variableName: bal_item.variableName,
+    stemLines: bal_stem_lines,
+    required: bal_item.required,
+    stemIndent: bal_stem_indent,
+    stemTop: 0,
+    optionRows: bal_rows,
+    inlineOptions: true,
+    tail: 'none',
+    tailTop: 0,
+    tailHeight: 0,
+    tailWidth: 0,
+    unitLabel: bal_item.unitLabel,
+    continuationOf: null
+  };
+}
+
 function bal_build_question_chunk(
   bal_item: QuestionnaireItem,
   bal_section_id: string,
@@ -288,7 +409,7 @@ function bal_build_question_chunk(
     sectionId: bal_section_id,
     height: bal_y,
     keepWithNext: false,
-    forcedBreakBefore: false,
+    forcedBreakBefore: bal_item.printConfig?.pageBreakBefore === true,
     numberLabel: bal_number_label,
     variableName: bal_item.variableName,
     stemLines: bal_stem_lines,
@@ -296,6 +417,7 @@ function bal_build_question_chunk(
     stemIndent: bal_stem_indent,
     stemTop: 0,
     optionRows: bal_option_rows,
+    inlineOptions: false,
     tail: bal_tail,
     tailTop: bal_tail !== 'none' ? bal_y - bal_tail_height : 0,
     tailHeight: bal_tail_height,
@@ -353,8 +475,142 @@ export function bal_split_chunk(
 }
 
 export function bal_chunk_may_split(bal_chunk: bal_PrintChunk): boolean {
-  return bal_chunk.kind === 'question' && bal_chunk.optionRows.length >= 2;
+  if (bal_chunk.kind !== 'question') return false;
+  return !bal_chunk.inlineOptions && bal_chunk.optionRows.length >= 2;
 }
+
+function bal_table_options(
+  bal_item: QuestionnaireItem,
+  bal_ctx: bal_PrintContext
+): { id: string; label: string; coding: string | null }[] | null {
+  if (
+    bal_item.type !== 'likert_scale' &&
+    bal_item.type !== 'single_choice' &&
+    bal_item.type !== 'yes_no'
+  ) {
+    return null;
+  }
+  if (bal_item.selectionMode !== 'single') return null;
+  const bal_opts = dhon_resolve_options(bal_item, bal_ctx.scales);
+  if (bal_opts.length < 2 || bal_opts.length > 7) return null;
+  return bal_opts.map((bal_option) => ({
+    id: bal_option.id,
+    label: bal_option.label,
+    coding: bal_option.coding
+  }));
+}
+
+function bal_table_signature(
+  bal_options: { id: string; label: string; coding: string | null }[]
+): string {
+  return bal_options.map((bal_option) => `${bal_option.label}\u0001${bal_option.coding ?? ''}`).join('\u0002');
+}
+
+function bal_collect_table_run(
+  bal_items: QuestionnaireItem[],
+  bal_start: number,
+  bal_ctx: bal_PrintContext
+): QuestionnaireItem[] {
+  const bal_first = bal_items[bal_start];
+  const bal_first_opts = bal_table_options(bal_first, bal_ctx);
+  if (!bal_first_opts || bal_first.printConfig?.pageBreakBefore === true) return [bal_first];
+  const bal_signature = bal_table_signature(bal_first_opts);
+  const bal_run = [bal_first];
+  for (let bal_i = bal_start + 1; bal_i < bal_items.length; bal_i++) {
+    const bal_next = bal_items[bal_i];
+    const bal_next_opts = bal_table_options(bal_next, bal_ctx);
+    if (!bal_next_opts || bal_table_signature(bal_next_opts) !== bal_signature) break;
+    if (bal_next.printConfig?.pageBreakBefore === true) break;
+    bal_run.push(bal_next);
+  }
+  return bal_run;
+}
+
+function bal_build_scale_table_chunks(
+  bal_run: QuestionnaireItem[],
+  bal_section_id: string,
+  bal_ctx: bal_PrintContext
+): bal_PrintChunk[] {
+  const bal_settings = bal_ctx.settings;
+  const bal_lh = bal_line_height(bal_size(bal_settings));
+  const bal_marker_size = bal_settings.marker.diameterMm + bal_settings.marker.regionPaddingMm * 2;
+  const bal_shared = bal_table_options(bal_run[0], bal_ctx) as {
+    id: string;
+    label: string;
+    coding: string | null;
+  }[];
+  const bal_head_break = bal_run[0].printConfig?.pageBreakBefore === true;
+  const bal_label_col = Math.min(BAL_LABEL_COLUMN_MM, bal_ctx.contentWidth * 0.4);
+  const bal_cols_width = Math.max(10, bal_ctx.contentWidth - bal_label_col);
+  const bal_col_width = bal_cols_width / bal_shared.length;
+  const bal_header_cells = bal_shared.map((bal_option) =>
+    bal_wrapped(bal_option.label, bal_settings, bal_col_width - 2, true)
+  );
+  const bal_header_lines = Math.max(1, ...bal_header_cells.map((bal_cell) => bal_cell.length));
+  const bal_header_height = bal_header_lines * bal_lh + 2;
+
+  const bal_head: bal_ScaleTableHeadChunk = {
+    kind: 'scale-table-head',
+    itemType: bal_run[0].type,
+    itemId: null,
+    sectionId: bal_section_id,
+    height: bal_header_height + 0.8,
+    keepWithNext: true,
+    forcedBreakBefore: bal_head_break,
+    columnLabels: bal_header_cells,
+    columnWidths: bal_shared.map(() => bal_col_width),
+    headerHeight: bal_header_height,
+    labelColumnWidth: bal_label_col,
+    memberCount: bal_run.length,
+    continuationOf: null
+  };
+
+  const bal_rows: bal_PrintChunk[] = bal_run.map((bal_item, bal_index) => {
+    const bal_member_options = bal_table_options(bal_item, bal_ctx) as {
+      id: string;
+      label: string;
+      coding: string | null;
+    }[];
+    const bal_number_label = bal_ctx.numbering.itemLabels[bal_item.id] ?? '';
+    const bal_number_indent = bal_measure_text(
+      `${bal_number_label}.`,
+      bal_font(bal_settings, true),
+      bal_size(bal_settings)
+    ) + 1.8;
+    const bal_lines = bal_wrapped(bal_item.label, bal_settings, bal_label_col - 3 - bal_number_indent);
+    const bal_row_height = Math.max(
+      bal_lines.length * bal_lh + 1.6,
+      bal_marker_size + 1.2,
+      BAL_MIN_ROW_HEIGHT
+    );
+    return {
+      kind: 'scale-table-row',
+      itemType: bal_item.type,
+      itemId: bal_item.id,
+      sectionId: bal_section_id,
+      height: bal_row_height,
+      keepWithNext: false,
+      forcedBreakBefore: false,
+      numberLabel: bal_number_label,
+      variableName: bal_item.variableName,
+      rowId: bal_item.id,
+      rowLabel: bal_item.label,
+      labelLines: bal_lines,
+      numberIndent: bal_number_indent,
+      rowIndex: bal_index,
+      columnCount: bal_member_options.length,
+      labelColumnWidth: bal_label_col,
+      columnWidths: bal_shared.map(() => bal_col_width),
+      optionIds: bal_member_options.map((bal_option) => bal_option.id),
+      optionCodes: bal_member_options.map((bal_option) => bal_option.coding),
+      rowTop: 0,
+      rowHeight: bal_row_height
+    } satisfies bal_ScaleTableRowChunk;
+  });
+
+  return [bal_head, ...bal_rows];
+}
+
 
 function bal_build_matrix_chunks(
   bal_item: QuestionnaireItem,
@@ -606,7 +862,8 @@ export function bal_build_chunks(
       descriptionLines: bal_desc_lines
     });
 
-    for (const bal_item of bal_section.items) {
+    for (let bal_item_index = 0; bal_item_index < bal_section.items.length; bal_item_index++) {
+      const bal_item = bal_section.items[bal_item_index];
       if (bal_item.type === 'instruction') {
         const bal_lh = bal_line_height(bal_size(bal_settings));
         const bal_head_lines = bal_item.heading?.trim()
@@ -650,24 +907,33 @@ export function bal_build_chunks(
         bal_chunks.push(bal_build_signature_chunk(bal_item, bal_section.id, bal_ctx));
         continue;
       }
-      if (bal_item.type === 'yes_no') {
-        bal_chunks.push(
-          bal_build_question_chunk(bal_item, bal_section.id, bal_ctx, null, [
-            {
-              id: bal_item.options[0]?.id ?? `${bal_item.id}-yes`,
-              label: bal_item.options[0]?.label ?? 'Yes',
-              coding: bal_item.options[0]?.coding ?? '1'
-            },
-            {
-              id: bal_item.options[1]?.id ?? `${bal_item.id}-no`,
-              label: bal_item.options[1]?.label ?? 'No',
-              coding: bal_item.options[1]?.coding ?? '0'
-            }
-          ])
-        );
+      const bal_yesno_options = [
+        {
+          id: bal_item.options[0]?.id ?? `${bal_item.id}-yes`,
+          label: bal_item.options[0]?.label ?? 'Yes',
+          coding: bal_item.options[0]?.coding ?? '1'
+        },
+        {
+          id: bal_item.options[1]?.id ?? `${bal_item.id}-no`,
+          label: bal_item.options[1]?.label ?? 'No',
+          coding: bal_item.options[1]?.coding ?? '0'
+        }
+      ];
+      const bal_run = bal_collect_table_run(bal_section.items, bal_item_index, bal_ctx);
+      if (bal_run.length >= 2) {
+        bal_chunks.push(...bal_build_scale_table_chunks(bal_run, bal_section.id, bal_ctx));
+        bal_item_index += bal_run.length - 1;
         continue;
       }
-      if (bal_item.type === 'likert_scale' || bal_item.type === 'single_choice' || bal_item.type === 'multiple_choice') {
+      if (bal_item.type === 'yes_no') {
+        bal_chunks.push(bal_build_inline_question_chunk(bal_item, bal_section.id, bal_ctx, bal_yesno_options));
+        continue;
+      }
+      if (bal_item.type === 'likert_scale' || bal_item.type === 'single_choice') {
+        bal_chunks.push(bal_build_question_chunk(bal_item, bal_section.id, bal_ctx, null));
+        continue;
+      }
+      if (bal_item.type === 'multiple_choice') {
         bal_chunks.push(bal_build_question_chunk(bal_item, bal_section.id, bal_ctx, null));
         continue;
       }
@@ -678,7 +944,7 @@ export function bal_build_chunks(
   });
   const bal_gap = bal_ctx.settings.questionSpacing;
   return bal_chunks.map((bal_chunk) => {
-    if (bal_chunk.kind === 'matrix-row') return bal_chunk;
+    if (bal_chunk.kind === 'matrix-row' || bal_chunk.kind === 'scale-table-row') return bal_chunk;
     const bal_factor =
       bal_chunk.kind === 'consent-para' || bal_chunk.kind === 'consent-ack' ? 0.45 : 1;
     return { ...bal_chunk, height: bal_chunk.height + bal_gap * bal_factor };
