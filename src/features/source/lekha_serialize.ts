@@ -61,6 +61,9 @@ function bal_option_key(bal_label: string, bal_coding: string | null, bal_taken:
   if (bal_coding !== null && /^[a-z_][a-z0-9_]*$/.test(bal_coding) && !bal_is_reserved_word(bal_coding)) {
     return bal_unique_key(bal_coding, bal_taken);
   }
+  if (bal_coding !== null && /^[0-9]+$/.test(bal_coding)) {
+    return bal_unique_key(`opt_${bal_coding}`, bal_taken);
+  }
   return bal_unique_key(bal_slug_key(bal_label), bal_taken);
 }
 
@@ -102,12 +105,41 @@ function bal_serialize_item(
   }
   if (bal_item.type === 'instruction') {
     bal_lines.push('');
-    bal_lines.push(`instruction ${bal_quote(bal_item.label)}`);
+    const bal_instruction_name =
+      (/^[a-z_][a-z0-9_]*$/.test(bal_item.variableName ?? '') && bal_item.variableName) ||
+      (typeof bal_item.metadata?.sourceKey === 'string' &&
+        /^[a-z_][a-z0-9_]*$/.test(bal_item.metadata.sourceKey) &&
+        !bal_is_reserved_word(bal_item.metadata.sourceKey) &&
+        bal_item.metadata.sourceKey) ||
+      null;
+    bal_lines.push(`instruction${bal_instruction_name ? ` ${bal_instruction_name}` : ''} ${bal_quote(bal_item.label)}`);
     if (bal_item.emphasis === 'callout') bal_lines.push('  callout');
     return;
   }
   bal_lines.push('');
-  bal_lines.push(`${bal_head} ${bal_item_key(bal_item)} ${bal_quote(bal_item.label)}`);
+  if (bal_item.type === 'participant_signature' || bal_item.type === 'researcher_signature') {
+    const bal_sig_name =
+      (/^[a-z_][a-z0-9_]*$/.test(bal_item.variableName ?? '') && bal_item.variableName) ||
+      (typeof bal_item.metadata?.sourceKey === 'string' &&
+        /^[a-z_][a-z0-9_]*$/.test(bal_item.metadata.sourceKey) &&
+        !bal_is_reserved_word(bal_item.metadata.sourceKey) &&
+        bal_item.metadata.sourceKey) ||
+      null;
+    const bal_sig_key = bal_sig_name ? ` ${bal_sig_name}` : '';
+    bal_lines.push(bal_item.label.length > 0 ? `${bal_head}${bal_sig_key} ${bal_quote(bal_item.label)}` : `${bal_head}${bal_sig_key}`);
+  } else if (bal_item.type === 'consent') {
+    const bal_consent_label = bal_item.label.length > 0 ? bal_item.label : (bal_item.consent?.title ?? '');
+    const bal_consent_name =
+      (/^[a-z_][a-z0-9_]*$/.test(bal_item.variableName ?? '') && bal_item.variableName) ||
+      (typeof bal_item.metadata?.sourceKey === 'string' &&
+        /^[a-z_][a-z0-9_]*$/.test(bal_item.metadata.sourceKey) &&
+        !bal_is_reserved_word(bal_item.metadata.sourceKey) &&
+        bal_item.metadata.sourceKey) ||
+      bal_item_key(bal_item);
+    bal_lines.push(`${bal_head} ${bal_consent_name} ${bal_quote(bal_consent_label)}`);
+  } else {
+    bal_lines.push(`${bal_head} ${bal_item_key(bal_item)} ${bal_quote(bal_item.label)}`);
+  }
   if (bal_item.required) bal_lines.push('  required');
   switch (bal_item.type) {
     case 'single_choice':
@@ -182,10 +214,10 @@ function bal_serialize_item(
       if (bal_item.selectionMode === 'multiple') bal_lines.push('  multiple_per_row');
       bal_lines.push('  rows {');
       const bal_taken_row_keys = new Set<string>();
-      for (const bal_row of bal_item.rows) {
-        bal_lines.push(
-          `    ${bal_unique_key(bal_slug_key(bal_row.label), bal_taken_row_keys)} ${bal_quote(bal_row.label)}`
-        );
+      for (let bal_row_index = 0; bal_row_index < bal_item.rows.length; bal_row_index += 1) {
+        const bal_row = bal_item.rows[bal_row_index];
+        const bal_base = bal_slug_key(bal_row.label) === 'item' ? `row_${bal_row_index + 1}` : bal_slug_key(bal_row.label);
+        bal_lines.push(`    ${bal_unique_key(bal_base, bal_taken_row_keys)} ${bal_quote(bal_row.label)}`);
       }
       bal_lines.push('  }');
       break;
@@ -253,16 +285,20 @@ export function bal_source_serialize(
   }
 
   let bal_first_section = true;
-  for (const bal_section of bal_questionnaire.sections) {
+  const bal_taken_section_keys = new Set<string>();
+  for (let bal_section_index = 0; bal_section_index < bal_questionnaire.sections.length; bal_section_index += 1) {
+    const bal_section = bal_questionnaire.sections[bal_section_index];
     bal_lines.push('');
     if (!bal_first_section) bal_lines.push('');
     bal_first_section = false;
-    const bal_section_key =
-      (typeof bal_section.metadata?.sourceKey === 'string' &&
-        /^[a-z_][a-z0-9_]*$/.test(bal_section.metadata.sourceKey) &&
-        !bal_is_reserved_word(bal_section.metadata.sourceKey) &&
-        bal_section.metadata.sourceKey) ||
-      bal_unique_key(bal_slug_key(bal_section.title), new Set());
+    const bal_stored_key = bal_section.metadata?.sourceKey;
+    const bal_stored_usable =
+      typeof bal_stored_key === 'string' &&
+      /^[a-z_][a-z0-9_]*$/.test(bal_stored_key) &&
+      !bal_is_reserved_word(bal_stored_key);
+    const bal_section_key = bal_stored_usable
+      ? bal_unique_key(bal_stored_key, bal_taken_section_keys)
+      : bal_unique_key(bal_slug_key(bal_section.title) === 'item' ? `section_${bal_section_index + 1}` : bal_slug_key(bal_section.title), bal_taken_section_keys);
     bal_lines.push(`section ${bal_section_key} ${bal_quote(bal_section.title)}`);
     if (bal_section.printConfig?.pageBreakBefore) bal_lines.push('new_page');
     if (bal_section.description) bal_lines.push(`description ${bal_quote(bal_section.description)}`);

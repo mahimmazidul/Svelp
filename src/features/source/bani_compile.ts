@@ -472,12 +472,24 @@ export function bal_plan_apply(
         }
       }
       const bal_compiled = bal_compiled_item(bal_ast_item, bal_previous_item, bal_scale_id_by_name);
-      if (!bal_ast_item.key && bal_compiled.variableName === null) {
+      const bal_non_data =
+        bal_ast_item.head === 'instruction' ||
+        bal_ast_item.head === 'consent' ||
+        bal_ast_item.head === 'participant_signature' ||
+        bal_ast_item.head === 'researcher_signature';
+      if (!bal_non_data && !bal_ast_item.key && bal_compiled.variableName === null) {
         bal_compiled.variableName = bal_unique_slug(bal_slug_variable(bal_ast_item.label), bal_taken_variables);
         bal_taken_variables.add(bal_compiled.variableName);
         bal_compiled.metadata = { ...bal_compiled.metadata, sourceKey: bal_compiled.variableName };
       }
       if (bal_compiled.variableName !== null) bal_taken_variables.add(bal_compiled.variableName);
+      if (!bal_read_source_key(bal_compiled.metadata)) {
+        const bal_stable = bal_unique_slug(
+          bal_slug_variable(bal_ast_item.label.length > 0 ? bal_ast_item.label : bal_ast_item.head),
+          bal_taken_variables
+        );
+        bal_compiled.metadata = { ...bal_compiled.metadata, sourceKey: bal_stable };
+      }
       if (bal_previous_item) {
         if (!bal_same_json(bal_item_semantics(bal_previous_item), bal_item_semantics(bal_compiled))) {
           bal_changes.itemsModified += 1;

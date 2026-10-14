@@ -174,7 +174,8 @@ export function bal_svalidate(bal_doc: bal_AstDocument): bal_SemanticIssue[] {
 
   const bal_taken_names = new Set<string>();
   const bal_check_item = (bal_item: bal_AstItem): void => {
-    if (bal_item.label.trim().length === 0) {
+    const bal_label_optional = bal_item.head === 'participant_signature' || bal_item.head === 'researcher_signature';
+    if (!bal_label_optional && bal_item.label.trim().length === 0) {
       bal_issues.push({
         line: bal_item.line,
         column: 1,

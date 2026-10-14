@@ -474,7 +474,7 @@ function bal_parse_item(bal_state: bal_ParseState, bal_head_token: bal_Token): v
   const bal_label_token = bal_peek(bal_state);
   if (bal_label_token.kind === 'string' || bal_label_token.kind === 'textblock') {
     bal_label = bal_next(bal_state).value;
-  } else {
+  } else if (bal_item.head !== 'participant_signature' && bal_item.head !== 'researcher_signature') {
     bal_error(bal_state, bal_head_token, `Expected a question label after "${bal_item.head}".`);
   }
   if (bal_label !== null) bal_item.label = bal_label;

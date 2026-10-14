@@ -208,7 +208,7 @@ describe('source pipeline', () => {
   it('formats unformatted source into canonical text', () => {
     const bal_formatted = bal_source_format('svelp 1\ntitle   "Messy"\n\n\nsingle water "Water"\noption a "A" code 1\nrequired\n');
     expect(bal_formatted).toContain('title "Messy"');
-    expect(bal_formatted).toContain('single water "Water"\n  required\n  option a "A" code 1');
+    expect(bal_formatted).toContain('single water "Water"\n  required\n  option opt_1 "A" code 1');
   });
 
   it('returns null when formatting invalid source', () => {
