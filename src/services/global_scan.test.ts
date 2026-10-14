@@ -35,7 +35,8 @@ import {
 import { bal_build_print_document } from '../features/print/print_layout';
 import { bal_to_csv, bal_build_export_rows, bal_export_columns, bal_export_headers } from '../features/export/export_dataset';
 import { bal_run_reading } from './reading_run';
-import { bal_reading_regions_for_page, type bal_ReadingRegion } from '../features/reading/reading_geometry';
+import { bal_reading_regions_for_page } from '../features/reading/reading_geometry';
+  import { type bal_ReadingRegion } from '../features/reading/reading_fixtures';
 import { bal_render_blank_instrument, bal_render_marked_scan } from '../features/reading/reading_fixtures';
 
 const BAL_PPM = 5.9;
@@ -91,7 +92,9 @@ function bal_layout_for(
           normalized: { x: bal_r.x / 210, y: bal_r.y / 297, width: bal_r.width / 210, height: bal_r.height / 297 }
         })),
         regions: [],
-        contentBottomMm: 279
+        contentBottomMm: 279,
+        itemBounds: [],
+        answerRegions: []
       })),
       regions: []
     },
