@@ -106,7 +106,7 @@ describe('question option splitting', () => {
       settings: {
         margins: { top: 18, right: 16, bottom: 18, left: 16 },
         theme: { name: 'academic' as const, fontFamily: 'times' as const, baseFontSize: 11, headingScale: 1.25, lineWeight: 0.25 },
-        density: 'standard' as const,
+        density: 'compact' as const,
         questionSpacing: 6.5,
         header: {} as never,
         footer: {} as never,

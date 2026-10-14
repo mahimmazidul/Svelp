@@ -169,7 +169,7 @@ export type PrintThemeName = 'academic' | 'clinical' | 'minimal' | 'compact' | '
 
 export type PrintFontFamily = 'helvetica' | 'times' | 'courier';
 
-export type PrintDensity = 'compact' | 'standard' | 'comfortable';
+export type PrintDensity = 'comfortable' | 'compact' | 'dense';
 
 export interface PrintThemeConfig {
   name: PrintThemeName;

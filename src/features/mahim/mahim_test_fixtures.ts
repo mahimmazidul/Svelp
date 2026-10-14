@@ -101,7 +101,7 @@ export function bal_layout(): PrintLayoutRecord {
     settingsSnapshot: {
       margins: { top: 12, right: 10.5, bottom: 12, left: 10.5 },
       theme: { name: 'academic', fontFamily: 'helvetica', baseFontSize: 10.5, headingScale: 1.2, lineWeight: 0.5 },
-      density: 'standard',
+      density: 'compact',
       questionSpacing: 6,
       header: {
         showTitle: true,

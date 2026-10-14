@@ -9,6 +9,7 @@ import type {
   PrintThemeName
 } from '../../models/types';
 import { BAL_DEFAULT_MARGINS, BAL_MIN_MARGIN_MM, type PrintMargins } from './print_paper';
+import { BAL_SCAN_MIN } from './print_scan_minimums';
 
 export const BAL_PRINT_THEME_NAMES: PrintThemeName[] = [
   'academic',
@@ -41,21 +42,27 @@ const BAL_THEME_BASE: Record<PrintThemeName, Omit<PrintThemeConfig, 'name'>> = {
 };
 
 export const BAL_DENSITY_LABELS: Record<PrintDensity, string> = {
+  comfortable: 'Comfortable',
   compact: 'Compact',
-  standard: 'Standard',
-  comfortable: 'Comfortable'
+  dense: 'Dense'
 };
 
-const BAL_DENSITY_ROW_SPACING: Record<PrintDensity, number> = {
-  compact: 4.4,
-  standard: 5.6,
-  comfortable: 7.2
+export const BAL_DENSITY_ROW_SPACING: Record<PrintDensity, number> = {
+  comfortable: 7.2,
+  compact: 5.6,
+  dense: 4.4
 };
 
-const BAL_DENSITY_QUESTION_SPACING: Record<PrintDensity, number> = {
-  compact: 5,
-  standard: 6.5,
-  comfortable: 9
+export const BAL_DENSITY_QUESTION_SPACING: Record<PrintDensity, number> = {
+  comfortable: 9,
+  compact: 6.5,
+  dense: 5
+};
+
+const BAL_DENSITY_LEGACY: Record<string, PrintDensity> = {
+  comfortable: 'comfortable',
+  standard: 'compact',
+  compact: 'dense'
 };
 
 export interface PrintPreset {
@@ -76,7 +83,7 @@ export const BAL_PRINT_PRESETS: PrintPreset[] = [
     paperSize: 'a4',
     orientation: 'portrait',
     themeName: 'academic',
-    density: 'standard',
+    density: 'compact',
     margins: { top: 20, right: 20, bottom: 20, left: 20 },
     scannerMode: false
   },
@@ -86,7 +93,7 @@ export const BAL_PRINT_PRESETS: PrintPreset[] = [
     paperSize: 'a4',
     orientation: 'portrait',
     themeName: 'compact',
-    density: 'compact',
+    density: 'dense',
     margins: { top: 14, right: 13, bottom: 14, left: 13 },
     scannerMode: false
   },
@@ -96,7 +103,7 @@ export const BAL_PRINT_PRESETS: PrintPreset[] = [
     paperSize: 'a4',
     orientation: 'portrait',
     themeName: 'clinical',
-    density: 'standard',
+    density: 'compact',
     margins: { top: 18, right: 16, bottom: 18, left: 16 },
     scannerMode: true
   },
@@ -106,7 +113,7 @@ export const BAL_PRINT_PRESETS: PrintPreset[] = [
     paperSize: 'letter',
     orientation: 'portrait',
     themeName: 'institutional',
-    density: 'standard',
+    density: 'compact',
     margins: { top: 18, right: 18, bottom: 18, left: 18 },
     scannerMode: false
   }
@@ -133,8 +140,8 @@ export function bal_default_print_settings(bal_theme: PrintThemeName = 'academic
   return {
     margins: { ...BAL_DEFAULT_MARGINS },
     theme: bal_theme_config(bal_theme),
-    density: 'standard',
-    questionSpacing: BAL_DENSITY_QUESTION_SPACING.standard,
+    density: 'compact',
+    questionSpacing: BAL_DENSITY_QUESTION_SPACING.compact,
     header: {
       showTitle: true,
       showInstitution: false,
@@ -202,7 +209,7 @@ function bal_normalize_theme(bal_raw: unknown): PrintThemeConfig {
 function bal_normalize_marker(bal_raw: unknown): PrintMarkerConfig {
   const bal_source = bal_raw && typeof bal_raw === 'object' ? (bal_raw as Record<string, unknown>) : {};
   return {
-    diameterMm: bal_clamp(bal_source.diameterMm as number, 3.6, 6, 4.8),
+    diameterMm: bal_clamp(bal_source.diameterMm as number, BAL_SCAN_MIN.bubbleDiameterMm, 6, 4.8),
     regionPaddingMm: bal_clamp(bal_source.regionPaddingMm as number, 0.8, 3, 1.4)
   };
 }
@@ -213,7 +220,7 @@ function bal_normalize_identifier(bal_raw: unknown): PrintIdentifierConfig {
     ? (bal_source.errorCorrection as PrintIdentifierConfig['errorCorrection'])
     : 'M';
   return {
-    sizeMm: bal_clamp(bal_source.sizeMm as number, 12, 30, 20),
+    sizeMm: bal_clamp(bal_source.sizeMm as number, BAL_SCAN_MIN.qrSizeMm, 30, 20),
     errorCorrection: bal_ec
   };
 }
@@ -241,9 +248,9 @@ export function bal_normalize_print_settings(bal_raw: unknown): PrintSettings {
   const bal_respondent = (bal_source.respondentArea && typeof bal_source.respondentArea === 'object'
     ? bal_source.respondentArea
     : {}) as Record<string, unknown>;
-  const bal_density = ['compact', 'standard', 'comfortable'].includes(bal_source.density as string)
-    ? (bal_source.density as PrintDensity)
-    : 'standard';
+  const bal_density = typeof bal_source.density === 'string' && bal_source.density in BAL_DENSITY_LEGACY
+    ? BAL_DENSITY_LEGACY[bal_source.density as string]
+    : 'compact';
   return {
     margins: bal_normalize_margins(bal_source.margins),
     theme: bal_normalize_theme(bal_source.theme),

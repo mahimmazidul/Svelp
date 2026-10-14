@@ -176,7 +176,7 @@ describe('page identifiers', () => {
     bal_q.printSettings = {
       margins: { top: 18, right: 16, bottom: 18, left: 16 },
       theme: { name: 'academic', fontFamily: 'times', baseFontSize: 11, headingScale: 1.25, lineWeight: 0.25 },
-      density: 'standard',
+      density: 'compact',
       questionSpacing: 6.5,
       header: { showTitle: true, showInstitution: false, institution: '', showStudyCode: false, studyCode: '', showVersion: true, showRespondentId: false, respondentIdLabel: '' },
       footer: { showPageNumbers: true, showStudyCode: false, confidentialityNote: '', showHumanIdentifier: false },
