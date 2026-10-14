@@ -126,9 +126,12 @@ Recognition geometry (`print_layout.ts`):
    question spacing (8 / 5 / 3.6) and row spacing (6.4 / 5.2 / 4.2);
    section-head and consent-title pads trimmed.
    Benchmark: comfortable 11, compact 10, dense 10. Bangla survey 5 -> 4.
-4. **Content-aware rows**: measured Bangla/latin text heights (existing shaper)
-   drive row heights; demographics pairing/grid; proportional tails.
-   Benchmark: expect ~5–6.
+4. **Content-aware rows**: DONE. Scale-table label column widens from the
+   measured widest member label (shaper-aware for Bangla) capped at 55%
+   content width; short options of stacked questions lay out in a measured
+   multi-column grid for compact/dense (comfortable keeps stacks);
+   consent-ack and signature runs keep together.
+   Benchmark: comfortable 9, compact 7, dense 7 (last page 87-92 mm).
 5. **Dense matrix pagination**: matrix row floor from mark cell, split long
    matrices with repeated headers, widow/orphan rules. Benchmark: expect ~5.
 6. **Mark geometry + QR/marker footprint**: smaller reliable bubble/QR/markers

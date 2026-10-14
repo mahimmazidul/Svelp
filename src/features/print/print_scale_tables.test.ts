@@ -262,6 +262,99 @@ describe('shared-scale table grouping', () => {
     expect(bal_q.sections[0].items.every((bal_i) => bal_i.scaleId === 'scale-agree5')).toBe(true);
   });
 
+  it('widens the table label column from measured label widths', () => {
+    const bal_q = dhon_banaitesi_questionnaire({ projectId: 'p-t', title: 'Wide labels' });
+    const bal_section = dhon_banaitesi_section('Attitudes');
+    bal_section.items = Array.from({ length: 4 }, (bal_null, bal_i) => {
+      void bal_null;
+      const bal_item = bal_likert_item(bal_i + 1, 'scale-agree5');
+      bal_item.label = 'I check the use-by date on every packaged food item before buying it';
+      return bal_item;
+    });
+    bal_q.sections = [bal_section];
+    const bal_ctx = bal_context(bal_q, [bal_likert_scale()]);
+    bal_ctx.settings = { ...bal_ctx.settings, density: 'compact' };
+    const bal_chunks = bal_build_chunks(bal_q, bal_ctx);
+    const bal_rows = bal_chunks.filter(
+      (bal_c) => bal_c.kind === 'scale-table-row'
+    ) as bal_ScaleTableRowChunk[];
+    expect(bal_rows.length).toBe(4);
+    for (const bal_row of bal_rows) {
+      expect(bal_row.labelColumnWidth).toBeGreaterThan(46);
+    }
+    const bal_short_rows = (() => {
+      const bal_short_q = dhon_banaitesi_questionnaire({ projectId: 'p-t', title: 'Short labels' });
+      const bal_short_section = dhon_banaitesi_section('Attitudes');
+      bal_short_section.items = Array.from({ length: 3 }, (bal_null, bal_i) => {
+        void bal_null;
+        return bal_likert_item(bal_i + 1, 'scale-agree5');
+      });
+      bal_short_q.sections = [bal_short_section];
+      const bal_short_ctx = bal_context(bal_short_q, [bal_likert_scale()]);
+      bal_short_ctx.settings = { ...bal_short_ctx.settings, density: 'compact' };
+      return (bal_build_chunks(bal_short_q, bal_short_ctx).filter(
+        (bal_c) => bal_c.kind === 'scale-table-row'
+      ) as bal_ScaleTableRowChunk[]).every((bal_r) => bal_r.labelLines.length === 1);
+    })();
+    expect(bal_short_rows).toBe(true);
+  });
+
+  it('lays out short options in a grid for compact and dense densities', () => {
+    const bal_q = dhon_banaitesi_questionnaire({ projectId: 'p-t', title: 'Grid options' });
+    const bal_section = dhon_banaitesi_section('Household');
+    const bal_item = dhon_banaitesi_item('single_choice', 'sex');
+    bal_item.label = 'Respondent sex';
+    bal_item.options = [
+      { id: 'opt-m', label: 'Male', coding: '1' },
+      { id: 'opt-f', label: 'Female', coding: '2' },
+      { id: 'opt-o', label: 'Other', coding: '3' }
+    ];
+    bal_section.items = [bal_item];
+    bal_q.sections = [bal_section];
+    for (const bal_density of ['compact', 'dense'] as const) {
+      const bal_ctx = bal_context(bal_q, []);
+      bal_ctx.settings = { ...bal_ctx.settings, density: bal_density };
+      const bal_chunks = bal_build_chunks(bal_q, bal_ctx);
+      const bal_question = bal_chunks.find((bal_c) => bal_c.kind === 'question') as bal_QuestionChunk;
+      expect(bal_question.optionRows).toHaveLength(3);
+      const bal_tops = new Set(bal_question.optionRows.map((bal_r) => bal_r.rowTop));
+      expect(bal_tops.size).toBe(1);
+      const bal_x = bal_question.optionRows.map((bal_r) => bal_r.markerX).sort((bal_a, bal_b) => bal_a - bal_b);
+      expect(bal_x[1] - bal_x[0]).toBeGreaterThan(10);
+    }
+    const bal_ctx_comfy = bal_context(bal_q, []);
+    bal_ctx_comfy.settings = { ...bal_ctx_comfy.settings, density: 'comfortable' };
+    const bal_chunks_comfy = bal_build_chunks(bal_q, bal_ctx_comfy);
+    const bal_question_comfy = bal_chunks_comfy.find((bal_c) => bal_c.kind === 'question') as bal_QuestionChunk;
+    const bal_tops_comfy = new Set(bal_question_comfy.optionRows.map((bal_r) => bal_r.rowTop));
+    expect(bal_tops_comfy.size).toBe(3);
+  });
+
+  it('keeps signature groups with their consent acknowledgement', () => {
+    const bal_q = dhon_banaitesi_questionnaire({ projectId: 'p-t', title: 'Signatures' });
+    const bal_section = dhon_banaitesi_section('Consent');
+    const bal_consent = dhon_banaitesi_item('consent', null);
+    bal_consent.consent = {
+      title: 'Consent',
+      introduction: 'Intro paragraph for the consent form.',
+      sections: [
+        { id: 'cs-1', kind: 'purpose', title: 'Purpose', body: 'Why the study runs and what it measures.' }
+      ],
+      acknowledgementLabel: 'I agree'
+    };
+    const bal_sig1 = dhon_banaitesi_item('participant_signature', null);
+    const bal_sig2 = dhon_banaitesi_item('researcher_signature', null);
+    bal_section.items = [bal_consent, bal_sig1, bal_sig2];
+    bal_q.sections = [bal_section];
+    const bal_chunks = bal_build_chunks(bal_q, bal_context(bal_q, []));
+    const bal_sig_chunks = bal_chunks.filter((bal_c) => bal_c.kind === 'signature');
+    expect(bal_sig_chunks).toHaveLength(2);
+    expect(bal_sig_chunks[0].keepWithNext).toBe(true);
+    expect(bal_sig_chunks[1].keepWithNext).toBe(false);
+    const bal_acks = bal_chunks.filter((bal_c) => bal_c.kind === 'consent-ack');
+    expect(bal_acks[0].keepWithNext).toBe(true);
+  });
+
   it('keeps row regions within their column cells and marks separated', () => {
     const bal_q = dhon_banaitesi_questionnaire({ projectId: 'p-t', title: 'Separation' });
     const bal_section = dhon_banaitesi_section('Attitudes');

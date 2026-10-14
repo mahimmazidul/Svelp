@@ -241,6 +241,18 @@ function bal_measure_option_rows(
     bal_lh
   );
   const bal_rows: bal_OptionRowLayout[] = [];
+  if (bal_settings.density !== 'comfortable' && bal_options.length >= 3) {
+    const bal_grid = bal_measure_option_grid(
+      bal_options,
+      bal_ctx,
+      bal_top,
+      bal_marker_x,
+      bal_label_width,
+      bal_marker_size,
+      bal_spacing
+    );
+    if (bal_grid) return bal_grid;
+  }
   let bal_y = bal_top;
   for (const bal_option of bal_options) {
     const bal_lines = bal_wrapped(bal_option.label, bal_settings, bal_label_width);
@@ -259,6 +271,51 @@ function bal_measure_option_rows(
     });
     bal_y += bal_row_height + bal_spacing * 0.55;
   }
+  return bal_rows;
+}
+
+function bal_measure_option_grid(
+  bal_options: { id: string; label: string; coding: string | null }[],
+  bal_ctx: bal_PrintContext,
+  bal_top: number,
+  bal_marker_x: number,
+  bal_label_width: number,
+  bal_marker_size: number,
+  bal_spacing: number
+): bal_OptionRowLayout[] | null {
+  const bal_settings = bal_ctx.settings;
+  const bal_gap = 4;
+  const bal_widths = bal_options.map(
+    (bal_option) =>
+      bal_settings.marker.diameterMm +
+      BAL_OPTION_TEXT_GAP +
+      bal_measure_text(bal_option.label, bal_font(bal_settings), bal_size(bal_settings)) +
+      2
+  );
+  if (bal_widths.some((bal_w) => bal_w > bal_label_width)) return null;
+  const bal_max_width = Math.max(...bal_widths);
+  const bal_columns = Math.min(3, Math.floor((bal_label_width + bal_gap) / (bal_max_width + bal_gap)));
+  if (bal_columns < 2) return null;
+  const bal_col_pitch = (bal_label_width + bal_gap) / bal_columns;
+  const bal_row_height = Math.max(bal_marker_size, bal_line_h(bal_settings));
+  const bal_rows: bal_OptionRowLayout[] = [];
+  bal_options.forEach((bal_option, bal_index) => {
+    const bal_grid_row = Math.floor(bal_index / bal_columns);
+    const bal_col = bal_index % bal_columns;
+    const bal_y = bal_top + bal_grid_row * (bal_row_height + bal_spacing * 0.55);
+    const bal_cell_marker_x = bal_marker_x + bal_col * bal_col_pitch;
+    const bal_center_y = bal_y + bal_row_height / 2;
+    bal_rows.push({
+      optionId: bal_option.id,
+      optionCode: bal_option.coding,
+      labelLines: [bal_option.label],
+      markerCenterY: bal_center_y,
+      markerX: bal_cell_marker_x,
+      region: bal_marker_region(bal_cell_marker_x + bal_settings.marker.diameterMm / 2, bal_center_y, bal_settings),
+      rowTop: bal_y,
+      rowHeight: bal_row_height
+    });
+  });
   return bal_rows;
 }
 
@@ -547,7 +604,24 @@ function bal_build_scale_table_chunks(
     coding: string | null;
   }[];
   const bal_head_break = bal_run[0].printConfig?.pageBreakBefore === true;
-  const bal_label_col = Math.min(BAL_LABEL_COLUMN_MM, bal_ctx.contentWidth * 0.4);
+  const bal_label_max = Math.max(
+    ...bal_run.map((bal_item) =>
+      bal_measure_text(bal_item.label, bal_font(bal_settings), bal_size(bal_settings))
+    )
+  );
+  const bal_number_max = Math.max(
+    ...bal_run.map((bal_item) =>
+      bal_measure_text(
+        `${bal_ctx.numbering.itemLabels[bal_item.id] ?? ''}.`,
+        bal_font(bal_settings, true),
+        bal_size(bal_settings)
+      )
+    )
+  );
+  const bal_label_col = Math.max(
+    40,
+    Math.min(bal_label_max + bal_number_max + 6.4, bal_ctx.contentWidth * 0.55)
+  );
   const bal_cols_width = Math.max(10, bal_ctx.contentWidth - bal_label_col);
   const bal_col_width = bal_cols_width / bal_shared.length;
   const bal_header_cells = bal_shared.map((bal_option) =>
@@ -792,7 +866,7 @@ function bal_build_consent_chunks(
     itemId: bal_item.id,
     sectionId: bal_section_id,
     height: bal_ack_height,
-    keepWithNext: false,
+    keepWithNext: true,
     forcedBreakBefore: false,
     labelLines: bal_ack_lines,
     markerX: 2,
@@ -909,7 +983,11 @@ export function bal_build_chunks(
         continue;
       }
       if (bal_item.type === 'participant_signature' || bal_item.type === 'researcher_signature') {
-        bal_chunks.push(bal_build_signature_chunk(bal_item, bal_section.id, bal_ctx));
+        const bal_sig_chunk = bal_build_signature_chunk(bal_item, bal_section.id, bal_ctx);
+        const bal_next_item = bal_section.items[bal_item_index + 1];
+        bal_sig_chunk.keepWithNext =
+          bal_next_item?.type === 'participant_signature' || bal_next_item?.type === 'researcher_signature';
+        bal_chunks.push(bal_sig_chunk);
         continue;
       }
       const bal_yesno_options = [
