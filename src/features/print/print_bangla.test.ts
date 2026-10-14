@@ -45,7 +45,7 @@ function bal_english_twin(): ReturnType<typeof bal_build_print_document> {
 
 describe('bangla print layout', () => {
   it('measures bangla text wider than the ascii fallback space', () => {
-    const bal_font = { family: 'helvetica', bold: false };
+    const bal_font = { family: 'helvetica' as const, bold: false };
     const bal_lines = bal_wrap_text(BAL_BN_TITLE, bal_font, 11, 60);
     expect(bal_lines.length).toBeGreaterThanOrEqual(1);
     expect(bal_lines.join(' ')).toBe(BAL_BN_TITLE);
@@ -57,7 +57,7 @@ describe('bangla print layout', () => {
   });
 
   it('keeps bangla digits and dashes inside option labels when wrapping', () => {
-    const bal_font = { family: 'helvetica', bold: false };
+    const bal_font = { family: 'helvetica' as const, bold: false };
     const bal_lines = bal_wrap_text('সপ্তাহে ২–৪ বার বা তার বেশি', bal_font, 11, 30);
     expect(bal_lines.length).toBeGreaterThan(1);
     expect(bal_lines.join(' ')).toBe('সপ্তাহে ২–৪ বার বা তার বেশি');
@@ -72,7 +72,7 @@ describe('bangla print layout', () => {
     expect(bal_doc.pageCount).toBeGreaterThanOrEqual(4);
     const bal_payloads = new Set<string>();
     for (const bal_page of bal_doc.pages) {
-      bal_payloads.add(bal_page.identifier.payload);
+      if (bal_page.identifier) bal_payloads.add(bal_page.identifier.payload);
     }
     expect(bal_payloads.size).toBe(bal_doc.pageCount);
     const bal_matrix_pages = bal_doc.pages.filter((bal_p) =>

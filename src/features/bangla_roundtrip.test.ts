@@ -169,7 +169,6 @@ describe('bangla export round trips', () => {
     const { bal_build_backup_package } = await import('./mahim/mahim_backup');
     const { bal_inspect_mahim_package } = await import('./mahim/mahim_import');
     const { bal_commit_import } = await import('./mahim/mahim_commit');
-    const { bal_layout } = await import('./mahim/mahim_test_fixtures');
 
     const bal_q = bal_bangla_survey();
     const bal_scale = bal_frequency_scale_bn();
@@ -272,11 +271,12 @@ describe('bangla export round trips', () => {
 
     const bal_reapply = bal_source_apply_plan(bal_second.text, bal_plan.questionnaire, bal_plan.scales, new Set());
     expect(bal_reapply.ok).toBe(true);
-    expect(bal_reapply.applyPlan).not.toBeNull();
-    if (bal_reapply.ok && bal_reapply.applyPlan) {
-      expect(bal_reapply.applyPlan.changes.variablesRenamed).toEqual([]);
-      expect(bal_reapply.applyPlan.changes.itemsRemoved).toBe(0);
-      expect(bal_reapply.applyPlan.changes.itemsAdded).toBe(0);
+    const bal_replan = bal_reapply.ok ? bal_reapply.applyPlan : null;
+    expect(bal_replan).not.toBeNull();
+    if (bal_replan && bal_replan.ok) {
+      expect(bal_replan.changes.variablesRenamed).toEqual([]);
+      expect(bal_replan.changes.itemsRemoved).toBe(0);
+      expect(bal_replan.changes.itemsAdded).toBe(0);
     }
     const bal_third = bal_source_from_questionnaire(bal_plan.questionnaire, bal_plan.scales);
     expect(bal_third.text).toBe(bal_second.text);
