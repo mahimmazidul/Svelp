@@ -24,8 +24,14 @@ export interface bal_GeneratedBatch {
   missingQuestionnaireVersion: boolean;
 }
 
+function bal_yield_frame(): Promise<void> {
+  return new Promise((bal_resolve) => setTimeout(bal_resolve, 0));
+}
+
 export async function bal_generate_batch(
-  bal_input: bal_GenerateBatchInput
+  bal_input: bal_GenerateBatchInput & {
+    onProgress?: (bal_done: number, bal_total: number) => void;
+  }
 ): Promise<bal_GeneratedBatch> {
   const bal_plan = bal_plan_respondent_ids(bal_input.plan);
   if (!bal_plan.valid) {
@@ -76,13 +82,22 @@ export async function bal_generate_batch(
     createdAt: bal_now
   };
 
-  const bal_documents = bal_plan.respondentIds.map((bal_respondent_id) =>
-    bal_build_print_document({
-      questionnaire: bal_input.questionnaire,
-      scales: bal_input.scales,
-      respondentId: bal_respondent_id
-    })
-  );
+  const bal_documents: bal_PrintDocument[] = [];
+  const bal_chunk_size = 25;
+  for (let bal_i = 0; bal_i < bal_plan.respondentIds.length; bal_i += bal_chunk_size) {
+    const bal_slice = bal_plan.respondentIds.slice(bal_i, bal_i + bal_chunk_size);
+    for (const bal_respondent_id of bal_slice) {
+      bal_documents.push(
+        bal_build_print_document({
+          questionnaire: bal_input.questionnaire,
+          scales: bal_input.scales,
+          respondentId: bal_respondent_id
+        })
+      );
+    }
+    bal_input.onProgress?.(Math.min(bal_i + bal_chunk_size, bal_plan.respondentIds.length), bal_plan.respondentIds.length);
+    await bal_yield_frame();
+  }
 
   await bal_save_batch_with_layout(bal_batch, bal_layout);
   return {

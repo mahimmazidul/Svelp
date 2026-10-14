@@ -1,10 +1,29 @@
 import { describe, expect, it } from 'vitest';
 import {
+  bal_estimate_batch_copies,
   bal_format_respondent_id,
   bal_plan_respondent_ids,
   bal_questionnaire_fingerprint
 } from './print_batch';
 import { bal_short_survey } from './print_fixtures';
+
+describe('batch copy estimates', () => {
+  it('totals pages and sheets for a thousand-copy run', () => {
+    const bal_simplex = bal_estimate_batch_copies(1000, 4, false);
+    expect(bal_simplex.pages).toBe(4000);
+    expect(bal_simplex.sheets).toBe(4000);
+    const bal_duplex = bal_estimate_batch_copies(1000, 5, true);
+    expect(bal_duplex.pages).toBe(5000);
+    expect(bal_duplex.sheets).toBe(2500);
+    const bal_odd = bal_estimate_batch_copies(3, 5, true);
+    expect(bal_odd.sheets).toBe(8);
+  });
+
+  it('guards against zero and fractional inputs', () => {
+    expect(bal_estimate_batch_copies(0, 4, false).pages).toBe(0);
+    expect(bal_estimate_batch_copies(10.9, 4.6, false).pages).toBe(40);
+  });
+});
 
 describe('sequential respondent ids', () => {
   it('generates zero padded ids with a prefix', () => {
@@ -54,14 +73,14 @@ describe('sequential respondent ids', () => {
   it('rejects oversized batches', () => {
     const bal_plan = bal_plan_respondent_ids({
       mode: 'sequential',
-      count: 501,
+      count: 1001,
       start: 1,
       prefix: '',
       padding: 3,
       customIds: ''
     });
     expect(bal_plan.valid).toBe(false);
-    expect(bal_plan.errors.join(' ')).toContain('500');
+    expect(bal_plan.errors.join(' ')).toContain('1000');
   });
 });
 

@@ -18,8 +18,33 @@ export interface bal_BatchPlan {
   valid: boolean;
 }
 
-export const BAL_MAX_BATCH_SIZE = 500;
+export const BAL_MAX_BATCH_SIZE = 1000;
 export const BAL_MAX_PADDING = 6;
+
+export interface bal_BatchCopyEstimate {
+  copies: number;
+  pagesPerSet: number;
+  pages: number;
+  sheets: number;
+  duplex: boolean;
+}
+
+export function bal_estimate_batch_copies(
+  bal_copies: number,
+  bal_pages_per_set: number,
+  bal_duplex: boolean
+): bal_BatchCopyEstimate {
+  const bal_safe_copies = Math.max(0, Math.floor(bal_copies));
+  const bal_safe_pages = Math.max(1, Math.floor(bal_pages_per_set));
+  const bal_total_pages = bal_safe_copies * bal_safe_pages;
+  return {
+    copies: bal_safe_copies,
+    pagesPerSet: bal_safe_pages,
+    pages: bal_total_pages,
+    sheets: bal_duplex ? Math.ceil(bal_total_pages / 2) : bal_total_pages,
+    duplex: bal_duplex
+  };
+}
 
 export function bal_format_respondent_id(
   bal_number: number,

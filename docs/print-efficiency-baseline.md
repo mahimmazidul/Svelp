@@ -156,7 +156,12 @@ Recognition geometry (`print_layout.ts`):
    errors (scanner minima from the centralized module), marks closer than
    1.6 mm, overlapping content blocks, left/top margin violations, marker
    obstruction, and degenerate regions. Dense never bypasses validation.
-8. **Batch page estimates** (sheets with duplex), streaming-friendly.
+8. **Batch page estimates + chunked generation**: DONE. Batch cap raised to
+   1000; `bal_estimate_batch_copies` totals pages and sheets (duplex divides
+   by two, odd pages round up); the batch sheet shows the totals plus a
+   duplex toggle and chunked generation (25 documents per frame) with a
+   progress bar and ETA. Page codes stay per page, so duplex stays
+   scanner-safe.
 9. **Benchmark regression tests** (4 densities x fixtures incl. FFQ 60x7, KAP,
    mixed), density docs + UI (Print settings panel density + pages-updates).
 10. **Recognition regression** on every geometry change (bubble/tick/X/partial/

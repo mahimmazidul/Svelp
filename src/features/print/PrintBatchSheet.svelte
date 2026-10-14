@@ -5,9 +5,14 @@
   import TextInput from '../../components/ui/TextInput.svelte';
   import type { PrintBatchRecord } from '../../models/print_models';
   import type { QuestionnaireRecord, ResponseScaleRecord } from '../../models/types';
-  import { bal_plan_respondent_ids, type bal_BatchPlanInput } from './print_batch';
+  import {
+    bal_estimate_batch_copies,
+    bal_plan_respondent_ids,
+    type bal_BatchPlanInput
+  } from './print_batch';
   import { hati_pdf_bytes_many } from './biriyani_pdf';
   import { bal_generate_batch } from '../../services/print_service';
+  import { bal_build_print_document } from './print_layout';
 
   let {
     open = $bindable(false),
@@ -30,8 +35,11 @@
   let bal_padding_text = $state('3');
   let bal_custom_ids = $state('');
   let bal_working = $state(false);
+  let bal_progress = $state<{ done: number; total: number } | null>(null);
+  let bal_progress_started = $state(0);
   let bal_result = $state<{ batch: PrintBatchRecord; pages: number; bytes: Uint8Array } | null>(null);
   let bal_error = $state<string | null>(null);
+  let bal_duplex = $state(false);
 
   const bal_plan = $derived(
     bal_plan_respondent_ids({
@@ -44,9 +52,27 @@
     })
   );
 
+  const bal_pages_per_set = $derived(
+    open ? bal_build_print_document({ questionnaire, scales, respondentId: '' }).pageCount : 1
+  );
+
+  const bal_estimate = $derived(
+    bal_estimate_batch_copies(bal_plan.respondentIds.length, bal_pages_per_set, bal_duplex)
+  );
+
+  const bal_progress_eta = $derived.by(() => {
+    if (!bal_progress || bal_progress.done === 0) return null;
+    const bal_elapsed = (Date.now() - bal_progress_started) / 1000;
+    const bal_rate = bal_progress.done / Math.max(0.001, bal_elapsed);
+    const bal_remaining = Math.max(0, (bal_progress.total - bal_progress.done) / bal_rate);
+    return Math.ceil(bal_remaining);
+  });
+
   async function bal_run(): Promise<void> {
     bal_working = true;
     bal_error = null;
+    bal_progress = { done: 0, total: bal_plan.respondentIds.length };
+    bal_progress_started = Date.now();
     try {
       const bal_generated = await bal_generate_batch({
         questionnaire,
@@ -59,6 +85,9 @@
           prefix: bal_prefix,
           padding: Number(bal_padding_text),
           customIds: bal_custom_ids
+        },
+        onProgress: (bal_done, bal_total) => {
+          bal_progress = { done: bal_done, total: bal_total };
         }
       });
       const bal_bytes = await hati_pdf_bytes_many(bal_generated.documents as never);
@@ -75,6 +104,7 @@
       bal_error = bal_catch instanceof Error ? bal_catch.message : 'Batch generation failed.';
     } finally {
       bal_working = false;
+      bal_progress = null;
     }
   }
 
@@ -129,7 +159,7 @@
         <TextInput value={bal_prefix} placeholder="FFQ-" oninput={(bal_v) => (bal_prefix = bal_v)} />
       </Field>
     {:else}
-      <Field label="One respondent ID per line" hint="Duplicates are rejected. Up to 500 IDs.">
+      <Field label="One respondent ID per line" hint="Duplicates are rejected. Up to 1000 IDs.">
         <textarea
           class="ids"
           bind:value={bal_custom_ids}
@@ -141,15 +171,30 @@ DFD-B07"
       </Field>
     {/if}
 
+    <label class="duplex">
+      <input type="checkbox" bind:checked={bal_duplex} />
+      <span>Print double-sided (duplex). Page codes stay on every page.</span>
+    </label>
+
     <div class="summary">
       {#if bal_plan.valid}
         <p class="ok">{bal_plan.respondentIds.length} respondents, first {bal_plan.respondentIds[0]}, last {bal_plan.respondentIds[bal_plan.respondentIds.length - 1]}</p>
+        <p class="totals">{bal_estimate.pages} pages total ({bal_pages_per_set} per respondent){bal_duplex ? `, ${bal_estimate.sheets} sheets duplex` : ''}.</p>
       {:else}
         {#each bal_plan.errors as bal_message (bal_message)}
           <p class="bad">{bal_message}</p>
         {/each}
       {/if}
     </div>
+
+    {#if bal_working && bal_progress}
+      <div class="progress" role="status">
+        <div class="bar">
+          <div class="fill" style="width:{Math.round((bal_progress.done / Math.max(1, bal_progress.total)) * 100)}%"></div>
+        </div>
+        <p>Generated {bal_progress.done} of {bal_progress.total}{bal_progress_eta !== null ? ` · about ${bal_progress_eta}s left` : ''}</p>
+      </div>
+    {/if}
 
     {#if bal_error}
       <p class="bad" role="alert">{bal_error}</p>
@@ -186,6 +231,43 @@ DFD-B07"
   .mode-row {
     display: flex;
     gap: var(--space-2);
+  }
+
+  .duplex {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-sm);
+    color: var(--color-ink);
+  }
+
+  .totals {
+    font-size: var(--text-sm);
+    color: var(--color-ink-3);
+  }
+
+  .progress {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+
+  .progress .bar {
+    height: 0.4rem;
+    border-radius: var(--radius-sm);
+    background: var(--color-border);
+    overflow: hidden;
+  }
+
+  .progress .fill {
+    height: 100%;
+    background: var(--color-accent);
+    transition: width 0.2s ease;
+  }
+
+  .progress p {
+    font-size: var(--text-xs);
+    color: var(--color-ink-3);
   }
 
   .mode {
