@@ -94,8 +94,7 @@ function bal_layout_for(
         contentBottomMm: 279,
         itemBounds: [],
         answerRegions: []
-      })),
-      regions: []
+      }))
     },
     createdAt: 1,
     updatedAt: 1
