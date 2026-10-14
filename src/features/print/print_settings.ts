@@ -14,7 +14,7 @@ import {
   BAL_MIN_MARGIN_MM,
   type PrintMargins
 } from './print_paper';
-import { BAL_SCAN_MIN } from './print_scan_minimums';
+import { BAL_SCAN_MIN, bal_effective_marks } from './print_scan_minimums';
 
 export const BAL_PRINT_THEME_NAMES: PrintThemeName[] = [
   'academic',
@@ -70,10 +70,11 @@ export const BAL_DENSITY_LINE_FACTOR: Record<PrintDensity, number> = {
   dense: 1.26
 };
 
-const BAL_DENSITY_LEGACY: Record<string, PrintDensity> = {
+const BAL_DENSITY_KNOWN: Record<string, PrintDensity> = {
   comfortable: 'comfortable',
-  standard: 'compact',
-  compact: 'dense'
+  compact: 'compact',
+  dense: 'dense',
+  standard: 'compact'
 };
 
 export interface PrintPreset {
@@ -217,6 +218,26 @@ function bal_normalize_theme(bal_raw: unknown): PrintThemeConfig {
   };
 }
 
+function bal_density_marker(bal_density: PrintDensity, bal_raw: unknown): PrintMarkerConfig {
+  const bal_profile = bal_effective_marks(bal_density);
+  const bal_saved = bal_normalize_marker(bal_raw);
+  const bal_diameter = Math.max(BAL_SCAN_MIN.bubbleDiameterMm, Math.min(bal_saved.diameterMm, bal_profile.bubbleDiameterMm));
+  const bal_cell = Math.max(BAL_SCAN_MIN.bubbleCellMm, bal_profile.bubbleCellMm);
+  return {
+    diameterMm: bal_diameter,
+    regionPaddingMm: Math.max(0.6, (bal_cell - bal_diameter) / 2)
+  };
+}
+
+function bal_density_identifier(bal_density: PrintDensity, bal_raw: unknown): PrintIdentifierConfig {
+  const bal_profile = bal_effective_marks(bal_density);
+  const bal_saved = bal_normalize_identifier(bal_raw);
+  return {
+    sizeMm: Math.max(BAL_SCAN_MIN.qrSizeMm, Math.min(bal_saved.sizeMm, bal_profile.qrSizeMm)),
+    errorCorrection: bal_saved.errorCorrection
+  };
+}
+
 function bal_normalize_marker(bal_raw: unknown): PrintMarkerConfig {
   const bal_source = bal_raw && typeof bal_raw === 'object' ? (bal_raw as Record<string, unknown>) : {};
   return {
@@ -259,8 +280,8 @@ export function bal_normalize_print_settings(bal_raw: unknown): PrintSettings {
   const bal_respondent = (bal_source.respondentArea && typeof bal_source.respondentArea === 'object'
     ? bal_source.respondentArea
     : {}) as Record<string, unknown>;
-  const bal_density = typeof bal_source.density === 'string' && bal_source.density in BAL_DENSITY_LEGACY
-    ? BAL_DENSITY_LEGACY[bal_source.density as string]
+  const bal_density = typeof bal_source.density === 'string' && bal_source.density in BAL_DENSITY_KNOWN
+    ? BAL_DENSITY_KNOWN[bal_source.density as string]
     : 'compact';
   return {
     margins: bal_normalize_margins(bal_source.margins),
@@ -290,8 +311,8 @@ export function bal_normalize_print_settings(bal_raw: unknown): PrintSettings {
     },
     showMachineIdentifier: bal_flag(bal_source.showMachineIdentifier, true),
     scannerMode: bal_flag(bal_source.scannerMode, false),
-    marker: bal_normalize_marker(bal_source.marker),
-    identifier: bal_normalize_identifier(bal_source.identifier),
+    marker: bal_density_marker(bal_density, bal_source.marker),
+    identifier: bal_density_identifier(bal_density, bal_source.identifier),
     respondentArea: {
       enabled: bal_flag(bal_respondent.enabled, true),
       label: bal_clean_text(bal_respondent.label, 'Respondent ID')

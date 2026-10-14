@@ -133,17 +133,18 @@ function bal_marker_offset(bal_margin: number): number {
 export function bal_alignment_marker_layouts(
   bal_width: number,
   bal_height: number,
-  bal_margins: PrintMargins
+  bal_margins: PrintMargins,
+  bal_size_mm = BAL_MARKER_SIZE_MM
 ): AlignmentMarkerLayout[] {
   const bal_left = bal_marker_offset(bal_margins.left);
   const bal_top = bal_marker_offset(bal_margins.top);
-  const bal_right = bal_width - bal_marker_offset(bal_margins.right) - BAL_MARKER_SIZE_MM;
-  const bal_bottom = bal_height - bal_marker_offset(bal_margins.bottom) - BAL_MARKER_SIZE_MM;
+  const bal_right = bal_width - bal_marker_offset(bal_margins.right) - bal_size_mm;
+  const bal_bottom = bal_height - bal_marker_offset(bal_margins.bottom) - bal_size_mm;
   return [
-    { corner: 'topLeft', rect: { x: bal_left, y: bal_top, width: BAL_MARKER_SIZE_MM, height: BAL_MARKER_SIZE_MM } },
-    { corner: 'topRight', rect: { x: bal_right, y: bal_top, width: BAL_MARKER_SIZE_MM, height: BAL_MARKER_SIZE_MM } },
-    { corner: 'bottomLeft', rect: { x: bal_left, y: bal_bottom, width: BAL_MARKER_SIZE_MM, height: BAL_MARKER_SIZE_MM } },
-    { corner: 'bottomRight', rect: { x: bal_right, y: bal_bottom, width: BAL_MARKER_SIZE_MM, height: BAL_MARKER_SIZE_MM } }
+    { corner: 'topLeft', rect: { x: bal_left, y: bal_top, width: bal_size_mm, height: bal_size_mm } },
+    { corner: 'topRight', rect: { x: bal_right, y: bal_top, width: bal_size_mm, height: bal_size_mm } },
+    { corner: 'bottomLeft', rect: { x: bal_left, y: bal_bottom, width: bal_size_mm, height: bal_size_mm } },
+    { corner: 'bottomRight', rect: { x: bal_right, y: bal_bottom, width: bal_size_mm, height: bal_size_mm } }
   ];
 }
 

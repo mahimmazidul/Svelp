@@ -376,6 +376,32 @@ describe('shared-scale table grouping', () => {
     }
   });
 
+  it('scales mark dimensions with density while staying above scanner minimums', () => {
+    const bal_q = dhon_banaitesi_questionnaire({ projectId: 'p-t', title: 'Mark sizes' });
+    const bal_section = dhon_banaitesi_section('Attitudes');
+    bal_section.items = [1, 2, 3].map((bal_i) => bal_likert_item(bal_i, 'scale-agree5'));
+    bal_q.sections = [bal_section];
+    const bal_sizes: number[] = [];
+    for (const bal_density of ['comfortable', 'compact', 'dense'] as const) {
+      const bal_ctx = bal_context(bal_q, [bal_likert_scale()]);
+      bal_ctx.settings = { ...bal_ctx.settings, density: bal_density };
+      const bal_chunks = bal_build_chunks(bal_q, bal_ctx);
+      const bal_rows = bal_chunks.filter((bal_c) => bal_c.kind === 'scale-table-row');
+      expect(bal_rows.length).toBe(3);
+      const bal_doc = bal_build_print_document({
+        questionnaire: { ...bal_q, printSettings: { ...bal_ctx.settings } },
+        scales: [bal_likert_scale()]
+      });
+      const bal_regions = bal_doc.pages[0].geometry.answerRegions.filter((bal_r) => bal_r.kind === 'choice');
+      bal_sizes.push(bal_regions[0].rect.width);
+      expect(bal_regions[0].rect.width).toBeGreaterThanOrEqual(3.6);
+    }
+    expect(bal_sizes[0]).toBeGreaterThan(bal_sizes[1]);
+    expect(bal_sizes[1]).toBeGreaterThan(bal_sizes[2]);
+    const bal_heights = bal_sizes.map((bal_s) => bal_s);
+    expect(bal_heights[0]).toBeGreaterThan(bal_heights[2]);
+  });
+
   it('keeps row regions within their column cells and marks separated', () => {
     const bal_q = dhon_banaitesi_questionnaire({ projectId: 'p-t', title: 'Separation' });
     const bal_section = dhon_banaitesi_section('Attitudes');

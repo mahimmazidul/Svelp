@@ -138,8 +138,13 @@ Recognition geometry (`print_layout.ts`):
    last two rows over together.
    Benchmark: unchanged 9/7/7 (rule costs nothing when breaks already fall
    between row groups).
-6. **Mark geometry + QR/marker footprint**: smaller reliable bubble/QR/markers
-   with validation gates. Benchmark: expect 4–5.
+6. **Mark geometry + QR/marker footprint**: DONE. Density now selects
+   engine-owned mark dimensions (bubble 4.8/4.4/3.8 mm, cell 7.6/6.4/5.4 mm,
+   QR 20/18/14 mm, alignment marker 7/7/6 mm) all clamped to the centralized
+   scanner minimums; persisted marker/identifier values only tighten, never
+   loosen. Row floors now follow the mark cell (matrix rows 8.8 -> 6.6 mm in
+   dense). Legacy density value 'standard' maps to 'compact'; new values are
+   identity. Benchmark: comfortable 9, compact 6, dense 6. Bangla compact 4.
 7. **Utilization diagnostics** (dev-only) + print-readiness validator gates
    (mark proximity, overlap, clipped Bangla, small QR, margin violations).
 8. **Batch page estimates** (sheets with duplex), streaming-friendly.

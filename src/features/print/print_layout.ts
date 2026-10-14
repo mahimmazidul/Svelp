@@ -10,6 +10,7 @@ import { derive_numbering } from '../../models/numbering';
 import { dhon_matrix_columns } from '../../models/scale_options';
 import { bal_wrap_text } from './print_fonts';
 import { bal_normalize_print_settings } from './print_settings';
+import { bal_effective_marks } from './print_scan_minimums';
 import {
   bal_alignment_marker_layouts,
   bal_normalized_rect,
@@ -323,11 +324,13 @@ export function bal_build_print_document(bal_input: {
         }
       : null;
 
+    const bal_marker_mm = bal_effective_marks(bal_settings.density).alignmentMarkerMm;
     const bal_markers: AlignmentMarkerBox[] = bal_settings.scannerMode
       ? bal_alignment_marker_layouts(
           bal_regions.width,
           bal_regions.height,
-          bal_settings.margins
+          bal_settings.margins,
+          bal_marker_mm
         ).map((bal_m) => ({
           corner: bal_m.corner,
           rect: bal_m.rect,

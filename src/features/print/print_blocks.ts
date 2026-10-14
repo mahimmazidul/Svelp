@@ -176,7 +176,7 @@ const BAL_SMALL_BOX_HEIGHT = 7.5;
 const BAL_WIDE_BOX_HEIGHT = 24;
 const BAL_DATE_BOX_WIDTH = 24;
 const BAL_LABEL_COLUMN_MM = 46;
-const BAL_MIN_ROW_HEIGHT = 7.2;
+const BAL_MIN_ROW_HEIGHT = 6;
 const BAL_CONSENT_TICK = 4.2;
 
 function bal_font(bal_settings: PrintSettings, bal_bold = false): PrintFontStyle {
@@ -743,7 +743,7 @@ function bal_build_matrix_chunks(
   const bal_rows: bal_PrintChunk[] = bal_item.rows.map((bal_row, bal_index) => {
     const bal_lines = bal_wrapped(bal_row.label, bal_settings, bal_label_col - 3);
     const bal_text_height = bal_lines.length * bal_lh;
-    const bal_row_height = Math.max(bal_text_height + 1.6, bal_marker_size + 1.6, BAL_MIN_ROW_HEIGHT);
+    const bal_row_height = Math.max(bal_text_height + 1.6, bal_marker_size + 1.2, BAL_MIN_ROW_HEIGHT);
     return {
       kind: 'matrix-row',
       itemType: 'matrix',
