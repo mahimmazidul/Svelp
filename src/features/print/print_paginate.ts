@@ -13,6 +13,7 @@ import {
   bal_chunk_may_split,
   bal_split_chunk,
   type bal_MatrixHeadChunk,
+  type bal_MatrixRowChunk,
   type bal_PrintChunk,
   type bal_PrintContext,
   type bal_ScaleTableHeadChunk
@@ -144,6 +145,29 @@ export function bal_paginate(bal_input: bal_LayoutInput): bal_LayoutResult {
       if (bal_injected) {
         bal_queue.splice(1, 0, bal_chunk);
         continue;
+      }
+    }
+
+    if (bal_chunk.kind === 'matrix-row' || bal_chunk.kind === 'scale-table-row') {
+      const bal_next = bal_queue[0];
+      const bal_same_table = (bal_a: bal_PrintChunk | undefined, bal_b: bal_PrintChunk | undefined): boolean =>
+        bal_a !== undefined &&
+        bal_b !== undefined &&
+        (bal_a.kind === 'matrix-row' || bal_a.kind === 'scale-table-row') &&
+        bal_a.kind === bal_b.kind &&
+        bal_a.sectionId === bal_b.sectionId &&
+        bal_a.rowIndex === (bal_b as bal_MatrixRowChunk).rowIndex + 1;
+      if (bal_same_table(bal_next, bal_chunk)) {
+        const bal_after_next = bal_queue[1];
+        const bal_after_same = bal_same_table(bal_after_next, bal_next);
+        const bal_next_fits = bal_y + bal_chunk.height + bal_next.height <= bal_bottom;
+        if (!bal_next_fits && !bal_after_same && bal_y > bal_regions.content.y) {
+          const bal_injected = bal_new_page();
+          if (bal_injected) {
+            bal_queue.splice(1, 0, bal_chunk);
+            continue;
+          }
+        }
       }
     }
 

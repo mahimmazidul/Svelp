@@ -355,6 +355,27 @@ describe('shared-scale table grouping', () => {
     expect(bal_acks[0].keepWithNext).toBe(true);
   });
 
+  it('never leaves a single row to start a continuation page', () => {
+    const bal_q = dhon_banaitesi_questionnaire({ projectId: 'p-t', title: 'Widows' });
+    const bal_section = dhon_banaitesi_section('Attitudes');
+    bal_section.items = Array.from({ length: 40 }, (bal_null, bal_i) => {
+      void bal_null;
+      return bal_likert_item(bal_i + 1, 'scale-agree5');
+    });
+    bal_q.sections = [bal_section];
+    const bal_result = bal_paginate({ questionnaire: bal_q, scales: [bal_likert_scale()] });
+    for (const bal_page of bal_result.pages) {
+      const bal_rows = bal_page.chunks.filter((bal_c) => bal_c.chunk.kind === 'scale-table-row');
+      if (bal_rows.length === 0) continue;
+      const bal_is_first_page_of_table = bal_page.chunks.some(
+        (bal_c) => bal_c.chunk.kind === 'scale-table-head' && !bal_c.chunk.continuationOf
+      ) && bal_page.pageNumber === 1;
+      if (!bal_is_first_page_of_table) {
+        expect(bal_rows.length).toBeGreaterThanOrEqual(2);
+      }
+    }
+  });
+
   it('keeps row regions within their column cells and marks separated', () => {
     const bal_q = dhon_banaitesi_questionnaire({ projectId: 'p-t', title: 'Separation' });
     const bal_section = dhon_banaitesi_section('Attitudes');

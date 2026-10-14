@@ -132,8 +132,12 @@ Recognition geometry (`print_layout.ts`):
    multi-column grid for compact/dense (comfortable keeps stacks);
    consent-ack and signature runs keep together.
    Benchmark: comfortable 9, compact 7, dense 7 (last page 87-92 mm).
-5. **Dense matrix pagination**: matrix row floor from mark cell, split long
-   matrices with repeated headers, widow/orphan rules. Benchmark: expect ~5.
+5. **Dense matrix pagination**: DONE. Matrix/scale-table rows already split
+   with repeated continuation headers and intact rows; added a widow rule —
+   a break that would leave exactly one row to start the next page moves the
+   last two rows over together.
+   Benchmark: unchanged 9/7/7 (rule costs nothing when breaks already fall
+   between row groups).
 6. **Mark geometry + QR/marker footprint**: smaller reliable bubble/QR/markers
    with validation gates. Benchmark: expect 4–5.
 7. **Utilization diagnostics** (dev-only) + print-readiness validator gates
