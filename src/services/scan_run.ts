@@ -15,11 +15,48 @@ import { bal_eta_label, bal_record_stage, bal_create_eta_estimator, type bal_Eta
 import {
   dhon_scan_asset,
   dhon_scan_batch,
+  ken_pori_scan_batches,
   ken_pori_scan_pages,
   bal_save_scan_asset,
   bal_save_scan_page,
   bal_save_scan_batch
 } from '../db/scan_repo';
+export const BAL_GLOBAL_PROJECT_ID = '__global__';
+export const BAL_GLOBAL_BATCH_ID = 'global-scan-batch';
+
+export function bal_new_global_batch(bal_keep_originals: boolean): Promise<ScanBatchRecord> {
+  const bal_now = Date.now();
+  const bal_batch: ScanBatchRecord = {
+    id: BAL_GLOBAL_BATCH_ID,
+    projectId: BAL_GLOBAL_PROJECT_ID,
+    questionnaireId: null,
+    questionnaireVersion: null,
+    status: 'ingesting',
+    keepOriginals: bal_keep_originals,
+    summary: {
+      totalPages: 0,
+      ready: 0,
+      needsReview: 0,
+      duplicates: 0,
+      failed: 0,
+      unsupported: 0,
+      queued: 0,
+      respondents: 0,
+      complete: 0,
+      incomplete: 0
+    },
+    createdAt: bal_now,
+    updatedAt: bal_now
+  };
+  return bal_save_scan_batch(bal_batch).then(() => bal_batch);
+}
+
+export interface bal_RouteOutcome {
+  moved: { projectId: string; count: number }[];
+  needTemplate: number;
+  unidentified: number;
+}
+
 export function bal_new_batch_for_project(
   bal_project_id: string,
   bal_questionnaire_id: string | null,
@@ -59,6 +96,78 @@ function bal_plain<T>(bal_value: T): T {
 async function bal_delete_asset_keys(bal_ids: string[]): Promise<void> {
   const { bal_delete_keys } = await import('../db/client');
   await bal_delete_keys('scanAssets', bal_ids);
+}
+
+export async function bal_route_ready_pages(
+  bal_pages: ScanPageRecord[],
+  bal_layouts: PrintLayoutRecord[],
+  bal_keep_originals: boolean
+): Promise<bal_RouteOutcome> {
+  const bal_moved_counts = new Map<string, number>();
+  let bal_need_template = 0;
+  let bal_unidentified = 0;
+  for (const bal_page of bal_pages) {
+    if (bal_page.status === 'needs-review' && bal_page.issues.includes('template-missing')) {
+      bal_need_template += 1;
+      continue;
+    }
+    if (bal_page.status === 'needs-review' && bal_page.issues.includes('unidentified')) {
+      bal_unidentified += 1;
+      continue;
+    }
+    if (bal_page.status !== 'ready' || !bal_page.questionnaireId) continue;
+    const bal_layout = bal_layouts.find(
+      (bal_candidate) =>
+        bal_candidate.questionnaireId === bal_page.questionnaireId &&
+        bal_candidate.questionnaireVersion === bal_page.questionnaireVersion
+    );
+    if (!bal_layout) continue;
+    const bal_target_project = bal_layout.projectId;
+    if (bal_page.projectId === bal_target_project && bal_page.batchId !== BAL_GLOBAL_BATCH_ID) continue;
+    const bal_batches = await ken_pori_scan_batches(bal_target_project);
+    let bal_target_batch = bal_batches[0];
+    if (!bal_target_batch) {
+      bal_target_batch = await bal_new_batch_for_project(
+        bal_target_project,
+        bal_page.questionnaireId,
+        bal_page.questionnaireVersion,
+        bal_keep_originals
+      );
+    }
+    const bal_moved: ScanPageRecord = {
+      ...bal_page,
+      projectId: bal_target_project,
+      batchId: bal_target_batch.id,
+      updatedAt: Date.now()
+    };
+    await bal_save_scan_page(bal_moved);
+    bal_moved_counts.set(bal_target_project, (bal_moved_counts.get(bal_target_project) ?? 0) + 1);
+  }
+  for (const [bal_project_id] of bal_moved_counts) {
+    const bal_batches = await ken_pori_scan_batches(bal_project_id);
+    for (const bal_batch of bal_batches) {
+      const bal_all = await ken_pori_scan_pages(bal_batch.id);
+      await bal_save_scan_batch({
+        ...bal_batch,
+        updatedAt: Date.now(),
+        summary: bal_compute_summary_rows(bal_all)
+      });
+    }
+  }
+  const bal_global_batch = await dhon_scan_batch(BAL_GLOBAL_BATCH_ID);
+  if (bal_global_batch) {
+    const bal_all = await ken_pori_scan_pages(BAL_GLOBAL_BATCH_ID);
+    await bal_save_scan_batch({
+      ...bal_global_batch,
+      updatedAt: Date.now(),
+      summary: bal_compute_summary_rows(bal_all)
+    });
+  }
+  return {
+    moved: [...bal_moved_counts].map(([bal_project_id, bal_count]) => ({ projectId: bal_project_id, count: bal_count })),
+    needTemplate: bal_need_template,
+    unidentified: bal_unidentified
+  };
 }
 
 export interface bal_PageSpecSource {

@@ -24,6 +24,15 @@
       <Icon name="folder" size={20} />
       <span class="nav-label">Projects</span>
     </a>
+    <a
+      class="nav-link"
+      class:active={bal_route.name === 'scan'}
+      href="#/scan"
+      title="Scan"
+    >
+      <Icon name="scan" size={20} />
+      <span class="nav-label">Scan</span>
+    </a>
     {#if bal_project_id && bal_ctx.status === 'ready' && bal_ctx.project}
       <div class="project-block">
         <div class="project-block-label nav-label">{bal_ctx.project.title}</div>

@@ -15,6 +15,7 @@
 
   const bal_route = $derived($route_store);
   const bal_in_project = $derived(bal_route.name === 'project');
+  const bal_show_back = $derived(bal_route.name === 'project' || bal_route.name === 'scan');
   const bal_mobile = $derived($ghora_layout === 'mobile');
 </script>
 
@@ -23,7 +24,7 @@
   <div class="main">
     {#if bal_mobile}
       <header class="topbar">
-        {#if bal_in_project}
+        {#if bal_show_back}
           <a class="topbar-btn" href="#/projects" aria-label="Back to Projects">
             <Icon name="arrow-left" size={20} />
           </a>

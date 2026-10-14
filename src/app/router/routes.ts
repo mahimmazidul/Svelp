@@ -23,12 +23,14 @@ export function is_project_area(bal_value: string): bal_value is ProjectArea {
 
 export type AppRoute =
   | { name: 'projects' }
+  | { name: 'scan' }
   | { name: 'project'; projectId: string; area: ProjectArea }
   | { name: 'not-found'; path: string };
 
 export function match_route(bal_path: string): AppRoute {
   const bal_trimmed = bal_path.replace(/\/+$/, '') || '/';
   if (bal_trimmed === '/' || bal_trimmed === '/projects') return { name: 'projects' };
+  if (bal_trimmed === '/scan') return { name: 'scan' };
   const bal_match = bal_trimmed.match(/^\/project\/([^/]+)(?:\/([a-z-]+))?$/);
   if (bal_match) {
     const bal_area = bal_match[2] ?? 'build';

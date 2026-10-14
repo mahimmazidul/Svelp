@@ -6,9 +6,11 @@
   import StatusPill from '../../components/ui/StatusPill.svelte';
   import Switch from '../../components/ui/Switch.svelte';
   import ConfirmDialog from '../../components/ui/ConfirmDialog.svelte';
-  import { dhon_questionnaire_by_project } from '../../db/questionnaires_repo';
-  import { ken_pori_scan_batches, ken_pori_scan_pages, dhon_scan_batch, bal_save_scan_batch } from '../../db/scan_repo';
+  import { dhon_questionnaire_by_project, ken_pori_questionnaires } from '../../db/questionnaires_repo';
+  import { ken_pori_projects } from '../../db/projects_repo';
+  import { ken_pori_scan_batches, ken_pori_scan_pages, dhon_scan_batch, bal_save_scan_batch, bal_save_scan_page } from '../../db/scan_repo';
   import { ken_pori_layouts_by_questionnaire } from '../../db/print_repo';
+  import type { ProjectRecord } from '../../models/types';
   import type { PrintLayoutRecord } from '../../models/print_models';
   import type { QuestionnaireRecord } from '../../models/types';
   import type { ScanBatchRecord, ScanPageRecord } from '../../models/scan_models';
@@ -27,6 +29,8 @@
     bal_reprocess_page,
     type bal_QueueRunUpdate
   } from '../../services/scan_run';
+  import { BAL_GLOBAL_BATCH_ID, bal_new_global_batch, bal_route_ready_pages } from '../../services/scan_run';
+  import { bal_layout_study_code } from './scan_resolve';
   import { bal_worker_available, bal_create_worker_processor, type bal_WorkerHandle } from './scan_worker_client';
   import { bal_render_pdf_pages, bal_browser_pdf_page_renderer } from './scan_pdf';
   import {
@@ -45,7 +49,9 @@
   import MahimImportDialog from '../mahim/MahimImportDialog.svelte';
   import { bal_parse_page_payload } from './scan_payload';
 
-  let { projectId }: { projectId: string } = $props();
+  let { projectId }: { projectId: string | null } = $props();
+
+  const bal_global = $derived(projectId === null);
 
   let bal_status = $state<'loading' | 'ready' | 'missing'>('loading');
   let bal_questionnaire = $state<QuestionnaireRecord | null>(null);
@@ -74,15 +80,33 @@
   let bal_corner_page = $state<ScanPageRecord | null>(null);
   let bal_duplicate_pair = $state<{ a: ScanPageRecord; b: ScanPageRecord } | null>(null);
   let bal_worker: bal_WorkerHandle | null = null;
+  let bal_all_questionnaires = $state<QuestionnaireRecord[]>([]);
+  let bal_projects = $state<ProjectRecord[]>([]);
+  let bal_page_owner = $state<Record<string, string>>({});
 
   onMount(() => {
     void (async () => {
-      const bal_q = await dhon_questionnaire_by_project(projectId);
+      if (bal_global) {
+        const { bal_get_all } = await import('../../db/client');
+        bal_layouts = await bal_get_all<PrintLayoutRecord>('printLayouts');
+        bal_all_questionnaires = await ken_pori_questionnaires();
+        bal_projects = await ken_pori_projects();
+        const bal_existing = await dhon_scan_batch(BAL_GLOBAL_BATCH_ID);
+        if (bal_existing) {
+          bal_batch = bal_existing;
+          bal_pages = await ken_pori_scan_pages(bal_existing.id);
+          bal_keep_originals = bal_existing.keepOriginals;
+          await bal_refresh_storage();
+        }
+        bal_status = 'ready';
+        return;
+      }
+      const bal_q = await dhon_questionnaire_by_project(projectId as string);
       bal_questionnaire = bal_q ?? null;
       bal_status = 'ready';
       if (!bal_q) return;
       bal_layouts = await ken_pori_layouts_by_questionnaire(bal_q.id);
-      const bal_batches = await ken_pori_scan_batches(projectId);
+      const bal_batches = await ken_pori_scan_batches(projectId as string);
       if (bal_batches.length > 0) {
         bal_batch = bal_batches[0];
         bal_pages = await ken_pori_scan_pages(bal_batches[0].id);
@@ -117,6 +141,25 @@
   const bal_active_categories = $derived(
     BAL_REVIEW_CATEGORIES.filter((bal_category) => bal_category_pages(bal_review, bal_category.id).length > 0)
   );
+
+  $effect(() => {
+    const bal_current = bal_pages;
+    if (!bal_global) return;
+    void (async () => {
+      const bal_next: Record<string, string> = {};
+      for (const bal_page of bal_current) {
+        if (!bal_page.issues.includes('template-missing') || !bal_page.payload) continue;
+        const bal_parsed = bal_parse_page_payload(bal_page.payload);
+        if (!bal_parsed.ok) continue;
+        const bal_code = bal_parsed.identifier.studyCode;
+        const bal_match = bal_layouts.find((bal_layout) => bal_layout_study_code(bal_layout) === bal_code);
+        if (!bal_match) continue;
+        const bal_project = bal_projects.find((bal_row) => bal_row.id === bal_match.projectId);
+        bal_next[bal_page.id] = bal_project?.title ?? bal_match.projectId;
+      }
+      bal_page_owner = bal_next;
+    })();
+  });
 
   function bal_template_requirement(bal_page: ScanPageRecord): string {
     if (!bal_page.payload) return '';
@@ -239,12 +282,14 @@
   async function bal_begin_processing(): Promise<void> {
     if (bal_staging_files.length === 0) return;
     if (!bal_batch) {
-      bal_batch = await bal_new_batch_for_project(
-        projectId,
-        bal_questionnaire?.id ?? null,
-        bal_questionnaire?.version ?? null,
-        bal_keep_originals
-      );
+      bal_batch = bal_global
+        ? await bal_new_global_batch(bal_keep_originals)
+        : await bal_new_batch_for_project(
+            projectId as string,
+            bal_questionnaire?.id ?? null,
+            bal_questionnaire?.version ?? null,
+            bal_keep_originals
+          );
     }
     bal_processing = true;
     bal_progress = null;
@@ -292,10 +337,83 @@
       }
     }
     bal_pages = await ken_pori_scan_pages(bal_batch.id);
+    if (bal_global) {
+      const bal_outcome = await bal_route_ready_pages(bal_pages, bal_layouts, bal_keep_originals);
+      bal_pages = await ken_pori_scan_pages(bal_batch.id);
+      const bal_moved_note = bal_outcome.moved
+        .map((bal_entry) => {
+          const bal_title = bal_projects.find((bal_row) => bal_row.id === bal_entry.projectId)?.title ?? bal_entry.projectId;
+          return `${bal_entry.count} page${bal_entry.count === 1 ? '' : 's'} to ${bal_title}`;
+        })
+        .join(', ');
+      const bal_parts: string[] = [];
+      if (bal_moved_note.length > 0) bal_parts.push(`Routed ${bal_moved_note}.`);
+      if (bal_outcome.needTemplate > 0)
+        bal_parts.push(`${bal_outcome.needTemplate} need${bal_outcome.needTemplate === 1 ? 's' : ''} a template import.`);
+      if (bal_outcome.unidentified > 0)
+        bal_parts.push(`${bal_outcome.unidentified} unidentified page${bal_outcome.unidentified === 1 ? '' : 's'} kept for review.`);
+      if (bal_parts.length > 0) bal_flash(bal_parts.join(' '));
+    }
     bal_processing = false;
     bal_progress = null;
     if (bal_result.cancelled) bal_flash('Processing cancelled. Completed pages are kept.');
-    else bal_flash(`Processed ${bal_result.processed} page${bal_result.processed === 1 ? '' : 's'}.`);
+    else if (!bal_global) bal_flash(`Processed ${bal_result.processed} page${bal_result.processed === 1 ? '' : 's'}.`);
+  }
+
+  async function bal_move_to_owner(bal_page: ScanPageRecord): Promise<void> {
+    const bal_owner_title = bal_page_owner[bal_page.id];
+    if (!bal_owner_title || !bal_page.questionnaireId) return;
+    const bal_target_project = bal_layouts.find(
+      (bal_layout) =>
+        bal_layout.questionnaireId === bal_page.questionnaireId &&
+        bal_layout.questionnaireVersion === bal_page.questionnaireVersion
+    )?.projectId;
+    if (!bal_target_project) return;
+    const bal_batches = await ken_pori_scan_batches(bal_target_project);
+    const bal_target_batch = bal_batches[0] ?? (await bal_new_batch_for_project(bal_target_project, bal_page.questionnaireId, bal_page.questionnaireVersion, bal_keep_originals));
+    await bal_save_scan_page({ ...bal_page, projectId: bal_target_project, batchId: bal_target_batch.id, updatedAt: Date.now() });
+    for (const bal_refresh_batch of [bal_target_batch, bal_batch]) {
+      if (!bal_refresh_batch) continue;
+      const bal_all = await ken_pori_scan_pages(bal_refresh_batch.id);
+      await bal_save_scan_batch({ ...bal_refresh_batch, updatedAt: Date.now(), summary: bal_compute_summary_rows_local(bal_all) });
+    }
+    bal_pages = bal_pages.filter((bal_row) => bal_row.id !== bal_page.id);
+    bal_flash(`Page moved to ${bal_owner_title}.`);
+  }
+
+  async function bal_reject_page(bal_page: ScanPageRecord): Promise<void> {
+    const { bal_delete_keys } = await import('../../db/client');
+    const bal_asset_ids = [bal_page.sourceAssetId, bal_page.normalizedAssetId].filter(
+      (bal_id): bal_id is string => bal_id !== null
+    );
+    if (bal_asset_ids.length > 0) await bal_delete_keys('scanAssets', bal_asset_ids);
+    await bal_delete_keys('scanPages', [bal_page.id]);
+    bal_pages = bal_pages.filter((bal_row) => bal_row.id !== bal_page.id);
+    bal_flash('Page removed from this device.');
+  }
+
+  function bal_compute_summary_rows_local(bal_rows: ScanPageRecord[]) {
+    const bal_summary = {
+      totalPages: bal_rows.length,
+      ready: 0,
+      needsReview: 0,
+      duplicates: 0,
+      failed: 0,
+      unsupported: 0,
+      queued: 0,
+      respondents: 0,
+      complete: 0,
+      incomplete: 0
+    };
+    for (const bal_row of bal_rows) {
+      if (bal_row.status === 'ready') bal_summary.ready += 1;
+      else if (bal_row.status === 'needs-review') bal_summary.needsReview += 1;
+      else if (bal_row.status === 'duplicate') bal_summary.duplicates += 1;
+      else if (bal_row.status === 'failed') bal_summary.failed += 1;
+      else if (bal_row.status === 'unsupported') bal_summary.unsupported += 1;
+      else bal_summary.queued += 1;
+    }
+    return bal_summary;
   }
 
   async function bal_attach_normalized_thumb(bal_page_id: string, bal_asset_id: string): Promise<void> {
@@ -476,7 +594,8 @@
     bal_pages = [];
     bal_storage = null;
     bal_flash('Batch deleted.');
-    const bal_batches = await ken_pori_scan_batches(projectId);
+    if (bal_global) return;
+    const bal_batches = await ken_pori_scan_batches(projectId as string);
     if (bal_batches.length > 0) await bal_open_batch(bal_batches[0].id);
   }
 
@@ -492,10 +611,12 @@
   <div class="scan-page">
     <header class="topbar">
       <div class="titles">
-        <h2>Scan pages</h2>
+        <h2>{bal_global ? 'Scan & import' : 'Scan pages'}</h2>
         <p class="sub">
           {#if bal_processing && bal_progress}
             Importing {bal_progress.done} / {bal_progress.total} — {bal_progress.eta}
+          {:else if bal_global}
+            Pages are identified by their printed code and routed to the matching project on this device.
           {:else}
             All processing happens on this device. Nothing is uploaded.
           {/if}
@@ -638,15 +759,30 @@
                   </div>
                   {#if bal_page.issues.includes('template-missing')}
                     <div class="template-gap">
-                      <p class="template-note">
-                        Questionnaire template not available on this device.
-                        {#if bal_template_requirement(bal_page)}
-                          Required: {bal_template_requirement(bal_page)}.
-                        {/if}
-                      </p>
-                      <Button size="sm" variant="primary" onclick={() => bal_open_template_import(bal_page)}>
-                        Import MAHIM file
-                      </Button>
+                      {#if bal_page_owner[bal_page.id]}
+                        <p class="template-note">
+                          This page belongs to another project on this device:
+                          <strong>{bal_page_owner[bal_page.id]}</strong>.
+                        </p>
+                        <div class="gap-actions">
+                          <Button size="sm" variant="primary" onclick={() => void bal_move_to_owner(bal_page)}>
+                            Move to project
+                          </Button>
+                          <Button size="sm" variant="danger" onclick={() => void bal_reject_page(bal_page)}>
+                            Remove
+                          </Button>
+                        </div>
+                      {:else}
+                        <p class="template-note">
+                          Questionnaire identified, but the matching template is not available on this device.
+                          {#if bal_template_requirement(bal_page)}
+                            Required: {bal_template_requirement(bal_page)}.
+                          {/if}
+                        </p>
+                        <Button size="sm" variant="primary" onclick={() => bal_open_template_import(bal_page)}>
+                          Import MAHIM file
+                        </Button>
+                      {/if}
                     </div>
                   {/if}
                   <div class="card-actions">
@@ -704,7 +840,7 @@
   <ScanIdentifySheet
     open={bal_identify_page !== null}
     page={bal_identify_page}
-    questionnaires={bal_questionnaire ? [bal_questionnaire] : []}
+    questionnaires={bal_global ? bal_all_questionnaires : bal_questionnaire ? [bal_questionnaire] : []}
     layouts={bal_layouts}
     onsubmit={bal_after_identify}
     onclose={() => (bal_identify_page = null)}
@@ -986,6 +1122,11 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+  .gap-actions {
+    display: flex;
+    gap: var(--space-2);
+    flex-wrap: wrap;
   }
   .template-gap {
     display: flex;

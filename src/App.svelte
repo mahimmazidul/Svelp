@@ -24,6 +24,8 @@
 <AppShell>
   {#if bal_route.name === 'projects'}
     <ProjectsPage />
+  {:else if bal_route.name === 'scan'}
+    <ScanPage projectId={null} />
   {:else if bal_route.name === 'project'}
     {#if bal_route.area === 'build'}
       <BuilderPage projectId={bal_route.projectId} />

@@ -36,16 +36,19 @@
 
   function bal_tab_target(bal_key: string): string | null {
     if (bal_key === 'projects') return '#/projects';
+    if (bal_key === 'scan' && bal_project_id === null) return '#/scan';
     return bal_project_id ?? bal_recent_project_id;
   }
 
   function bal_tab_href(bal_key: string): string {
     const bal_target = bal_tab_target(bal_key);
     if (bal_key === 'projects') return '#/projects';
+    if (bal_key === 'scan' && bal_target === '#/scan') return '#/scan';
     return `#/project/${bal_target}/${bal_tab_area(bal_key)}`;
   }
 
   function bal_tab_active(bal_key: string): boolean {
+    if (bal_key === 'scan' && bal_route.name === 'scan') return true;
     if (bal_route.name !== 'project') return bal_key === 'projects';
     if (bal_key === 'projects') return false;
     return bal_route.area === bal_tab_area(bal_key);
