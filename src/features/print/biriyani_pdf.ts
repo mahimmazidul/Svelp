@@ -11,6 +11,14 @@ import type {
   bal_SignatureChunk
 } from './print_blocks';
 import type { PrintSettings } from '../../models/types';
+import {
+  BAL_BENGALI_UNITS_PER_EM,
+  bal_command_to_cubic,
+  bal_has_bengali,
+  bal_shape_text
+} from './print_bengali';
+import { bal_measure_units } from './print_fonts';
+import { bal_load_bengali_shaper } from './print_bengali';
 
 interface bal_PdfWriter {
   setFont(family: string, style: string): void;
@@ -25,7 +33,17 @@ interface bal_PdfWriter {
   circle(x: number, y: number, r: number, style?: 'S' | 'F' | 'FD'): void;
 }
 
+interface bal_PathPen {
+  move(bal_x: number, bal_y: number): void;
+  line(bal_x: number, bal_y: number): void;
+  cubic(bal_x1: number, bal_y1: number, bal_x2: number, bal_y2: number, bal_x3: number, bal_y3: number): void;
+  close(): void;
+  fill(): void;
+  fillStroke(bal_stroke_mm: number): void;
+}
+
 interface bal_PdfDoc extends bal_PdfWriter {
+  bal_pen?: bal_PathPen;
   addPage(format: [number, number], orientation: 'portrait' | 'landscape'): void;
   addImage(
     data: string,
@@ -48,6 +66,151 @@ function bal_font_style(bal_settings: PrintSettings, bal_bold: boolean): string 
   return bal_bold ? 'bold' : 'normal';
 }
 
+interface bal_TextRun {
+  bal_text: string;
+  bal_bengali: boolean;
+  bal_width_mm: number;
+}
+
+const BAL_PT_TO_MM = 0.35277778;
+const BAL_BENGALI_ASCENDER_EM = 1.06;
+
+function bal_make_pen(bal_jsdoc: {
+  moveTo(x: number, y: number): unknown;
+  lineTo(x: number, y: number): unknown;
+  curveTo(x1: number, y1: number, x2: number, y2: number, x3: number, y3: number): unknown;
+  close(): unknown;
+  fill(): unknown;
+  fillStroke(): unknown;
+  setLineWidth(width: number): unknown;
+}): bal_PathPen {
+  return {
+    move(bal_x, bal_y) {
+      bal_jsdoc.moveTo(bal_x, bal_y);
+    },
+    line(bal_x, bal_y) {
+      bal_jsdoc.lineTo(bal_x, bal_y);
+    },
+    cubic(bal_x1, bal_y1, bal_x2, bal_y2, bal_x3, bal_y3) {
+      bal_jsdoc.curveTo(bal_x1, bal_y1, bal_x2, bal_y2, bal_x3, bal_y3);
+    },
+    close() {
+      bal_jsdoc.close();
+    },
+    fill() {
+      bal_jsdoc.fill();
+    },
+    fillStroke(bal_stroke_mm) {
+      bal_jsdoc.setLineWidth(bal_stroke_mm);
+      bal_jsdoc.fillStroke();
+    }
+  };
+}
+
+function bal_split_runs(bal_text: string): string[] {
+  const bal_runs: string[] = [];
+  let bal_current = '';
+  let bal_current_bengali: boolean | null = null;
+  for (const bal_char of bal_text) {
+    const bal_code = bal_char.codePointAt(0) ?? 32;
+    const bal_is_bengali = (bal_code >= 0x0980 && bal_code <= 0x09ff) || bal_code === 0x200c || bal_code === 0x200d;
+    if (bal_current_bengali === null || bal_is_bengali === bal_current_bengali) {
+      bal_current += bal_char;
+      bal_current_bengali = bal_is_bengali;
+      continue;
+    }
+    bal_runs.push(bal_current);
+    bal_current = bal_char;
+    bal_current_bengali = bal_is_bengali;
+  }
+  if (bal_current.length > 0) bal_runs.push(bal_current);
+  return bal_runs;
+}
+
+function bal_draw_shaped_runs(
+  bal_doc: bal_PdfDoc,
+  bal_settings: PrintSettings,
+  bal_runs: bal_TextRun[],
+  bal_text_x: number,
+  bal_text_y: number,
+  bal_size_pt: number,
+  bal_bold: boolean
+): void {
+  const bal_pen = bal_doc.bal_pen;
+  if (!bal_pen) return;
+  const bal_scale = (bal_size_pt * BAL_PT_TO_MM) / BAL_BENGALI_UNITS_PER_EM;
+  const bal_baseline_y = bal_text_y + bal_size_pt * BAL_BENGALI_ASCENDER_EM * BAL_PT_TO_MM;
+  bal_doc.setDrawColor(BAL_INK, BAL_INK, BAL_INK);
+  bal_doc.setFillColor(BAL_INK, BAL_INK, BAL_INK);
+  let bal_cursor = bal_text_x;
+  for (const bal_run of bal_runs) {
+    if (!bal_run.bal_bengali) {
+      bal_doc.setFont(bal_settings.theme.fontFamily, bal_font_style(bal_settings, bal_bold));
+      bal_doc.setFontSize(bal_size_pt);
+      bal_doc.setTextColor(BAL_INK, BAL_INK, BAL_INK);
+      bal_doc.text(bal_run.bal_text, bal_cursor, bal_text_y, {
+        align: 'left',
+        baseline: 'top'
+      });
+      bal_cursor += bal_run.bal_width_mm;
+      continue;
+    }
+    const bal_shaped = bal_shape_text(bal_run.bal_text);
+    if (!bal_shaped) {
+      bal_cursor += bal_run.bal_width_mm;
+      continue;
+    }
+    for (const bal_glyph of bal_shaped.glyphs) {
+      let bal_prev_x = 0;
+      let bal_prev_y = 0;
+      for (const bal_cmd of bal_glyph.commands) {
+        if (bal_cmd.command === 'moveTo') {
+          bal_pen.move(
+            bal_cursor + (bal_cmd.args[0] + bal_glyph.xOffset) * bal_scale,
+            bal_baseline_y - (bal_cmd.args[1] + bal_glyph.yOffset) * bal_scale
+          );
+        } else if (bal_cmd.command === 'lineTo') {
+          bal_pen.line(
+            bal_cursor + (bal_cmd.args[0] + bal_glyph.xOffset) * bal_scale,
+            bal_baseline_y - (bal_cmd.args[1] + bal_glyph.yOffset) * bal_scale
+          );
+        } else if (bal_cmd.command === 'quadraticCurveTo') {
+          const bal_cubic = bal_command_to_cubic(bal_cmd, bal_prev_x, bal_prev_y);
+          if (bal_cubic) {
+            bal_pen.cubic(
+              bal_cursor + (bal_cubic.c[0] + bal_glyph.xOffset) * bal_scale,
+              bal_baseline_y - (bal_cubic.c[1] + bal_glyph.yOffset) * bal_scale,
+              bal_cursor + (bal_cubic.c[2] + bal_glyph.xOffset) * bal_scale,
+              bal_baseline_y - (bal_cubic.c[3] + bal_glyph.yOffset) * bal_scale,
+              bal_cursor + (bal_cubic.c[4] + bal_glyph.xOffset) * bal_scale,
+              bal_baseline_y - (bal_cubic.c[5] + bal_glyph.yOffset) * bal_scale
+            );
+          }
+          bal_prev_x = bal_cmd.args[2];
+          bal_prev_y = bal_cmd.args[3];
+        } else if (bal_cmd.command === 'bezierCurveTo') {
+          bal_pen.cubic(
+            bal_cursor + (bal_cmd.args[0] + bal_glyph.xOffset) * bal_scale,
+            bal_baseline_y - (bal_cmd.args[1] + bal_glyph.yOffset) * bal_scale,
+            bal_cursor + (bal_cmd.args[2] + bal_glyph.xOffset) * bal_scale,
+            bal_baseline_y - (bal_cmd.args[3] + bal_glyph.yOffset) * bal_scale,
+            bal_cursor + (bal_cmd.args[4] + bal_glyph.xOffset) * bal_scale,
+            bal_baseline_y - (bal_cmd.args[5] + bal_glyph.yOffset) * bal_scale
+          );
+        } else {
+          bal_pen.close();
+        }
+      }
+      bal_cursor += bal_glyph.advance * bal_scale;
+    }
+    if (bal_bold) {
+      bal_pen.fillStroke(Math.max(0.06, bal_size_pt * BAL_PT_TO_MM * 0.028));
+    } else {
+      bal_pen.fill();
+    }
+  }
+}
+
 function bal_draw_text(
   bal_doc: bal_PdfDoc,
   bal_settings: PrintSettings,
@@ -56,10 +219,25 @@ function bal_draw_text(
   bal_y: number,
   bal_options: { size?: number; bold?: boolean; align?: 'left' | 'center' | 'right'; color?: number } = {}
 ): void {
-  bal_doc.setFont(bal_settings.theme.fontFamily, bal_font_style(bal_settings, bal_options.bold ?? false));
-  bal_doc.setFontSize(bal_options.size ?? bal_settings.theme.baseFontSize);
+  const bal_size = bal_options.size ?? bal_settings.theme.baseFontSize;
+  const bal_bold = bal_options.bold ?? false;
+  bal_doc.setFont(bal_settings.theme.fontFamily, bal_font_style(bal_settings, bal_bold));
+  bal_doc.setFontSize(bal_size);
   const bal_ink = bal_options.color ?? BAL_INK;
   bal_doc.setTextColor(bal_ink, bal_ink, bal_ink);
+  if (bal_has_bengali(bal_text) && bal_doc.bal_pen) {
+    const bal_runs: bal_TextRun[] = bal_split_runs(bal_text).map((bal_run_text) => ({
+      bal_text: bal_run_text,
+      bal_bengali: bal_has_bengali(bal_run_text),
+      bal_width_mm: (bal_measure_units(bal_run_text, { family: bal_settings.theme.fontFamily, bold: bal_bold }) / 1000) * bal_size * BAL_PT_TO_MM
+    }));
+    const bal_total = bal_runs.reduce((bal_sum, bal_run) => bal_sum + bal_run.bal_width_mm, 0);
+    let bal_start_x = bal_x;
+    if (bal_options.align === 'center') bal_start_x = bal_x - bal_total / 2;
+    else if (bal_options.align === 'right') bal_start_x = bal_x - bal_total;
+    bal_draw_shaped_runs(bal_doc, bal_settings, bal_runs, bal_start_x, bal_y, bal_size, bal_bold);
+    return;
+  }
   bal_doc.text(bal_text, bal_x, bal_y, {
     align: bal_options.align ?? 'left',
     baseline: 'top'
@@ -485,7 +663,7 @@ function bal_draw_furniture(
   const bal_regions = bal_page.regions;
   if (bal_page.header && bal_regions.header) {
     const bal_header = bal_page.header;
-    let bal_y = bal_regions.header.y;
+    const bal_y = bal_regions.header.y;
     if (bal_header.titleText) {
       bal_draw_text(bal_doc, bal_settings, bal_header.titleText, bal_regions.header.x, bal_y, {
         bold: true,
@@ -590,12 +768,15 @@ function bal_draw_furniture(
 async function bal_create_doc(bal_document: bal_PrintDocument): Promise<bal_PdfDoc> {
   const { jsPDF } = await import('jspdf');
   const bal_first = bal_document.pages[0];
-  return new jsPDF({
+  const bal_instance = new jsPDF({
     unit: 'mm',
     format: [bal_first.regions.width, bal_first.regions.height],
     orientation: bal_first.regions.width > bal_first.regions.height ? 'landscape' : 'portrait',
-    compress: true
+    compress: true,
+    precision: 2
   }) as unknown as bal_PdfDoc;
+  bal_instance.bal_pen = bal_make_pen(bal_instance as unknown as Parameters<typeof bal_make_pen>[0]);
+  return bal_instance;
 }
 
 function bal_draw_pages(
@@ -627,6 +808,7 @@ function bal_draw_pages(
 
 export async function hati_pdf_bytes_many(bal_documents: bal_PrintDocument[]): Promise<Uint8Array> {
   if (bal_documents.length === 0) throw new Error('No pages to write.');
+  await bal_load_bengali_shaper();
   const bal_doc = await bal_create_doc(bal_documents[0]);
   bal_draw_pages(bal_doc, bal_documents[0], false);
   for (let bal_i = 1; bal_i < bal_documents.length; bal_i++) {
@@ -636,14 +818,17 @@ export async function hati_pdf_bytes_many(bal_documents: bal_PrintDocument[]): P
 }
 
 export async function hati_pdf_bytes(bal_document: bal_PrintDocument): Promise<Uint8Array> {
+  await bal_load_bengali_shaper();
   const { jsPDF } = await import('jspdf');
   const bal_first = bal_document.pages[0];
   const bal_doc: bal_PdfDoc = new jsPDF({
     unit: 'mm',
     format: [bal_first.regions.width, bal_first.regions.height],
     orientation: bal_first.regions.width > bal_first.regions.height ? 'landscape' : 'portrait',
-    compress: true
+    compress: true,
+    precision: 2
   }) as unknown as bal_PdfDoc;
+  bal_doc.bal_pen = bal_make_pen(bal_doc as unknown as Parameters<typeof bal_make_pen>[0]);
 
   const bal_multiple_matrices = new Set(bal_document.matrixMultipleItemIds);
 

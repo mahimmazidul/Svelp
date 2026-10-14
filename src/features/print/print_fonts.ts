@@ -1,3 +1,5 @@
+import { bal_bengali_measure_units } from './print_bengali';
+
 export type PrintFontKey = 'helvetica' | 'times' | 'courier';
 
 export interface PrintFontStyle {
@@ -49,11 +51,41 @@ function bal_char_units(bal_font: PrintFontKey, bal_code: number): number {
   return bal_table[bal_code - 32] ?? bal_table[0];
 }
 
+const BAL_EXTRA_UNITS: Record<number, number> = {
+  0x2013: 556,
+  0x2014: 1000,
+  0x2018: 222,
+  0x2019: 222,
+  0x201c: 333,
+  0x201d: 333,
+  0x2026: 1000,
+  0x00b7: 278,
+  0x00d7: 584
+};
+
 export function bal_measure_units(bal_text: string, bal_font: PrintFontStyle): number {
   let bal_total = 0;
+  let bal_bengali_run = '';
+  const bal_flush = (): void => {
+    if (bal_bengali_run.length === 0) return;
+    bal_total += bal_bengali_measure_units(bal_bengali_run) ?? 0;
+    bal_bengali_run = '';
+  };
   for (const bal_char of bal_text) {
-    bal_total += bal_char_units(bal_font.family, bal_char.codePointAt(0) ?? 32);
+    const bal_code = bal_char.codePointAt(0) ?? 32;
+    const bal_is_bengali = (bal_code >= 0x0980 && bal_code <= 0x09ff) || bal_code === 0x200c || bal_code === 0x200d;
+    if (bal_is_bengali) {
+      bal_bengali_run += bal_char;
+      continue;
+    }
+    bal_flush();
+    if (bal_code <= 126) {
+      bal_total += bal_char_units(bal_font.family, bal_code);
+    } else {
+      bal_total += BAL_EXTRA_UNITS[bal_code] ?? 600;
+    }
   }
+  bal_flush();
   return bal_font.bold ? bal_total * BAL_BOLD_FACTOR : bal_total;
 }
 

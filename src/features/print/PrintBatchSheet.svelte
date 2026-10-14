@@ -134,7 +134,9 @@
           class="ids"
           bind:value={bal_custom_ids}
           rows={6}
-          placeholder={'DFD-A01\nDFD-A02\nDFD-B07'}
+          placeholder="DFD-A01
+DFD-A02
+DFD-B07"
         ></textarea>
       </Field>
     {/if}

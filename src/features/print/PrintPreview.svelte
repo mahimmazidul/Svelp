@@ -86,6 +86,7 @@
       class="page"
       style="--page-width:{(bal_base_width * bal_zoom).toFixed(0)}px; --page-aspect:{bal_aspect.toFixed(4)}"
     >
+      <!-- eslint-disable-next-line svelte/no-at-html-tags -->
       {@html bal_svg}
     </div>
   </div>
