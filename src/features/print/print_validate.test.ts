@@ -41,7 +41,7 @@ describe('print readiness report', () => {
     expect(bal_report.groups.every((bal_g) => bal_g.errors === 0 && bal_g.warnings === 0)).toBe(true);
   });
 
-  it('reports warnings for tight margins and small codes in scanner mode', () => {
+  it('reports tight margins but accepts marks at the scanner-safe floors', () => {
     const bal_q = bal_short_survey();
     bal_q.printSettings = bal_scanner_settings({
       margins: { top: 12, right: 12, bottom: 12, left: 12 },
@@ -52,8 +52,8 @@ describe('print readiness report', () => {
     const bal_report = bal_validate_print(bal_doc);
     const bal_found = bal_codes(bal_report.issues);
     expect(bal_found).toContain('tight-margin');
-    expect(bal_found).toContain('small-identifier');
-    expect(bal_found).toContain('small-marker');
+    expect(bal_found).not.toContain('small-identifier');
+    expect(bal_found).not.toContain('small-marker');
     expect(bal_report.status).toBe('warnings');
   });
 

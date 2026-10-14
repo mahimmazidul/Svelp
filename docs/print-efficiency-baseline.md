@@ -149,8 +149,13 @@ Recognition geometry (`print_layout.ts`):
    as one `signature-pair` chunk (per-column item bounds, full sign space
    retained). Benchmark: comfortable 9, compact 6, dense 5 (preferred band).
    Bangla: comfortable 4, compact 3, dense 3.
-7. **Utilization diagnostics** (dev-only) + print-readiness validator gates
-   (mark proximity, overlap, clipped Bangla, small QR, margin violations).
+7. **Utilization diagnostics + validator gates**: DONE.
+   `print_diagnostics.ts` (dev-only) reports usable/occupied/whitespace and
+   flags mostly-empty interior pages, nearly empty final pages, and
+   overfilled pages. `print_validate.ts` adds: sub-floor bubble/QR sizes are
+   errors (scanner minima from the centralized module), marks closer than
+   1.6 mm, overlapping content blocks, left/top margin violations, marker
+   obstruction, and degenerate regions. Dense never bypasses validation.
 8. **Batch page estimates** (sheets with duplex), streaming-friendly.
 9. **Benchmark regression tests** (4 densities x fixtures incl. FFQ 60x7, KAP,
    mixed), density docs + UI (Print settings panel density + pages-updates).

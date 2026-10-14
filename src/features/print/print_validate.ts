@@ -1,5 +1,6 @@
 import type { bal_PrintDocument } from './print_layout';
 import { bal_rects_overlap } from './print_paper';
+import { BAL_SCAN_MIN } from './print_scan_minimums';
 
 export type PrintIssueSeverity = 'error' | 'warning' | 'info';
 
@@ -64,7 +65,9 @@ export function bal_validate_print(bal_doc: bal_PrintDocument): PrintReadinessRe
       const bal_overflow_right =
         bal_bound.rect.x + bal_bound.rect.width >
         bal_page.geometry.contentBounds.x + bal_page.geometry.contentBounds.width + 0.01;
-      if (bal_overflow_bottom || bal_overflow_right) {
+      const bal_overflow_left = bal_bound.rect.x < bal_page.geometry.contentBounds.x - 0.01;
+      const bal_overflow_top = bal_bound.rect.y < bal_page.geometry.contentBounds.y - 0.01;
+      if (bal_overflow_bottom || bal_overflow_right || bal_overflow_left || bal_overflow_top) {
         bal_issues.push({
           code: 'item-overflow',
           severity: 'error',
@@ -116,22 +119,22 @@ export function bal_validate_print(bal_doc: bal_PrintDocument): PrintReadinessRe
         itemId: null
       });
     }
-    if (bal_settings.marker.diameterMm < 4) {
+    if (bal_settings.marker.diameterMm < BAL_SCAN_MIN.bubbleDiameterMm) {
       bal_issues.push({
         code: 'small-marker',
-        severity: 'warning',
+        severity: 'error',
         category: 'scanner',
-        message: `Answer marks of ${bal_settings.marker.diameterMm} mm may be too small for reliable detection. Use at least 4 mm.`,
+        message: `Answer marks of ${bal_settings.marker.diameterMm} mm are below the reliable minimum of ${BAL_SCAN_MIN.bubbleDiameterMm} mm.`,
         pageNumber: null,
         itemId: null
       });
     }
-    if (bal_settings.identifier.sizeMm < 18) {
+    if (bal_settings.identifier.sizeMm < BAL_SCAN_MIN.qrSizeMm) {
       bal_issues.push({
         code: 'small-identifier',
-        severity: 'warning',
+        severity: 'error',
         category: 'identifier',
-        message: `The page code is ${bal_settings.identifier.sizeMm} mm. Sizes below 18 mm may be hard to read from phone photos.`,
+        message: `The page code is ${bal_settings.identifier.sizeMm} mm, below the reliable minimum of ${BAL_SCAN_MIN.qrSizeMm} mm.`,
         pageNumber: null,
         itemId: null
       });
@@ -164,6 +167,82 @@ export function bal_validate_print(bal_doc: bal_PrintDocument): PrintReadinessRe
           bal_i = bal_regions.length;
           break;
         }
+      }
+    }
+
+    const bal_mark_regions = bal_regions.filter(
+      (bal_region) => bal_region.markerType === 'bubble' || bal_region.markerType === 'checkbox'
+    );
+    for (let bal_i = 0; bal_i < bal_mark_regions.length; bal_i++) {
+      for (let bal_j = bal_i + 1; bal_j < bal_mark_regions.length; bal_j++) {
+        const bal_gap = BAL_SCAN_MIN.markRegionGapMm / 2;
+        const bal_inflated_a = {
+          x: bal_mark_regions[bal_i].rect.x - bal_gap,
+          y: bal_mark_regions[bal_i].rect.y - bal_gap,
+          width: bal_mark_regions[bal_i].rect.width + bal_gap * 2,
+          height: bal_mark_regions[bal_i].rect.height + bal_gap * 2
+        };
+        if (bal_rects_overlap(bal_inflated_a, bal_mark_regions[bal_j].rect)) {
+          bal_issues.push({
+            code: 'marks-too-close',
+            severity: 'warning',
+            category: 'spacing',
+            message: `Answer marks on page ${bal_page.pageNumber} are closer than ${BAL_SCAN_MIN.markRegionGapMm} mm apart.`,
+            pageNumber: bal_page.pageNumber,
+            itemId: bal_mark_regions[bal_i].itemId
+          });
+          bal_i = bal_mark_regions.length;
+          break;
+        }
+      }
+    }
+
+    for (let bal_i = 0; bal_i < bal_page.geometry.itemBounds.length; bal_i++) {
+      for (let bal_j = bal_i + 1; bal_j < bal_page.geometry.itemBounds.length; bal_j++) {
+        if (bal_rects_overlap_tolerant(bal_page.geometry.itemBounds[bal_i].rect, bal_page.geometry.itemBounds[bal_j].rect, 0.02)) {
+          bal_issues.push({
+            code: 'blocks-overlap',
+            severity: 'warning',
+            category: 'layout',
+            message: `Two content blocks overlap on page ${bal_page.pageNumber}; text may collide or clip.`,
+            pageNumber: bal_page.pageNumber,
+            itemId: bal_page.geometry.itemBounds[bal_i].itemId
+          });
+          bal_i = bal_page.geometry.itemBounds.length;
+          break;
+        }
+      }
+    }
+
+    if (bal_settings.scannerMode) {
+      for (const bal_marker of bal_page.geometry.alignmentMarkers) {
+        for (const bal_bound of bal_page.geometry.itemBounds) {
+          if (bal_rects_overlap(bal_marker.rect, bal_bound.rect)) {
+            bal_issues.push({
+              code: 'marker-obstruction',
+              severity: 'error',
+              category: 'scanner',
+              message: `Content overlaps an alignment marker on page ${bal_page.pageNumber}.`,
+              pageNumber: bal_page.pageNumber,
+              itemId: bal_bound.itemId
+            });
+            break;
+          }
+        }
+      }
+    }
+
+    for (const bal_region of bal_regions) {
+      if (bal_region.rect.width <= 0 || bal_region.rect.height <= 0) {
+        bal_issues.push({
+          code: 'degenerate-region',
+          severity: 'error',
+          category: 'scanner',
+          message: `An answer area on page ${bal_page.pageNumber} has no measurable size.`,
+          pageNumber: bal_page.pageNumber,
+          itemId: bal_region.itemId
+        });
+        break;
       }
     }
 
