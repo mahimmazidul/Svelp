@@ -2,8 +2,10 @@
   color-scheme: light;
 
   --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    'Noto Sans Bengali', 'Vrinda', 'Shonar Bangla', 'Nirmala UI', 'Bangla Sangam MN', 'Bangla MN',
     sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', 'Noto Sans Bengali',
+    monospace;
 
   --text-xs: 0.75rem;
   --text-sm: 0.8125rem;
