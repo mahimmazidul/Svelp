@@ -51,10 +51,10 @@ export const BAL_MM_PER_INCH = 25.4;
 export const BAL_PT_TO_MM = BAL_MM_PER_INCH / 72;
 
 export const BAL_DEFAULT_MARGINS: PrintMargins = {
-  top: 18,
-  right: 16,
-  bottom: 18,
-  left: 16
+  top: 15,
+  right: 15,
+  bottom: 15,
+  left: 15
 };
 
 export const BAL_MIN_MARGIN_MM = 10;

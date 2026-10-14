@@ -1,7 +1,7 @@
 import type { QuestionnaireRecord, ResponseScaleRecord } from '../../models/types';
 import { derive_numbering } from '../../models/numbering';
 import { bal_line_height, bal_wrap_text } from './print_fonts';
-import { bal_band_heights, bal_normalize_print_settings } from './print_settings';
+import { bal_band_heights, bal_normalize_print_settings, BAL_DENSITY_LINE_FACTOR } from './print_settings';
 import {
   bal_page_regions,
   bal_paper_dimensions,
@@ -72,7 +72,10 @@ export function bal_paginate(bal_input: bal_LayoutInput): bal_LayoutResult {
     if (bal_head.kind === 'scale-table-head') {
       return { ...bal_head, keepWithNext: true };
     }
-    const bal_lh = bal_line_height(bal_ctx.settings.theme.baseFontSize);
+    const bal_lh = bal_line_height(
+      bal_ctx.settings.theme.baseFontSize,
+      BAL_DENSITY_LINE_FACTOR[bal_ctx.settings.density]
+    );
     const bal_title = bal_head.stemLines
       .join(' ')
       .replace(/\s*\*\s*$/, '')

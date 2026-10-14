@@ -8,7 +8,12 @@ import type {
   PrintThemeConfig,
   PrintThemeName
 } from '../../models/types';
-import { BAL_DEFAULT_MARGINS, BAL_MIN_MARGIN_MM, type PrintMargins } from './print_paper';
+import {
+  BAL_DEFAULT_MARGINS,
+  BAL_HEADER_HEIGHT_MM,
+  BAL_MIN_MARGIN_MM,
+  type PrintMargins
+} from './print_paper';
 import { BAL_SCAN_MIN } from './print_scan_minimums';
 
 export const BAL_PRINT_THEME_NAMES: PrintThemeName[] = [
@@ -48,15 +53,21 @@ export const BAL_DENSITY_LABELS: Record<PrintDensity, string> = {
 };
 
 export const BAL_DENSITY_ROW_SPACING: Record<PrintDensity, number> = {
-  comfortable: 7.2,
-  compact: 5.6,
-  dense: 4.4
+  comfortable: 6.4,
+  compact: 5.2,
+  dense: 4.2
 };
 
 export const BAL_DENSITY_QUESTION_SPACING: Record<PrintDensity, number> = {
-  comfortable: 9,
-  compact: 6.5,
-  dense: 5
+  comfortable: 8,
+  compact: 5,
+  dense: 3.6
+};
+
+export const BAL_DENSITY_LINE_FACTOR: Record<PrintDensity, number> = {
+  comfortable: 1.38,
+  compact: 1.32,
+  dense: 1.26
 };
 
 const BAL_DENSITY_LEGACY: Record<string, PrintDensity> = {
@@ -84,7 +95,7 @@ export const BAL_PRINT_PRESETS: PrintPreset[] = [
     orientation: 'portrait',
     themeName: 'academic',
     density: 'compact',
-    margins: { top: 20, right: 20, bottom: 20, left: 20 },
+    margins: { top: 15, right: 15, bottom: 15, left: 15 },
     scannerMode: false
   },
   {
@@ -104,7 +115,7 @@ export const BAL_PRINT_PRESETS: PrintPreset[] = [
     orientation: 'portrait',
     themeName: 'clinical',
     density: 'compact',
-    margins: { top: 18, right: 16, bottom: 18, left: 16 },
+    margins: { top: 15, right: 15, bottom: 15, left: 15 },
     scannerMode: true
   },
   {
@@ -114,7 +125,7 @@ export const BAL_PRINT_PRESETS: PrintPreset[] = [
     orientation: 'portrait',
     themeName: 'institutional',
     density: 'compact',
-    margins: { top: 18, right: 18, bottom: 18, left: 18 },
+    margins: { top: 15, right: 15, bottom: 15, left: 15 },
     scannerMode: false
   }
 ];
@@ -303,7 +314,7 @@ export function bal_band_heights(
     bal_settings.header.showStudyCode && bal_settings.header.studyCode.trim().length > 0,
     bal_settings.header.showRespondentId && bal_settings.respondentArea.enabled
   ];
-  const bal_header = bal_header_parts.some(Boolean) ? 12 : null;
+  const bal_header = bal_header_parts.some(Boolean) ? BAL_HEADER_HEIGHT_MM : null;
   const bal_footer_parts = [
     bal_settings.footer.showPageNumbers,
     bal_settings.footer.showStudyCode && bal_settings.header.studyCode.trim().length > 0,

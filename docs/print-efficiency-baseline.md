@@ -120,9 +120,12 @@ Recognition geometry (`print_layout.ts`):
    recognition is unchanged. Item-level pageBreakBefore now honored on
    questions too. Benchmark: comfortable 11, compact 10, dense 11 pages
    (from 22/18/19). Bangla survey unchanged at 5 pages.
-3. **Typography/spacing**: compact theme lift (10 pt), trim per-chunk trailing
-   spacing, denser section heads, smaller header/footer bands, scanner-safe
-   margins default 15 mm. Benchmark: expect ~6.
+3. **Typography/spacing**: DONE. Default margins 18/16/18/16 -> 15 mm all
+   around (scanner-safe floor); presets aligned; header band 12 -> 11 mm;
+   density now also selects line factor (1.38 / 1.32 / 1.26) and tighter
+   question spacing (8 / 5 / 3.6) and row spacing (6.4 / 5.2 / 4.2);
+   section-head and consent-title pads trimmed.
+   Benchmark: comfortable 11, compact 10, dense 10. Bangla survey 5 -> 4.
 4. **Content-aware rows**: measured Bangla/latin text heights (existing shaper)
    drive row heights; demographics pairing/grid; proportional tails.
    Benchmark: expect ~5–6.

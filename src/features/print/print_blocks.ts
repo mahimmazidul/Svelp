@@ -9,7 +9,7 @@ import { dhon_matrix_columns, dhon_resolve_options } from '../../models/scale_op
 import type { DerivedNumbering } from '../../models/numbering';
 import type { PrintSettings } from '../../models/types';
 import { bal_line_height, bal_measure_text, bal_wrap_text, type PrintFontStyle } from './print_fonts';
-import { bal_row_spacing } from './print_settings';
+import { bal_row_spacing, BAL_DENSITY_LINE_FACTOR } from './print_settings';
 import type { PhysicalRect } from './print_paper';
 
 export type bal_PrintChunk =
@@ -190,6 +190,13 @@ function bal_size(bal_settings: PrintSettings, bal_scale = 1): number {
   return bal_settings.theme.baseFontSize * bal_scale;
 }
 
+function bal_line_h(bal_settings: PrintSettings, bal_scale = 1): number {
+  return bal_line_height(
+    bal_size(bal_settings, bal_scale),
+    BAL_DENSITY_LINE_FACTOR[bal_settings.density]
+  );
+}
+
 function bal_wrapped(
   bal_text: string,
   bal_settings: PrintSettings,
@@ -225,7 +232,7 @@ function bal_measure_option_rows(
   bal_marker_x: number
 ): bal_OptionRowLayout[] {
   const bal_settings = bal_ctx.settings;
-  const bal_lh = bal_line_height(bal_size(bal_settings));
+  const bal_lh = bal_line_h(bal_settings);
   const bal_label_width =
     bal_ctx.contentWidth - BAL_STEM_INDENT - bal_marker_x + BAL_STEM_INDENT - BAL_OPTION_TEXT_GAP - 1;
   const bal_spacing = bal_row_spacing(bal_settings);
@@ -265,7 +272,7 @@ function bal_measure_inline_block(
 ): { bal_widths: number[]; bal_block: number } {
   const bal_marker_size = Math.max(
     bal_settings.marker.diameterMm + bal_settings.marker.regionPaddingMm * 2,
-    bal_line_height(bal_size(bal_settings))
+    bal_line_h(bal_settings)
   );
   const bal_widths = bal_options.map(
     (bal_option) =>
@@ -288,7 +295,7 @@ function bal_build_inline_question_chunk(
   bal_options: { id: string; label: string; coding: string | null }[]
 ): bal_QuestionChunk {
   const bal_settings = bal_ctx.settings;
-  const bal_lh = bal_line_height(bal_size(bal_settings));
+  const bal_lh = bal_line_h(bal_settings);
   const bal_marker_size = Math.max(
     bal_settings.marker.diameterMm + bal_settings.marker.regionPaddingMm * 2,
     bal_lh
@@ -356,7 +363,7 @@ function bal_build_question_chunk(
   bal_options_override?: { id: string; label: string; coding: string | null }[]
 ): bal_QuestionChunk {
   const bal_settings = bal_ctx.settings;
-  const bal_lh = bal_line_height(bal_size(bal_settings));
+  const bal_lh = bal_line_h(bal_settings);
   const bal_descriptor = item_descriptor(bal_item.type);
   const bal_number_label = bal_ctx.numbering.itemLabels[bal_item.id] ?? '';
   const bal_stem_text = `${bal_item.label}${bal_required_suffix(bal_item)}`;
@@ -532,7 +539,7 @@ function bal_build_scale_table_chunks(
   bal_ctx: bal_PrintContext
 ): bal_PrintChunk[] {
   const bal_settings = bal_ctx.settings;
-  const bal_lh = bal_line_height(bal_size(bal_settings));
+  const bal_lh = bal_line_h(bal_settings);
   const bal_marker_size = bal_settings.marker.diameterMm + bal_settings.marker.regionPaddingMm * 2;
   const bal_shared = bal_table_options(bal_run[0], bal_ctx) as {
     id: string;
@@ -618,7 +625,7 @@ function bal_build_matrix_chunks(
   bal_ctx: bal_PrintContext
 ): bal_PrintChunk[] {
   const bal_settings = bal_ctx.settings;
-  const bal_lh = bal_line_height(bal_size(bal_settings));
+  const bal_lh = bal_line_h(bal_settings);
   const bal_marker_size = bal_settings.marker.diameterMm + bal_settings.marker.regionPaddingMm * 2;
   const bal_number_label = bal_ctx.numbering.itemLabels[bal_item.id] ?? '';
   const bal_stem_text = `${bal_item.label}${bal_required_suffix(bal_item)}`;
@@ -694,9 +701,8 @@ function bal_build_consent_chunks(
   bal_ctx: bal_PrintContext
 ): bal_PrintChunk[] {
   const bal_settings = bal_ctx.settings;
-  const bal_lh = bal_line_height(bal_size(bal_settings));
-  const bal_heading_size = bal_size(bal_settings, bal_settings.theme.headingScale);
-  const bal_heading_lh = bal_line_height(bal_heading_size);
+  const bal_lh = bal_line_h(bal_settings);
+  const bal_heading_lh = bal_line_h(bal_settings, bal_settings.theme.headingScale);
   const bal_consent = bal_item.consent;
   const bal_chunks: bal_PrintChunk[] = [];
   if (!bal_consent) return bal_chunks;
@@ -708,7 +714,7 @@ function bal_build_consent_chunks(
     true,
     bal_settings.theme.headingScale
   );
-  const bal_title_height = bal_title_lines.length * bal_heading_lh + 1.8;
+  const bal_title_height = bal_title_lines.length * bal_heading_lh + 1.4;
   bal_chunks.push({
     kind: 'consent-para',
     itemType: 'consent',
@@ -806,7 +812,7 @@ function bal_build_signature_chunk(
   bal_ctx: bal_PrintContext
 ): bal_SignatureChunk {
   const bal_settings = bal_ctx.settings;
-  const bal_lh = bal_line_height(bal_size(bal_settings));
+  const bal_lh = bal_line_h(bal_settings);
   const bal_signature = bal_item.signature;
   const bal_role = bal_signature?.signerRole
     ? bal_signature.signerRole
@@ -837,8 +843,7 @@ export function bal_build_chunks(
   const bal_chunks: bal_PrintChunk[] = [];
   bal_q.sections.forEach((bal_section, bal_section_index) => {
     const bal_settings = bal_ctx.settings;
-    const bal_heading_size = bal_size(bal_settings, bal_settings.theme.headingScale);
-    const bal_heading_lh = bal_line_height(bal_heading_size);
+    const bal_heading_lh = bal_line_h(bal_settings, bal_settings.theme.headingScale);
     const bal_title_lines = bal_wrapped(
       bal_section.title || bal_ctx.numbering.sectionLabels[bal_section.id] || `Section ${bal_section_index + 1}`,
       bal_settings,
@@ -854,7 +859,7 @@ export function bal_build_chunks(
       itemType: 'section',
       itemId: bal_section.id,
       sectionId: bal_section.id,
-      height: bal_title_lines.length * bal_heading_lh + bal_desc_lines.length * bal_line_height(bal_size(bal_settings)) + 2.6,
+      height: bal_title_lines.length * bal_heading_lh + bal_desc_lines.length * bal_line_h(bal_settings) + 2.6,
       keepWithNext: true,
       forcedBreakBefore: bal_section.printConfig?.pageBreakBefore ?? false,
       sectionIndex: bal_section_index + 1,
@@ -865,7 +870,7 @@ export function bal_build_chunks(
     for (let bal_item_index = 0; bal_item_index < bal_section.items.length; bal_item_index++) {
       const bal_item = bal_section.items[bal_item_index];
       if (bal_item.type === 'instruction') {
-        const bal_lh = bal_line_height(bal_size(bal_settings));
+        const bal_lh = bal_line_h(bal_settings);
         const bal_head_lines = bal_item.heading?.trim()
           ? bal_wrapped(bal_item.heading, bal_settings, bal_ctx.contentWidth - (bal_item.emphasis === 'callout' ? 5 : 0), true)
           : [];

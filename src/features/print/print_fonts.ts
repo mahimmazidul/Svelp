@@ -97,8 +97,8 @@ export function bal_measure_text(
   return (bal_measure_units(bal_text, bal_font) / 1000) * bal_size_pt * 0.35277778;
 }
 
-export function bal_line_height(bal_size_pt: number): number {
-  return bal_size_pt * 1.38 * 0.35277778;
+export function bal_line_height(bal_size_pt: number, bal_factor = 1.38): number {
+  return bal_size_pt * bal_factor * 0.35277778;
 }
 
 export function bal_wrap_text(

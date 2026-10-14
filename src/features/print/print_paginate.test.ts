@@ -39,7 +39,7 @@ describe('pagination page model', () => {
     const bal_result = bal_paginate({ questionnaire: bal_q, scales: [] });
     expect(bal_result.pages[0].regions.width).toBeCloseTo(215.9, 1);
     expect(bal_result.pages[0].regions.height).toBeCloseTo(279.4, 1);
-    expect(bal_result.pages[0].regions.content.width).toBeCloseTo(215.9 - 32, 1);
+    expect(bal_result.pages[0].regions.content.width).toBeCloseTo(215.9 - 30, 1);
   });
 
   it('keeps every chunk inside the content bounds', () => {
