@@ -45,7 +45,8 @@ export const BAL_BN_MATRIX_ROWS = [
   'মুরগির মাংস',
   'শাকসবজি',
   'ফলমূল',
-  'ডাল'
+  'ডাল',
+  'বিরিয়ানি'
 ];
 export const BAL_BN_MATRIX_COLUMNS = [
   BAL_BN_OPT_NEVER,

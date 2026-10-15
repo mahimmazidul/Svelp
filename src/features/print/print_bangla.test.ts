@@ -82,7 +82,7 @@ describe('bangla print layout', () => {
     const bal_matrix_rows = bal_doc.pages.flatMap((bal_p) =>
       bal_p.chunks.filter((bal_c) => bal_c.chunk.kind === 'matrix-row')
     );
-    expect(bal_matrix_rows.length).toBe(9);
+    expect(bal_matrix_rows.length).toBe(10);
   });
 });
 
