@@ -486,13 +486,19 @@ function bal_parse_item(bal_state: bal_ParseState, bal_head_token: bal_Token): v
     if (bal_token.kind === 'keyword' && BAL_CONSENT_KINDS.has(bal_token.value) && bal_item.head === 'consent') {
       bal_next(bal_state);
       let bal_title: string | null = null;
-      if (bal_peek(bal_state).kind === 'string') bal_title = bal_next(bal_state).value;
-      const bal_body_token = bal_peek(bal_state);
-      if (bal_body_token.kind === 'string' || bal_body_token.kind === 'textblock') {
+      const bal_first_token = bal_peek(bal_state);
+      if (bal_first_token.kind === 'string' || bal_first_token.kind === 'textblock') {
         bal_next(bal_state);
-        bal_item.consentSections.push({ kind: bal_token.value, title: bal_title, body: bal_body_token.value, line: bal_token.line });
+        const bal_second_token = bal_peek(bal_state);
+        if (bal_second_token.kind === 'string' || bal_second_token.kind === 'textblock') {
+          bal_next(bal_state);
+          bal_title = bal_first_token.value;
+          bal_item.consentSections.push({ kind: bal_token.value, title: bal_title, body: bal_second_token.value, line: bal_token.line });
+        } else {
+          bal_item.consentSections.push({ kind: bal_token.value, title: bal_title, body: bal_first_token.value, line: bal_token.line });
+        }
       } else {
-        bal_error(bal_state, bal_body_token, `Expected the "${bal_token.value}" consent text in quotes.`);
+        bal_error(bal_state, bal_first_token, `Expected the "${bal_token.value}" consent text in quotes.`);
       }
       continue;
     }

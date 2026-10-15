@@ -162,8 +162,18 @@ Recognition geometry (`print_layout.ts`):
    duplex toggle and chunked generation (25 documents per frame) with a
    progress bar and ETA. Page codes stay per page, so duplex stays
    scanner-safe.
-9. **Benchmark regression tests** (4 densities x fixtures incl. FFQ 60x7, KAP,
-   mixed), density docs + UI (Print settings panel density + pages-updates).
+9. **Benchmark regressions + density docs**: DONE.
+   `src/test/print_benchmarks.test.ts` pins measured counts (9/6/5),
+   acceptance band (compact+dense <= 6), zero validation errors per density,
+   FFQ 60x7 columns, KAP 20/20/20 at <= 4 pages compact, single-page consent
+   + signature pair, and a full `svelp 1` source round-trip producing
+   byte-identical page SVGs. Calibration sets for all three densities in
+   `src/test/print_calibration_fixtures.ts` (Bangla demographic, knowledge,
+   Likert, 25-row frequency, FFQ 60x7, consent/signature). Decision: Compact
+   is the default density (see docs/print-density.md). Found and fixed on the
+   way: consent section bodies with default titles failed to reparse
+   (parser now decides title-vs-body by string count), and scale names with
+   hyphens produced unlexable DSL keys (fixture renamed).
 10. **Recognition regression** on every geometry change (bubble/tick/X/partial/
     faint/multiple/blank; false-accept measurement).
 

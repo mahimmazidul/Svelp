@@ -6,7 +6,7 @@ import {
 } from '../models/factories';
 import type { QuestionnaireItem, QuestionnaireRecord, ResponseScaleRecord } from '../models/types';
 
-export const BAL_BENCHMARK_FREQUENCY_SCALE = 'benchmark-frequency';
+export const BAL_BENCHMARK_FREQUENCY_SCALE = 'benchmark_frequency';
 
 export function bal_benchmark_scales(): ResponseScaleRecord[] {
   return [
