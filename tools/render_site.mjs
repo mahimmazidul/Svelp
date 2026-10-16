@@ -1,6 +1,5 @@
 import { BAL_NAV_LINKS, BAL_SITE_BASE, BAL_SITE_ORIGIN } from './site_content.mjs';
 
-const BAL_FAVICON = `${BAL_SITE_BASE}/favicon.svg`;
 
 function bal_escape(bal_text) {
   return bal_text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -10,11 +9,16 @@ function bal_json_ld(bal_page) {
   return JSON.stringify(bal_page.jsonLd).replace(/</g, '\\u003c');
 }
 
-function bal_doc_href(bal_href) {
-  return bal_href === null ? `${BAL_SITE_BASE}/docs/` : `${BAL_SITE_ORIGIN}${BAL_SITE_BASE}${bal_href}`;
+function bal_doc_href(bal_href, bal_prefix) {
+  return bal_href === null ? `${bal_prefix}docs/` : `${bal_prefix}${bal_href.replace(/^\//, '')}`;
 }
 
-function bal_section_html(bal_section) {
+function bal_prefix_for(bal_slug) {
+  const bal_depth = bal_slug.split('/').filter(Boolean).length;
+  return '../'.repeat(bal_depth);
+}
+
+function bal_section_html(bal_section, bal_prefix) {
   const bal_out = [`      <section class="card">`, `        <h2>${bal_escape(bal_section.h2)}</h2>`];
   for (const bal_p of bal_section.paras ?? []) {
     bal_out.push(`        <p>${bal_escape(bal_p)}</p>`);
@@ -37,7 +41,7 @@ function bal_section_html(bal_section) {
     bal_out.push('        <ul class="doclinks">');
     for (const [bal_head, bal_body, bal_href] of bal_section.doclinks) {
       bal_out.push(
-        `          <li><a href="${bal_doc_href(bal_href)}"><strong>${bal_escape(bal_head)}</strong></a><span>${bal_escape(bal_body)}</span></li>`
+        `          <li><a href="${bal_doc_href(bal_href, bal_prefix)}"><strong>${bal_escape(bal_head)}</strong></a><span>${bal_escape(bal_body)}</span></li>`
       );
     }
     bal_out.push('        </ul>');
@@ -47,7 +51,7 @@ function bal_section_html(bal_section) {
   }
   if (bal_section.cta) {
     bal_out.push(
-      `        <div class="cta-row"><a class="cta" href="${BAL_SITE_BASE}/">Open Svelp</a><a class="cta secondary" href="${BAL_SITE_ORIGIN}${BAL_SITE_BASE}/docs/">Read the docs</a></div>`
+      `        <div class="cta-row"><a class="cta" href="${bal_prefix}">Open Svelp</a><a class="cta secondary" href="${bal_prefix}docs/">Read the docs</a></div>`
     );
   }
   bal_out.push('      </section>');
@@ -57,13 +61,14 @@ function bal_section_html(bal_section) {
 export function bal_render_public_page(bal_page) {
   const bal_canonical = `${BAL_SITE_ORIGIN}${BAL_SITE_BASE}/${bal_page.slug ? bal_page.slug + '/' : ''}`;
   const bal_url = bal_canonical;
+  const bal_prefix = bal_prefix_for(bal_page.slug);
   const bal_nav = BAL_NAV_LINKS.map(
     (bal_link) =>
-      `          <a href="${BAL_SITE_ORIGIN}${BAL_SITE_BASE}${bal_link.href}"${
-        (bal_page.slug === '' && bal_link.href === '/features/') || bal_page.slug.startsWith(bal_link.href.slice(1, -1)) ? ' aria-current="page"' : ''
+      `          <a href="${bal_prefix}${bal_link.href.slice(1)}"${
+        bal_page.slug.startsWith(bal_link.href.slice(1, -1)) ? ' aria-current="page"' : ''
       }>${bal_link.label}</a>`
   ).join('\n');
-  const bal_sections = (bal_page.sections ?? []).map(bal_section_html).join('\n');
+  const bal_sections = (bal_page.sections ?? []).map((bal_section) => bal_section_html(bal_section, bal_prefix)).join('\n');
   const bal_json = bal_page.jsonLd
     ? `    <script type="application/ld+json">\n${bal_json_ld(bal_page)}\n    </script>\n`
     : '';
@@ -77,7 +82,7 @@ export function bal_render_public_page(bal_page) {
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="${bal_canonical}" />
     <meta name="theme-color" content="#ffffff" />
-    <link rel="icon" type="image/svg+xml" href="${BAL_FAVICON}" />
+    <link rel="icon" type="image/svg+xml" href="${bal_prefix}favicon.svg" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Svelp" />
     <meta property="og:title" content="${bal_escape(bal_page.ogTitle ?? bal_page.title)}" />
@@ -86,16 +91,16 @@ export function bal_render_public_page(bal_page) {
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="${bal_escape(bal_page.ogTitle ?? bal_page.title)}" />
     <meta name="twitter:description" content="${bal_escape(bal_page.ogDescription ?? bal_page.description)}" />
-${bal_json}    <link rel="stylesheet" href="${BAL_SITE_BASE}/site.css" />
+${bal_json}    <link rel="stylesheet" href="${bal_prefix}site.css" />
   </head>
   <body>
     <header class="site-header">
       <div class="wrap header-row">
-        <a class="brand" href="${BAL_SITE_BASE}/">Svelp</a>
+        <a class="brand" href="${bal_prefix}">Svelp</a>
         <nav aria-label="Public site">
 ${bal_nav}
         </nav>
-        <a class="cta small" href="${BAL_SITE_BASE}/">Open Svelp</a>
+        <a class="cta small" href="${bal_prefix}">Open Svelp</a>
       </div>
     </header>
     <main class="wrap">
@@ -108,9 +113,9 @@ ${bal_sections}
     <footer class="site-footer">
       <div class="wrap footer-row">
         <span>Svelp — offline-first research questionnaires.</span>
-        <a href="${BAL_SITE_BASE}/">Open the app</a>
-        <a href="${BAL_SITE_ORIGIN}${BAL_SITE_BASE}/docs/">Docs</a>
-        <a href="${BAL_SITE_ORIGIN}${BAL_SITE_BASE}/privacy/">Privacy</a>
+        <a href="${bal_prefix}">Open the app</a>
+        <a href="${bal_prefix}docs/">Docs</a>
+        <a href="${bal_prefix}privacy/">Privacy</a>
       </div>
     </footer>
   </body>
@@ -119,6 +124,7 @@ ${bal_sections}
 }
 
 export function bal_render_404(bal_404) {
+  const bal_prefix = '';
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -128,16 +134,16 @@ export function bal_render_404(bal_404) {
     <meta name="description" content="${bal_escape(bal_404.description)}" />
     <meta name="robots" content="noindex, follow" />
     <link rel="canonical" href="${BAL_SITE_ORIGIN}${BAL_SITE_BASE}/404.html" />
-    <link rel="icon" type="image/svg+xml" href="${BAL_FAVICON}" />
-    <link rel="stylesheet" href="${BAL_SITE_BASE}/site.css" />
+    <link rel="icon" type="image/svg+xml" href="${bal_prefix}favicon.svg" />
+    <link rel="stylesheet" href="${bal_prefix}site.css" />
   </head>
   <body>
     <main class="wrap wrap-narrow notfound">
       <h1>Page not found</h1>
       <p>This page does not exist. It may have moved, or the address may be wrong.</p>
       <div class="cta-row">
-        <a class="cta" href="${BAL_SITE_BASE}/">Go to the homepage</a>
-        <a class="cta secondary" href="${BAL_SITE_ORIGIN}${BAL_SITE_BASE}/docs/">Read the docs</a>
+        <a class="cta" href="${bal_prefix}">Go to the homepage</a>
+        <a class="cta secondary" href="${bal_prefix}docs/">Read the docs</a>
       </div>
     </main>
   </body>

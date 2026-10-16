@@ -57,6 +57,10 @@ export const BAL_DEFAULT_META: bal_RouteMeta = {
   noindex: false
 };
 
+export function bal_is_raw_app_entry(bal_hash: string = typeof window === 'undefined' ? '' : window.location.hash): boolean {
+  return bal_hash === '' || bal_hash === '#' || bal_hash === '#/';
+}
+
 export function bal_meta_for_route(bal_route_name: string, bal_area: string | null): bal_RouteMeta {
   if (bal_route_name === 'project' && bal_area !== null) {
     return BAL_META[bal_area] ?? { title: 'Svelp', description: BAL_DEFAULT_META.description, noindex: true };

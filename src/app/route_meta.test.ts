@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { BAL_DEFAULT_META, bal_canonical_for_route, bal_meta_for_route } from './route_meta';
+import { BAL_DEFAULT_META, bal_canonical_for_route, bal_is_raw_app_entry, bal_meta_for_route } from './route_meta';
+
+describe('raw app entry detection', () => {
+  it('treats empty hashes as the indexable app entry', () => {
+    expect(bal_is_raw_app_entry('')).toBe(true);
+    expect(bal_is_raw_app_entry('#')).toBe(true);
+    expect(bal_is_raw_app_entry('#/')).toBe(true);
+    expect(bal_is_raw_app_entry('#/projects')).toBe(false);
+  });
+});
 
 describe('route metadata', () => {
   it('marks all application routes noindex', () => {

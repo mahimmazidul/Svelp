@@ -11,13 +11,17 @@
   import ExportPage from './features/export/ExportPage.svelte';
   import PlaceholderPage from './features/placeholders/PlaceholderPage.svelte';
   import NotFoundPage from './features/placeholders/NotFoundPage.svelte';
-  import { bal_apply_route_meta, bal_meta_for_route } from './app/route_meta';
+  import { BAL_DEFAULT_META, bal_apply_route_meta, bal_is_raw_app_entry, bal_meta_for_route } from './app/route_meta';
 
   const bal_route = $derived($route_store);
 
   $effect(() => {
     if (typeof document === 'undefined') return;
     const bal_area = bal_route.name === 'project' ? bal_route.area : null;
+    if (bal_route.name === 'projects' && bal_is_raw_app_entry()) {
+      bal_apply_route_meta(BAL_DEFAULT_META, bal_route.name);
+      return;
+    }
     bal_apply_route_meta(bal_meta_for_route(bal_route.name, bal_area), bal_route.name);
   });
 

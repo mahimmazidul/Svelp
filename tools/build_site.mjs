@@ -52,7 +52,7 @@ function bal_render_docs_page(bal_markdown) {
     <meta name="description" content="Complete reference for the Svelp questionnaire source language: syntax, question types, scales, matrices, consent, signatures, examples, and limitations." />
     <meta name="robots" content="index, follow" />
     <link rel="canonical" href="${BAL_SITE_ORIGIN}${BAL_SITE_BASE}/docs/source-language/" />
-    <link rel="icon" type="image/svg+xml" href="${BAL_SITE_BASE}/favicon.svg" />
+    <link rel="icon" type="image/svg+xml" href="../../favicon.svg" />
     <meta property="og:type" content="article" />
     <meta property="og:site_name" content="Svelp" />
     <meta property="og:title" content="Svelp Questionnaire Source v1 — Language Reference" />
@@ -61,18 +61,18 @@ function bal_render_docs_page(bal_markdown) {
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="Svelp Questionnaire Source v1 — Language Reference" />
     <meta name="twitter:description" content="Full syntax reference for the svelp questionnaire source language, with complete and Bangla examples." />
-    <link rel="stylesheet" href="${BAL_SITE_BASE}/site.css" />
-    <link rel="stylesheet" href="${BAL_SITE_BASE}/docs.css" />
+    <link rel="stylesheet" href="../../site.css" />
+    <link rel="stylesheet" href="../../docs.css" />
   </head>
   <body>
     <header class="site-header">
       <div class="wrap header-row">
-        <a class="brand" href="${BAL_SITE_BASE}/">Svelp</a>
+        <a class="brand" href="../../">Svelp</a>
         <nav aria-label="Public site">
-          <a href="${BAL_SITE_ORIGIN}${BAL_SITE_BASE}/docs/">Docs</a>
-          <a href="${BAL_SITE_ORIGIN}${BAL_SITE_BASE}/features/">Features</a>
+          <a href="../">Docs</a>
+          <a href="../features/">Features</a>
         </nav>
-        <a class="cta small" href="${BAL_SITE_BASE}/">Open Svelp</a>
+        <a class="cta small" href="../../">Open Svelp</a>
       </div>
     </header>
     <main class="wrap wrap-narrow docs-body">
@@ -83,8 +83,8 @@ ${bal_markdown_to_html(bal_markdown)}
     <footer class="site-footer">
       <div class="wrap footer-row">
         <span>Svelp — offline-first research questionnaires.</span>
-        <a href="${BAL_SITE_BASE}/">Open the app</a>
-        <a href="${BAL_SITE_ORIGIN}${BAL_SITE_BASE}/docs/">Docs</a>
+        <a href="../../">Open the app</a>
+        <a href="../">Docs</a>
       </div>
     </footer>
   </body>
@@ -136,7 +136,7 @@ function bal_inline(bal_text) {
   bal_out = bal_out.replace(/`([^`]+)`/g, '<code>$1</code>');
   bal_out = bal_out.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   bal_out = bal_out.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (bal_m, bal_label, bal_href) => {
-    if (bal_href.startsWith('/')) return `<a href="${BAL_SITE_BASE}${bal_href}">${bal_label}</a>`;
+    if (bal_href.startsWith('/')) return `<a href="../../${bal_href.slice(1)}">${bal_label}</a>`;
     return `<a href="${bal_href}">${bal_label}</a>`;
   });
   return bal_out;

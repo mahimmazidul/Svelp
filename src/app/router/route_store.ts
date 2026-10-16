@@ -11,10 +11,6 @@ function bal_route_from_hash(): AppRoute {
 
 const ken_pori_store = writable<AppRoute>(bal_route_from_hash());
 
-if (!window.location.hash) {
-  window.location.replace('#/projects');
-}
-
 window.addEventListener('hashchange', () => {
   ken_pori_store.set(bal_route_from_hash());
 });

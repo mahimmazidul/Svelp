@@ -97,12 +97,12 @@ describe('public site pages', () => {
     }
   });
 
-  it('renders public navigation and an app CTA without app scripts', () => {
+  it('renders public navigation and a relative app CTA without app scripts', () => {
     for (const { bal_html } of bal_all_static_html()) {
       expect(bal_html).toContain('Features');
       expect(bal_html).toContain('Docs');
       expect(bal_html).toContain('About');
-      expect(bal_html).toContain(`href="${BAL_SITE_BASE}/"`);
+      expect(bal_html).toMatch(/<a class="cta[^"]*" href="(\.\.\/)+">Open Svelp<\/a>/);
       expect(bal_html).not.toMatch(/<script(?![^>]*ld\+json)/);
       expect(bal_html).not.toContain('/src/');
     }
