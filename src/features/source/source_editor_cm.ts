@@ -1,6 +1,6 @@
 import { EditorView, keymap, lineNumbers, drawSelection, highlightActiveLine } from '@codemirror/view';
 import { EditorSelection, EditorState, type Extension } from '@codemirror/state';
-import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
+import { defaultKeymap, history, historyKeymap, indentWithTab, insertNewline } from '@codemirror/commands';
 import { search, searchKeymap, highlightSelectionMatches } from '@codemirror/search';
 import { linter, forceLinting, type Diagnostic } from '@codemirror/lint';
 import { bal_svelp_language, bal_svelp_highlight } from './svelp_language';
@@ -41,7 +41,7 @@ export function bal_mount_source_editor(
     history(),
     search(),
     highlightSelectionMatches(),
-    keymap.of([...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab]),
+    keymap.of([{ key: 'Enter', run: insertNewline }, ...defaultKeymap, ...historyKeymap, ...searchKeymap, indentWithTab]),
     bal_lint,
     bal_svelp_language,
     bal_svelp_highlight,

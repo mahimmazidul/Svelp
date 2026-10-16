@@ -243,7 +243,8 @@ function bal_starts_block(bal_state: bal_ParseState, bal_token: bal_Token): bool
   }
   if (BAL_HEAD_SET.has(bal_token.value as bal_ItemHead)) return true;
   if (bal_token.value === 'section') return true;
-  if (bal_token.value === 'scale' || bal_token.value === 'questions') return bal_state.item === null;
+  if (bal_token.value === 'scale') return bal_state.item === null || bal_state.item.head !== 'matrix';
+  if (bal_token.value === 'questions') return true;
   return false;
 }
 

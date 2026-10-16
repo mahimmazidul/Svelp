@@ -245,3 +245,53 @@ describe('bulk question block validation', () => {
     expect(bal_bulk_item.bulkItems.length).toBe(2);
   });
 });
+
+describe('block termination', () => {
+  it('terminates an open question at a questions block', () => {
+    const bal_source = [
+      'svelp 1',
+      '',
+      'title "Terminate"',
+      '',
+      'scale frequency',
+      '  option never "Never" code 0',
+      '',
+      'section s "Section"',
+      '',
+      'participant_signature sign1 "Respondent"',
+      '  printed_name',
+      '',
+      'questions using frequency {',
+      '  breakfast "Breakfast"',
+      '}'
+    ].join('\n');
+    const bal_lexed = bal_slex(bal_source);
+    const bal_parsed = bal_sparse(bal_lexed.tokens, bal_lexed.errors);
+    expect(bal_parsed.errors).toEqual([]);
+    expect(bal_parsed.doc.sections[0].items.length).toBe(2);
+    expect(bal_parsed.doc.sections[0].items[1].bulkItems.length).toBe(1);
+  });
+
+  it('keeps the matrix scale directive inside a matrix', () => {
+    const bal_source = [
+      'svelp 1',
+      '',
+      'title "Matrix scale"',
+      '',
+      'scale frequency',
+      '  option never "Never" code 0',
+      '',
+      'section s "Section"',
+      '',
+      'matrix staples "How often:"',
+      '  scale frequency',
+      '  rows {',
+      '    rice "Rice"',
+      '  }'
+    ].join('\n');
+    const bal_lexed = bal_slex(bal_source);
+    const bal_parsed = bal_sparse(bal_lexed.tokens, bal_lexed.errors);
+    expect(bal_parsed.errors).toEqual([]);
+    expect(bal_parsed.doc.sections[0].items[0].matrixScale).toBe('frequency');
+  });
+});
