@@ -22,7 +22,17 @@ export interface bal_SyntheticPage {
   height: number;
 }
 
-export type bal_MarkStyle = 'fill' | 'tick' | 'cross' | 'slash' | 'partial' | 'faint' | 'pencil';
+export type bal_MarkStyle =
+  | 'fill'
+  | 'tick'
+  | 'cross'
+  | 'slash'
+  | 'partial'
+  | 'faint'
+  | 'pencil'
+  | 'scribble'
+  | 'stray'
+  | 'edge';
 
 export interface bal_MarkSpec {
   regionIndex: number;
@@ -253,6 +263,25 @@ function bal_draw_mark(
     bal_fill_ellipse(bal_page, bal_cx + bal_r * 0.2, bal_cy - bal_r * 0.15, bal_r * 0.5, bal_r * 0.5, 60);
   } else if (bal_style === 'faint') {
     bal_fill_ellipse(bal_page, bal_cx, bal_cy, bal_r - 1.5, bal_r - 1.5, 168);
+  } else if (bal_style === 'scribble') {
+    const bal_random = bal_lcg(bal_seed + 77);
+    for (let bal_i = 0; bal_i < 26; bal_i++) {
+      const bal_angle = bal_random() * Math.PI;
+      const bal_span = bal_r * (0.55 + bal_random() * 0.35);
+      bal_stroke_line(
+        bal_page,
+        bal_cx - Math.cos(bal_angle) * bal_span,
+        bal_cy - Math.sin(bal_angle) * bal_span * 0.7,
+        bal_cx + Math.cos(bal_angle) * bal_span,
+        bal_cy + Math.sin(bal_angle) * bal_span * 0.7,
+        2.4,
+        45
+      );
+    }
+  } else if (bal_style === 'stray') {
+    bal_fill_ellipse(bal_page, bal_cx + bal_r * 1.55, bal_cy + bal_r * 1.5, 1.4, 1.4, 60);
+  } else if (bal_style === 'edge') {
+    bal_fill_ellipse(bal_page, bal_cx + bal_r * 0.95, bal_cy - bal_r * 0.8, bal_r * 0.32, bal_r * 0.32, 45);
   } else if (bal_style === 'pencil') {
     bal_fill_ellipse(bal_page, bal_cx, bal_cy, bal_r - 1.5, bal_r - 1.5, 208);
     const bal_random = bal_lcg(bal_seed + 31);
