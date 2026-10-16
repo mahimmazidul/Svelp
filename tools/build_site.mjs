@@ -145,5 +145,3 @@ function bal_inline(bal_text) {
 function bal_escape_html(bal_text) {
   return bal_text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
-
-console.log(`Public site written for ${BAL_SITE_ORIGIN}${BAL_SITE_BASE} (${BAL_PAGES.length} pages + docs + 404 + robots + sitemap).`);

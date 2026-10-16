@@ -113,7 +113,7 @@ describe('public site pages', () => {
       ...bal_all_static_html().map((bal_h) => bal_html_tokens(bal_h.bal_html)),
       BAL_SITE_CSS,
       bal_render_robots(),
-      bal_render_sitemap(BAL_PAGES, '')
+      bal_render_sitemap(BAL_PAGES)
     ].join('\n');
     for (const bal_token of BAL_INTERNAL_TOKENS) {
       expect(bal_everything.toLowerCase()).not.toContain(bal_token);
@@ -136,13 +136,13 @@ describe('robots and sitemap', () => {
     const bal_robots = bal_render_robots();
     expect(bal_robots).toContain('Allow: /');
     expect(bal_robots).toContain(`Sitemap: ${BAL_SITE_ORIGIN}${BAL_SITE_BASE}/sitemap.xml`);
-    const bal_sitemap = bal_render_sitemap(BAL_PAGES, '');
+    const bal_sitemap = bal_render_sitemap(BAL_PAGES);
     expect(bal_sitemap).toContain('<loc>https://mahimmazidul.github.io/Svelp/</loc>');
     expect(bal_sitemap).not.toContain('<lastmod');
   });
 
   it('lists exactly the public pages and never project routes', () => {
-    const bal_sitemap = bal_render_sitemap(BAL_PAGES, '');
+    const bal_sitemap = bal_render_sitemap(BAL_PAGES);
     const bal_locs = [...bal_sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((bal_m) => bal_m[1]);
     expect(bal_locs.length).toBe(BAL_PAGES.length);
     expect(new Set(bal_locs).size).toBe(bal_locs.length);

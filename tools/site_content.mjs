@@ -8,12 +8,6 @@ export const BAL_NAV_LINKS = [
   { href: '/about/', label: 'About' }
 ];
 
-const BAL_CTA_HTML = `
-      <div class="cta-row">
-        <a class="cta" href="${BAL_SITE_BASE}/">Open Svelp</a>
-        <a class="cta secondary" href="${BAL_SITE_ORIGIN}${BAL_SITE_BASE}/docs/">Read the docs</a>
-      </div>`;
-
 const BAL_FEATURES_INTRO =
   'Everything below is implemented in the current Svelp build and runs entirely on your device.';
 

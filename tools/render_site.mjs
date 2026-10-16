@@ -160,7 +160,7 @@ Sitemap: ${BAL_SITE_ORIGIN}${BAL_SITE_BASE}/sitemap.xml
 `;
 }
 
-export function bal_render_sitemap(bal_pages, bal_now_iso) {
+export function bal_render_sitemap(bal_pages) {
   const bal_entries = bal_pages
     .map((bal_page) => {
       const bal_loc = `${BAL_SITE_ORIGIN}${BAL_SITE_BASE}/${bal_page.slug ? bal_page.slug + '/' : ''}`;
