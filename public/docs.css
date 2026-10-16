@@ -1,0 +1,6 @@
+.docs-body { padding-top: 1.5rem; padding-bottom: 2rem; }
+.docs-body h2 { margin-top: 2rem; font-size: 1.35rem; }
+.docs-body h3 { margin-top: 1.4rem; font-size: 1.1rem; }
+.docs-body pre { margin: 0.6rem 0; }
+.docs-body table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+.docs-body th, .docs-body td { border: 1px solid var(--line); padding: 0.4rem 0.6rem; text-align: left; }

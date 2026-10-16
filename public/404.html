@@ -3,17 +3,21 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Svelp</title>
-    <script>
-      (function () {
-        var bal_segment = location.pathname.split('/').filter(Boolean)[0];
-        var bal_base = bal_segment ? '/' + bal_segment + '/' : '/';
-        var bal_target = bal_base + (location.hash || '');
-        location.replace(bal_target);
-      })();
-    </script>
+    <title>Page not found — Svelp</title>
+    <meta name="description" content="This page does not exist. Return to the Svelp homepage, the docs, or open the app." />
+    <meta name="robots" content="noindex, follow" />
+    <link rel="canonical" href="https://mahimmazidul.github.io/Svelp/404.html" />
+    <link rel="icon" type="image/svg+xml" href="/Svelp/favicon.svg" />
+    <link rel="stylesheet" href="/Svelp/site.css" />
   </head>
   <body>
-    <p>Open <a href="/">Svelp</a>.</p>
+    <main class="wrap wrap-narrow notfound">
+      <h1>Page not found</h1>
+      <p>This page does not exist. It may have moved, or the address may be wrong.</p>
+      <div class="cta-row">
+        <a class="cta" href="/Svelp/">Go to the homepage</a>
+        <a class="cta secondary" href="https://mahimmazidul.github.io/Svelp/docs/">Read the docs</a>
+      </div>
+    </main>
   </body>
 </html>

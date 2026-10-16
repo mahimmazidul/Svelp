@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /Svelp/index.html
+
+Sitemap: https://mahimmazidul.github.io/Svelp/sitemap.xml

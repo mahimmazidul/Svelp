@@ -4,14 +4,15 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
+    "dev": "vite",
+    "icons": "node scripts/generate-icons.mjs",
     "lint": "eslint .",
+    "prebuild": "node tools/build_site.mjs",
+    "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest",
-    "icons": "node scripts/generate-icons.mjs"
+    "test:watch": "vitest"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^6.0.0",

@@ -1,0 +1,864 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Svelp Questionnaire Source v1 — Language Reference</title>
+    <meta name="description" content="Complete reference for the Svelp questionnaire source language: syntax, question types, scales, matrices, consent, signatures, examples, and limitations." />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://mahimmazidul.github.io/Svelp/docs/source-language/" />
+    <link rel="icon" type="image/svg+xml" href="/Svelp/favicon.svg" />
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content="Svelp" />
+    <meta property="og:title" content="Svelp Questionnaire Source v1 — Language Reference" />
+    <meta property="og:description" content="Full syntax reference for the svelp questionnaire source language, with complete and Bangla examples." />
+    <meta property="og:url" content="https://mahimmazidul.github.io/Svelp/docs/source-language/" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Svelp Questionnaire Source v1 — Language Reference" />
+    <meta name="twitter:description" content="Full syntax reference for the svelp questionnaire source language, with complete and Bangla examples." />
+    <link rel="stylesheet" href="/Svelp/site.css" />
+    <link rel="stylesheet" href="/Svelp/docs.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrap header-row">
+        <a class="brand" href="/Svelp/">Svelp</a>
+        <nav aria-label="Public site">
+          <a href="https://mahimmazidul.github.io/Svelp/docs/">Docs</a>
+          <a href="https://mahimmazidul.github.io/Svelp/features/">Features</a>
+        </nav>
+        <a class="cta small" href="/Svelp/">Open Svelp</a>
+      </div>
+    </header>
+    <main class="wrap wrap-narrow docs-body">
+      <h1>Svelp Questionnaire Source v1 — Language Reference</h1>
+      <p class="lede">The complete reference for the Svelp questionnaire source language, published from the same document the app ships offline.</p>
+      <h2>Svelp Questionnaire Source — Language Reference v1</h2>
+      <p>Svelp Questionnaire Source ("source mode") is a concise, declarative text language for</p>
+      <p>authoring questionnaires. Source files compile into the standard Svelp questionnaire</p>
+      <p>schema; they never create a second questionnaire model and never execute code.</p>
+      <ul>
+        <li>Language version: <code>svelp 1</code>. This is the <strong>source language version</strong>, separate from the</li>
+      </ul>
+      <p>questionnaire's own version number and from the Svelp app version.</p>
+      <ul>
+        <li>Canonical file extension: <code>.svelp.txt</code>.</li>
+        <li>Source files are optional authoring files. MAHIM remains the full-fidelity transfer</li>
+      </ul>
+      <p>format, and JSON export remains the structured interoperability format.</p>
+      <ul>
+        <li>The language is <strong>indentation-independent</strong>: leading spaces exist only for readability.</li>
+        <li>This document is executable documentation: every block marked <code>svelp</code> is parsed,</li>
+      </ul>
+      <p>validated, and compiled by an automated test, and every block marked <code>svelp-error</code></p>
+      <p>must fail with the stated error. If this document and the app ever disagree, one of</p>
+      <p>them is wrong — file an issue rather than guessing.</p>
+      <h3>What Source Mode is</h3>
+      <p>Source Mode is a tab inside a project's Build page. It shows the current questionnaire</p>
+      <p>serialized as source text. You can edit that text, and <strong>Apply</strong> compiles it back into</p>
+      <p>the questionnaire. Two independent statuses are shown:</p>
+      <ul>
+        <li><strong>Source state</strong> (in the source toolbar): <code>Valid</code>, <code>Invalid</code>, or `Unapplied changes ·</li>
+      </ul>
+      <p>valid/invalid`. This means the text parses and compiles. It does <strong>not</strong> mean the</p>
+      <p>questionnaire has been saved.</p>
+      <ul>
+        <li><strong>Persistence state</strong> (next to the save dot): <code>All changes saved</code>, <code>Unsaved changes</code>,</li>
+      </ul>
+      <p><code>Saving…</code>, or <code>Save failed</code>. Only the last one, with a <strong>Copy error</strong> action, appears</p>
+      <p>when writing to local storage fails; the copied text contains the root cause.</p>
+      <h3>Minimal questionnaire</h3>
+      <pre>
+      svelp 1
+      
+      title "Test Survey"
+      
+      section background "Background"
+      description "A short test survey."
+      </pre>
+      <p>A source file must start with the header. The smallest useful file has a title and one</p>
+      <p>section; questions may also sit at the top level before any section.</p>
+      <h3>Header</h3>
+      <p><code> svelp 1 </code></p>
+      <ul>
+        <li><code>svelp</code> is the language marker.</li>
+        <li><code>1</code> is the Source Language version. A file with a different version is rejected with</li>
+      </ul>
+      <p>an explicit "not supported by this release" error instead of being misread.</p>
+      <ul>
+        <li>The header is unrelated to the questionnaire version (which increments on publish or</li>
+      </ul>
+      <p>structural change) and to the app version.</p>
+      <h3>Identifiers</h3>
+      <p>Identifiers name variables, options, scales, and matrix rows:</p>
+      <ul>
+        <li>Pattern: lowercase letter or <code>_</code>, then lowercase letters, digits, <code>_</code> (<code>[a-z_][a-z0-9_]*</code>).</li>
+        <li>Case sensitive; <code>Age</code> and <code>age</code> are different words, and <code>Age</code> is not a valid identifier.</li>
+        <li>Hyphens are <strong>not</strong> allowed (<code>rice-rate</code> is unlexable); use <code>rice_rate</code>.</li>
+        <li>Reserved words (list below) cannot be identifiers.</li>
+        <li>Valid: <code>age</code>, <code>food_waste</code>, <code>_hidden</code>, <code>row2</code>.</li>
+        <li>Invalid: <code>2row</code>, <code>rice-rate</code>, <code>Age</code>, <code>class</code> is fine but <code>scale</code> is reserved.</li>
+      </ul>
+      <h3>Strings and text blocks</h3>
+      <ul>
+        <li>Single-line strings are double-quoted: <code>"Age in years"</code>.</li>
+        <li>Escapes inside quotes: <code>\"</code> for a quote, <code>\\</code> for a backslash, <code>\n</code> newline, <code>\t</code> tab.</li>
+      </ul>
+      <p>Any other escape keeps the character as-is.</p>
+      <ul>
+        <li>Multiline text uses a raw text block: a line starting with <code>"""</code> (nothing else on it),</li>
+      </ul>
+      <p>the raw lines, then a line containing only <code>"""</code>. Text blocks have <strong>no escapes</strong> —</p>
+      <p>every byte between the fences is kept, including quotes and backslashes.</p>
+      <pre>
+      svelp 1
+      
+      title "Text demonstration"
+      
+      consent demo "Agreement"
+        introduction """
+        Your answers are confidential.
+        Quotes " and backslashes \ need no escaping here.
+        """
+        purpose "Purpose"
+        acknowledgement "I agree"
+        required
+      </pre>
+      <p>An unterminated quote or text block is a lexical error listed in the Problems panel.</p>
+      <h3>Questionnaire metadata</h3>
+      <p>These keywords are legal only <strong>before the first section</strong> (top level):</p>
+      <ul>
+        <li><code>title "…"</code> — required by validation; the questionnaire title.</li>
+        <li><code>description "…"</code> — top-level study description.</li>
+        <li><code>language "bn"</code> — language code; informational.</li>
+        <li><code>paper a4</code> or <code>paper letter</code> — print paper size.</li>
+        <li><code>orientation portrait</code> or <code>orientation landscape</code>.</li>
+      </ul>
+      <p><code>description</code> is also legal <strong>inside a section</strong>, where it is the section description.</p>
+      <p>After a question it is an error.</p>
+      <pre>
+      svelp 1
+      
+      title "Metadata demonstration"
+      description "Top-level description"
+      language "bn"
+      paper a4
+      orientation portrait
+      
+      section details "Details"
+      description "This description belongs to the section."
+      
+      shorttext name "Your name"
+      </pre>
+      <h3>Sections</h3>
+      <pre>
+      section key "Display title"
+      description "Optional section description"
+      new_page
+      ...items...
+      </pre>
+      <ul>
+        <li>The key is optional; an automatically generated one is suggested on Apply.</li>
+        <li><code>new_page</code> starts this section on a new printed page.</li>
+        <li>A section ends when the next <code>section</code>, <code>scale</code>, or <code>questions</code> block starts (or the</li>
+      </ul>
+      <p>file ends). There is no <code>end</code> keyword and no braces.</p>
+      <pre>
+      svelp 1
+      
+      title "Section demonstration"
+      
+      section first "First"
+      description "Shown under the title."
+      
+      shorttext q1 "Favorite season"
+      
+      section second "Second"
+      new_page
+      
+      shorttext q2 "Favorite month"
+      </pre>
+      <h3>Instructions</h3>
+      <pre>
+      svelp 1
+      
+      title "Instruction demonstration"
+      
+      section s "Section"
+      
+      instruction intro "Please answer for the past seven days."
+      
+      instruction warn "This section is required."
+        callout
+      </pre>
+      <p><code>callout</code> renders the instruction as a highlighted box in digital preview and print.</p>
+      <h3>Question types</h3>
+      <p>Every data question: <code>head key "Label"</code> followed by directives. The key is the stable</p>
+      <p>variable name; if omitted, Apply suggests one deterministically from the label.</p>
+      <h4>Single choice</h4>
+      <pre>
+      svelp 1
+      
+      title "Single choice demonstration"
+      
+      section s "Section"
+      
+      single sex "Sex"
+        option male "Male" code 1
+        option female "Female" code 2
+        option other "Other" code 3
+        required
+      </pre>
+      <h4>Multiple choice</h4>
+      <p><code>min</code>/<code>max</code> constrain how many options may be selected (they map to</p>
+      <p><code>minSelections</code>/<code>maxSelections</code>). <code>required</code> demands at least one.</p>
+      <pre>
+      svelp 1
+      
+      title "Multiple choice demonstration"
+      
+      section s "Section"
+      
+      multiple crops "Which crops do you grow?"
+        min 1
+        max 3
+        option rice "Rice"
+        option wheat "Wheat"
+        option jute "Jute"
+        required
+      </pre>
+      <h4>Yes/No</h4>
+      <p>Default codes are <code>yes 1</code>, <code>no 0</code>; both are customizable.</p>
+      <pre>
+      svelp 1
+      
+      title "Yes/no demonstration"
+      
+      section s "Section"
+      
+      yesno owns_land "Do you own land?"
+        yes 1
+        no 0
+        required
+      
+      yesno has_electricity "Does the home have electricity?"
+      </pre>
+      <h4>Short text and long text</h4>
+      <p><code>maxlen</code> maps to the schema <code>maxLength</code>.</p>
+      <pre>
+      svelp 1
+      
+      title "Text demonstration"
+      
+      section s "Section"
+      
+      shorttext village "Village name"
+        maxlen 60
+        required
+      
+      longtext notes "Any notes?"
+        maxlen 500
+      </pre>
+      <h4>Number</h4>
+      <pre>
+      svelp 1
+      
+      title "Number demonstration"
+      
+      section s "Section"
+      
+      number age "Age in years"
+        min 0
+        max 120
+        step 1
+        unit "years"
+        required
+      </pre>
+      <p><code>min</code> &lt; <code>max</code> is enforced; <code>step</code> must be a positive integer.</p>
+      <h4>Date and time</h4>
+      <pre>
+      svelp 1
+      
+      title "Date and time demonstration"
+      
+      section s "Section"
+      
+      date visited "Last visit date"
+        required
+      
+      time wake_up "Usual wake up time"
+      </pre>
+      <h4>Likert</h4>
+      <p>Inline points (<code>INTEGER "Label"</code>) or a reusable scale via <code>use</code> — never both.</p>
+      <pre>
+      svelp 1
+      
+      title "Likert demonstration"
+      
+      scale agreement
+        option disagree "Disagree" code 1
+        option neutral "Neutral" code 2
+        option agree "Agree" code 3
+      
+      section s "Section"
+      
+      likert trust "I trust the process"
+        1 "Strongly disagree"
+        2 "Disagree"
+        3 "Neutral"
+        4 "Agree"
+        5 "Strongly agree"
+        required
+      
+      likert pace "The survey was easy to complete"
+        use agreement
+      </pre>
+      <h4>Matrix (grid)</h4>
+      <p>A matrix asks one row per question against shared columns. Directives:</p>
+      <ul>
+        <li><code>scale &lt;name&gt;</code> (or the synonym <code>columns &lt;name&gt;</code>) — reusable column scale.</li>
+        <li><code>column &lt;key&gt; "Label" code N</code> — inline columns instead of a scale.</li>
+        <li><code>rows { key "Label" ... }</code> — braced rows; or a text block/quoted string with one</li>
+      </ul>
+      <p><code>key,Label</code> CSV line or one label per line.</p>
+      <ul>
+        <li><code>single_per_row</code> (default) — one answer per row; <code>multiple_per_row</code> — several.</li>
+        <li><code>keep_together (true|false)</code> is parsed for compatibility but <strong>not emitted</strong> in v1;</li>
+      </ul>
+      <p>print grouping stays under the print system's control.</p>
+      <p>Rows without an explicit key get a deterministic slug. Keys must be unique.</p>
+      <pre>
+      svelp 1
+      
+      title "Matrix demonstration"
+      
+      scale frequency
+        option never "Never" code 0
+        option sometimes "Sometimes" code 1
+        option often "Often" code 2
+        option daily "Daily" code 3
+      
+      section diet "Diet"
+      
+      matrix staples "How often does your household eat:"
+        scale frequency
+        single_per_row
+        rows {
+          rice "Cooked rice"
+          bread "Bread and bakery"
+          vegetables "Fresh vegetables"
+        }
+        required
+      
+      matrix drinks "Which drinks does your household buy?"
+        column daily_col "Daily" code 1
+        column weekly_col "Weekly" code 2
+        multiple_per_row
+        rows """
+        milk,Milk
+        tea,Tea
+        """
+      </pre>
+      <p>A realistic 60-item food-frequency questionnaire is just this pattern repeated; use the</p>
+      <p>bulk form below when every row shares one scale.</p>
+      <h4>Consent</h4>
+      <p>Consent kinds: <code>purpose</code>, <code>procedures</code>, <code>risks</code>, <code>benefits</code>, <code>confidentiality</code>,</p>
+      <p><code>voluntary</code>, <code>withdrawal</code>, <code>contacts</code>. Each takes either a body string or a title string</p>
+      <p>followed by a body string. <code>introduction</code> is a preamble; <code>acknowledgement</code> labels the</p>
+      <p>agree control.</p>
+      <pre>
+      svelp 1
+      
+      title "Consent demonstration"
+      
+      section s "Section"
+      
+      consent agree "Participation"
+        introduction """
+        You may leave the study at any time.
+        """
+        purpose "Why this study runs"
+        procedures "What you will do"
+        risks "What risks exist"
+        benefits "What benefits exist"
+        confidentiality "How your data is protected"
+        voluntary "Participation is voluntary"
+        withdrawal "How to withdraw"
+        contacts "Who to contact"
+        acknowledgement "I have read and agree"
+        required
+      </pre>
+      <h4>Signatures</h4>
+      <pre>
+      svelp 1
+      
+      title "Signature demonstration"
+      
+      section s "Section"
+      
+      participant_signature respondent_sign "Respondent"
+        printed_name
+        date
+        required
+      
+      researcher_signature enumerator_sign "Enumerator"
+        role "Enumerator"
+        no_printed_name
+        no_date
+      </pre>
+      <p><code>printed_name</code>/<code>no_printed_name</code> and <code>date</code>/<code>no_date</code> toggle the printed fields;</p>
+      <p><code>role</code> labels the signer.</p>
+      <h3>Reusable scales</h3>
+      <p>Scales are declared once and reused by <code>use</code> (single choice, likert) or <code>scale</code>/<code>columns</code></p>
+      <p>(matrix). Scale names follow identifier rules — lowercase with underscores; hyphens are</p>
+      <p>not valid and never were lexable. Scale options may carry codes.</p>
+      <pre>
+      svelp 1
+      
+      title "Scale demonstration"
+      
+      scale agreement
+        option strongly_disagree "Strongly disagree" code 1
+        option disagree "Disagree" code 2
+        option neutral "Neutral" code 3
+        option agree "Agree" code 4
+        option strongly_agree "Strongly agree" code 5
+      
+      section s "Section"
+      
+      single satisfaction "Overall satisfaction"
+        use agreement
+        required
+      
+      likert pace "The survey was easy"
+        use agreement
+      </pre>
+      <h3>Bulk question blocks</h3>
+      <p><code>questions using &lt;scale&gt; { key "Label" ... }</code> expands to ordinary single-choice questions</p>
+      <p>sharing that scale. A bulk block must start where no question is open — directly after a</p>
+      <p><code>section</code> line is the reliable place.</p>
+      <pre>
+      svelp 1
+      
+      title "Bulk demonstration"
+      
+      scale frequency
+        option never "Never" code 0
+        option often "Often" code 1
+      
+      section diet "Diet"
+      
+      questions using frequency {
+        breakfast "How often is breakfast wasted?"
+        dinner "How often is dinner wasted?"
+      }
+      </pre>
+      <h3>Print-related directives in v1</h3>
+      <ul>
+        <li><code>new_page</code> (section) — page break before the section.</li>
+        <li><code>paper a4|letter</code>, <code>orientation portrait|landscape</code> — page setup.</li>
+        <li><code>callout</code> (instruction) — highlighted instruction box.</li>
+        <li><code>keep_together (true|false)</code> (matrix) — parsed, not emitted.</li>
+      </ul>
+      <p>Everything else about printing (bubble sizes, densities, margins) lives in the print</p>
+      <p>system, not in source.</p>
+      <h3>Import and export source files</h3>
+      <p>The Source toolbar's <strong>Export</strong> downloads the current text as <code>&lt;project&gt;-v&lt;version&gt;-questionnaire.svelp.txt</code>.</p>
+      <p><strong>Import</strong> loads a <code>.svelp.txt</code> file into the editor as text; nothing is applied until</p>
+      <p>you press Apply. Copy copies the entire source document; Select all selects it visibly.</p>
+      <h3>Visual ↔ Source behavior</h3>
+      <ul>
+        <li>Opening Source Mode serializes the current questionnaire; editing the questionnaire in</li>
+      </ul>
+      <p>the visual builder refreshes the text as long as you have no unapplied edits.</p>
+      <ul>
+        <li>Apply compiles the text into a plan (sections/items/options matched, added, modified,</li>
+      </ul>
+      <p>removed), shows a summary dialog for destructive changes (removals, renames, removal</p>
+      <p>of questions that already have responses), then updates the questionnaire and saves.</p>
+      <ul>
+        <li>If persistence fails, the source text and the in-editor questionnaire stay intact, the</li>
+      </ul>
+      <p>status shows <strong>Save failed</strong> with a <strong>Copy error</strong> action, and the next successful</p>
+      <p>Apply or edit retries the save.</p>
+      <h3>Stable identity behavior</h3>
+      <p>Every item and section carries a hidden stable key in its schema <code>metadata</code></p>
+      <p>(<code>sourceKey</code>), set at creation and never shown in source text. On Apply:</p>
+      <p>1. Items match by <code>metadata.sourceKey</code>.</p>
+      <p>2. Otherwise by <code>variableName</code> (the key is then backfilled).</p>
+      <p>3. Otherwise the item is new and receives a fresh stable id.</p>
+      <p>Items present in the questionnaire but absent from the source are removed only when the</p>
+      <p>destructive-change preview is confirmed. Renaming a variable keeps the item id because</p>
+      <p>the hidden key still matches. Options keep ids by matching <code>coding</code> first, then label;</p>
+      <p>matrix rows and columns match by stable slug first, then label.</p>
+      <h3>Published and draft behavior</h3>
+      <p>Opening the Build page of a published project automatically creates a new draft version</p>
+      <p>(next version number, <code>draft</code> status); source edits always apply to drafts. Publishing</p>
+      <p>itself happens in the visual builder.</p>
+      <h3>Error handling and save status</h3>
+      <p>Problems are listed in the Problems panel (bottom sheet on mobile) with line numbers;</p>
+      <p>clicking an issue focuses that line. Severity <code>error</code> blocks Apply; warnings and infos do</p>
+      <p>not. <strong>Valid</strong> (parse+compile) is displayed separately from <strong>Saved</strong> (persistence). When</p>
+      <p>a save fails, the toolbar's status shows Save failed plus <strong>Copy error</strong>, which copies a</p>
+      <p>diagnostic like:</p>
+      <pre>
+      Error: Failed to save questionnaire
+      Cause: DataCloneError: …
+      Stage: questionnaire persistence
+      Questionnaire: &lt;id&gt;
+      Project: &lt;id&gt;
+      </pre>
+      <p>Invalid source never attempts a save: Apply is disabled until the plan compiles.</p>
+      <h3>Grammar (EBNF)</h3>
+      <pre>
+      document     = "svelp" INTEGER , meta* , block* ;
+      meta         = "title" STRING | "description" STRING | "language" STRING
+                   | "paper" ("a4" | "letter") | "orientation" ("portrait" | "landscape") ;
+      block        = section | scaledef | item ;
+      section      = "section" IDENTIFIER? STRING , sectiondir* , item* ;
+      sectiondir   = "new_page" | "description" STRING ;
+      scaledef     = "scale" IDENTIFIER , scaleopt+ ;
+      scaleopt     = "option" IDENTIFIER STRING , [ "code" (STRING | INTEGER) ] ;
+      item         = instruction | consent | signature | question | bulk ;
+      instruction  = "instruction" IDENTIFIER? STRING , [ "callout" ] ;
+      consent      = "consent" IDENTIFIER? STRING , consentdir+ ;
+      consentdir   = "introduction" body | "acknowledgement" STRING | consentsection , [ STRING ] , body ;
+      consentsection = "purpose" | "procedures" | "risks" | "benefits"
+                     | "confidentiality" | "voluntary" | "withdrawal" | "contacts" ;
+      signature    = sighead IDENTIFIER? STRING , sigdir* ;
+      sighead      = "participant_signature" | "researcher_signature" ;
+      sigdir       = "printed_name" | "no_printed_name" | "date" | "no_date" | "role" STRING ;
+      question     = qhead IDENTIFIER? STRING , qdir* ;
+      qhead        = "single" | "multiple" | "yesno" | "shorttext" | "longtext" | "number"
+                   | "date" | "time" | "likert" | "matrix" ;
+      qdir         = "required"
+                   | "min" INTEGER | "max" INTEGER | "step" INTEGER
+                   | "unit" STRING | "maxlen" INTEGER
+                   | "yes" (STRING | INTEGER) | "no" (STRING | INTEGER)
+                   | "option" IDENTIFIER STRING , [ "code" (STRING | INTEGER) ]
+                   | INTEGER STRING
+                   | "use" IDENTIFIER
+                   | "scale" IDENTIFIER
+                   | "columns" IDENTIFIER
+                   | "column" IDENTIFIER STRING , [ "code" (STRING | INTEGER) ]
+                   | "single_per_row" | "multiple_per_row"
+                   | "keep_together" ("true" | "false")
+                   | "rows" rowsbody ;
+      rowsbody     = "{" , rowdef+ , "}" | TEXTBLOCK | STRING ;
+      rowdef       = IDENTIFIER STRING | STRING ;
+      bulk         = "questions" "using" IDENTIFIER , "{" , bulkitem+ , "}" ;
+      bulkitem     = IDENTIFIER STRING ;
+      body         = TEXTBLOCK | STRING ;
+      </pre>
+      <p>Notes:</p>
+      <ul>
+        <li>The optional <code>IDENTIFIER</code> after a head keyword is the item's stable key. For data</li>
+      </ul>
+      <p>questions the variable name doubles as the stable key. Omitting it makes the compiler</p>
+      <p>suggest one deterministically from the label.</p>
+      <ul>
+        <li>A bare <code>INTEGER STRING</code> line under <code>likert</code> declares an inline scale point.</li>
+        <li><code>scale</code> under <code>matrix</code> (or <code>columns</code>) assigns a reusable column scale; <code>use</code> assigns</li>
+      </ul>
+      <p>one to a single choice or likert.</p>
+      <h3>Meaning of constructs</h3>
+      <p>| Source                       | Schema                                                              |</p>
+      <p>| ---------------------------- | ------------------------------------------------------------------- |</p>
+      <p>| <code>section</code>                    | <code>QuestionnaireSection</code> (<code>new_page</code> → <code>printConfig.pageBreakBefore</code>) |</p>
+      <p>| <code>instruction</code>                | <code>instruction</code> item (<code>callout</code> → <code>emphasis: "callout"</code>)              |</p>
+      <p>| <code>single</code>                     | <code>single_choice</code>                                                     |</p>
+      <p>| <code>multiple</code>                   | <code>multiple_choice</code> (<code>min</code>/<code>max</code> → <code>minSelections</code>/<code>maxSelections</code>)   |</p>
+      <p>| <code>yesno</code>                      | <code>yes_no</code>                                                            |</p>
+      <p>| <code>shorttext</code> / <code>longtext</code>     | <code>short_text</code> / <code>long_text</code> (<code>maxlen</code> → <code>maxLength</code>)                 |</p>
+      <p>| <code>number</code>                     | <code>number</code> (<code>min</code>/<code>max</code>/<code>step</code>/<code>unit</code>)                                |</p>
+      <p>| <code>date</code> / <code>time</code>              | <code>date</code> / <code>time</code>                                                     |</p>
+      <p>| <code>likert</code>                     | <code>likert_scale</code> (inline points or <code>use</code>)                             |</p>
+      <p>| <code>matrix</code>                     | <code>matrix</code> (<code>rows</code>, <code>columns</code>/<code>scale</code>, <code>single_per_row</code> default)      |</p>
+      <p>| <code>consent</code>                    | <code>consent</code> item with <code>ConsentConfig</code>                                 |</p>
+      <p>| <code>participant_signature</code>      | <code>participant_signature</code>                                             |</p>
+      <p>| <code>researcher_signature</code>       | <code>researcher_signature</code>                                              |</p>
+      <p>| <code>scale</code>                      | reusable <code>ResponseScaleRecord</code> (project-wide)                       |</p>
+      <p>| <code>questions using &lt;scale&gt;</code>    | expands to ordinary <code>single_choice</code> items                           |</p>
+      <h3>Canonical formatting</h3>
+      <p>The serializer emits, in order: <code>svelp 1</code>, <code>title</code>, <code>description</code> (if set), <code>language</code></p>
+      <p>(if not <code>en</code>), <code>paper</code>/<code>orientation</code> (if not defaults), scale definitions, then sections</p>
+      <p>and items. Two blank lines between sections, one between items. Options and directives</p>
+      <p>indent by two spaces, matrix rows by four. A string containing a line break is emitted</p>
+      <p>as a <code>"""</code> text block; single-line strings stay quoted. Option keys are regenerated</p>
+      <p>from codings or labels when the source's keys are not canonical; labels and codes are</p>
+      <p>always preserved. After Apply the editor shows the canonical text.</p>
+      <p><code>ranking</code> items exist in the questionnaire schema but are <strong>not expressible</strong> in source</p>
+      <p>v1. A questionnaire containing a ranking item can be serialized and viewed, but applying</p>
+      <p>any source to it is blocked with a validation error, because applying would remove the</p>
+      <p>ranking item. Author ranking questions in the visual builder.</p>
+      <h3>Reserved words</h3>
+      <p>`svelp title description language paper orientation section new_page instruction</p>
+      <p>callout single multiple yesno shorttext longtext number date time likert matrix</p>
+      <p>consent participant_signature researcher_signature required min max step unit</p>
+      <p>maxlen option code use scale columns column rows single_per_row multiple_per_row</p>
+      <p>keep_together yes no questions using introduction purpose procedures risks</p>
+      <p>benefits confidentiality voluntary withdrawal contacts acknowledgement</p>
+      <p>printed_name no_printed_name no_date role true false`</p>
+      <h3>Unsupported constructs</h3>
+      <ul>
+        <li>Ranking questions (see above).</li>
+        <li><code>keep_together</code> is parsed but never emitted in v1.</li>
+        <li>Comments (<code>#</code> produces a dedicated error), blank-line comments, any comment syntax.</li>
+        <li>Expressions, arithmetic, conditionals, loops, functions, or arbitrary JavaScript.</li>
+        <li>Custom validation beyond <code>required</code>, <code>min</code>, <code>max</code>, <code>step</code>, <code>maxlen</code>, selection bounds.</li>
+        <li>Multiple questionnaires per file; imports of other source files.</li>
+      </ul>
+      <h3>Full questionnaire example</h3>
+      <pre>
+      svelp 1
+      
+      title "Household Food Waste Survey"
+      description "Weekly household food waste and attitudes study"
+      language "en"
+      paper a4
+      orientation portrait
+      
+      scale frequency
+        option never "Never" code 0
+        option rarely "Rarely" code 1
+        option sometimes "Sometimes" code 2
+        option often "Often" code 3
+        option always "Always" code 4
+      
+      section background "Background"
+      description "About your household"
+      new_page
+      
+      instruction intro "Please answer for your household for the past seven days."
+        callout
+      
+      single size_band "How many people live in your household?"
+        option one "1 person" code 1
+        option two "2 people" code 2
+        option three "3-4 people" code 3
+        option five "5 or more" code 4
+        required
+      
+      number household_members "Exact number of household members"
+        min 1
+        max 30
+        step 1
+        unit "people"
+        required
+      
+      yesno compost "Do you compost food scraps?"
+        yes 1
+        no 0
+      
+      section waste "Food waste"
+      
+      multiple wasted_items "Which foods are thrown away most often?"
+        min 1
+        max 3
+        option rice "Rice"
+        option bread "Bread"
+        option vegetables "Vegetables"
+        option dairy "Dairy"
+        option meat "Meat"
+        required
+      
+      likert planning "Planning meals reduces waste"
+        1 "Strongly disagree"
+        2 "Disagree"
+        3 "Neutral"
+        4 "Agree"
+        5 "Strongly agree"
+      
+      likert attitude_shopping "We buy too much food"
+        use frequency
+      
+      matrix staples "How often does your household throw away:"
+        scale frequency
+        single_per_row
+        rows {
+          rice "Cooked rice"
+          bread "Bread and bakery"
+          vegetables "Fresh vegetables"
+        }
+        required
+      
+      longtext notes "Anything else about food waste in your home?"
+        maxlen 500
+      
+      section follow_up "Follow-up"
+      new_page
+      
+      questions using frequency {
+        leftover_grains "Leftover grains thrown away"
+        spoiled_produce "Produce spoiled before use"
+      }
+      
+      date survey_date "Survey week starting"
+      time disposal_time "Usual disposal time"
+      
+      consent consent_main "Study participation"
+        introduction """
+        Your answers are confidential and used only for this study.
+        You may stop at any time.
+        """
+        purpose "Purpose of the study"
+        procedures "What you will do"
+        confidentiality "How your data is protected"
+        acknowledgement "I have read the information above and agree to participate"
+        required
+      
+      participant_signature respondent_sign "Respondent"
+        printed_name
+        date
+        required
+      
+      researcher_signature enumerator_sign "Enumerator"
+        role "Enumerator"
+        no_printed_name
+      </pre>
+      <h3>Bangla example</h3>
+      <p>Human-facing strings are Bangla; identifiers stay ASCII for portability.</p>
+      <pre>
+      svelp 1
+      
+      title "গৃহস্থালির খাদ্য অপচয় সম্পর্কিত জরিপ"
+      language "bn"
+      
+      section background "সাধারণ তথ্য"
+      description "আপনার পরিবার সম্পর্কে কিছু তথ্য"
+      
+      number age "আপনার বয়স কত?"
+        min 0
+        max 120
+        step 1
+        unit "বছর"
+        required
+      
+      yesno food_waste "আপনার পরিবারে খাবার অপচয় হয় কি?"
+        yes 1
+        no 0
+        required
+      
+      single education "আপনার শিক্ষাগত অবস্থা কী?"
+        option primary "প্রাথমিক" code 1
+        option secondary "মাধ্যমিক" code 2
+        option higher "উচ্চ" code 3
+      
+      shorttext village "আপনার গ্রামের নাম"
+        maxlen 80
+      </pre>
+      <h3>Common mistakes</h3>
+      <p>Missing header:</p>
+      <pre>
+      title "Forgot the header"
+      
+      section s "Section"
+      </pre>
+      <p>Duplicate variable names:</p>
+      <pre>
+      svelp 1
+      
+      title "Duplicate variable"
+      
+      section s "Section"
+      
+      shorttext name "First"
+      shorttext name "Second"
+      </pre>
+      <p>Unknown scale:</p>
+      <pre>
+      svelp 1
+      
+      title "Unknown scale"
+      
+      section s "Section"
+      
+      likert pace "The survey was easy"
+        use missing_scale
+      </pre>
+      <p>Directive not valid for the question type:</p>
+      <pre>
+      svelp 1
+      
+      title "Wrong directive"
+      
+      section s "Section"
+      
+      single sex "Sex"
+        option male "Male" code 1
+        option female "Female" code 2
+        unit "years"
+      </pre>
+      <p>Malformed option:</p>
+      <pre>
+      svelp 1
+      
+      title "Malformed option"
+      
+      section s "Section"
+      
+      single sex "Sex"
+        option male
+        option female "Female"
+      </pre>
+      <p>Duplicate codes:</p>
+      <pre>
+      svelp 1
+      
+      title "Duplicate code"
+      
+      section s "Section"
+      
+      single sex "Sex"
+        option male "Male" code 1
+        option female "Female" code 1
+      </pre>
+      <p>Ranking is not a source type:</p>
+      <pre>
+      svelp 1
+      
+      title "Ranking attempt"
+      
+      ranking priorities "Rank these"
+      </pre>
+      <p>Invalid identifier (uppercase or hyphen):</p>
+      <pre>
+      svelp 1
+      
+      title "Bad identifier"
+      
+      section s "Section"
+      
+      shorttext villageName "Where do you live?"
+      </pre>
+      <p>Unterminated string:</p>
+      <pre>
+      svelp 1
+      
+      title "Unterminated"
+      
+      section s "Section"
+      
+      shorttext village "Where do you live?
+      </pre>
+      <p>Unterminated text block:</p>
+      <pre>
+      svelp 1
+      
+      title "Open block"
+      
+      consent agree "Agreement"
+        introduction """
+        This block never ends.
+        acknowledgement "I agree"
+      </pre>
+    </main>
+    <footer class="site-footer">
+      <div class="wrap footer-row">
+        <span>Svelp — offline-first research questionnaires.</span>
+        <a href="/Svelp/">Open the app</a>
+        <a href="https://mahimmazidul.github.io/Svelp/docs/">Docs</a>
+      </div>
+    </footer>
+  </body>
+</html>
