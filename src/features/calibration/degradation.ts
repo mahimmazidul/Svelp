@@ -489,9 +489,9 @@ export const bal_CAPTURE_PRESETS: bal_CapturePreset[] = [
   },
   {
     id: 'cropped-marker',
-    label: 'Partial crop cutting into the top marker band',
+    label: 'Heavy crop destroying two alignment markers',
     category: 'unusable',
-    ops: [{ op: 'crop', left: 0, top: 26, right: 0, bottom: 0 }]
+    ops: [{ op: 'crop', left: 46, top: 66, right: 0, bottom: 0 }]
   },
   {
     id: 'strong-perspective',
