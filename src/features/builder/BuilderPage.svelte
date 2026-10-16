@@ -1,5 +1,7 @@
 <script lang="ts">
   import Button from '../../components/ui/Button.svelte';
+  import Icon from '../../icons/Icon.svelte';
+  import { bal_copy_text } from '../../utils/clipboard';
   import EmptyState from '../../components/ui/EmptyState.svelte';
   import IconButton from '../../components/ui/IconButton.svelte';
   import Sheet from '../../components/ui/Sheet.svelte';
@@ -77,6 +79,16 @@
           ? 'Saving…'
           : 'Save failed'
   );
+  let bal_error_copied = $state(false);
+
+  async function bal_copy_save_error(): Promise<void> {
+    if (!bal_state.saveError) return;
+    const bal_ok = await bal_copy_text(bal_state.saveError);
+    if (bal_ok) {
+      bal_error_copied = true;
+      setTimeout(() => (bal_error_copied = false), 1500);
+    }
+  }
 
   async function bal_recreate(): Promise<void> {
     const bal_project = $project_context.project;
@@ -167,10 +179,20 @@
               Scales
             </Button>
           {/if}
-          <span class="save-state" data-state={bal_state.saveStatus}>
+          <span class="save-state" data-state={bal_state.saveStatus} role="status">
             <span class="save-dot" aria-hidden="true"></span>
+            {#if bal_state.saveStatus === 'error'}
+              <Icon name="alert" size={14} />
+            {:else if bal_state.saveStatus === 'saved'}
+              <Icon name="circle-check" size={14} />
+            {/if}
             {bal_save_label}
           </span>
+          {#if bal_state.saveStatus === 'error' && bal_state.saveError}
+            <Button size="sm" icon="copy" onclick={() => void bal_copy_save_error()}>
+              {bal_error_copied ? 'Copied' : 'Copy error'}
+            </Button>
+          {/if}
         </div>
       </header>
       <div class="canvas-body">
