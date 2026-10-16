@@ -4,6 +4,7 @@ import {
   dhon_questionnaire_by_project
 } from '../../db/questionnaires_repo';
 import { bal_save_scale, ken_pori_scales } from '../../db/scales_repo';
+import { bal_plain_clone } from '../../utils/bal_plain';
 import { normalize_questionnaire } from '../../models/factories';
 import { new_id } from '../../utils/id';
 import type {
@@ -68,6 +69,7 @@ export interface BuilderState {
   selectedSectionId: string | null;
   selectedItemId: string | null;
   saveStatus: BuilderSaveStatus;
+  saveError: string | null;
   canUndo: boolean;
   canRedo: boolean;
 }
@@ -79,6 +81,7 @@ const BAL_EMPTY: BuilderState = {
   selectedSectionId: null,
   selectedItemId: null,
   saveStatus: 'saved',
+  saveError: null,
   canUndo: false,
   canRedo: false
 };
@@ -100,6 +103,25 @@ let bal_redo_stack: HistoryEntry[] = [];
 const heda_state = writable<BuilderState>(BAL_EMPTY);
 
 let bal_loaded_project_id: string | null = null;
+let bal_pending_scales: ResponseScaleRecord[] = [];
+
+export function bal_save_error_text(
+  bal_cause: unknown,
+  bal_stage: string,
+  bal_questionnaire_id: string | null,
+  bal_project_id: string | null
+): string {
+  const bal_name = bal_cause instanceof Error ? bal_cause.name : 'Error';
+  const bal_message = bal_cause instanceof Error ? bal_cause.message : String(bal_cause);
+  const bal_lines = [
+    'Error: Failed to save questionnaire',
+    `Cause: ${bal_name}: ${bal_message}`,
+    `Stage: ${bal_stage}`
+  ];
+  if (bal_questionnaire_id) bal_lines.push(`Questionnaire: ${bal_questionnaire_id}`);
+  if (bal_project_id) bal_lines.push(`Project: ${bal_project_id}`);
+  return bal_lines.join('\n');
+}
 
 async function bal_flush_save(): Promise<void> {
   const bal_snapshot = get(heda_state);
@@ -107,15 +129,23 @@ async function bal_flush_save(): Promise<void> {
   if (bal_snapshot.saveStatus === 'saved' || bal_snapshot.saveStatus === 'saving') return;
   heda_state.update((bal_s) => ({ ...bal_s, saveStatus: 'saving' }));
   try {
+    for (const bal_scale of bal_pending_scales) await bal_save_scale(bal_scale);
+    bal_pending_scales = [];
     const bal_next = { ...bal_snapshot.questionnaire, updatedAt: Date.now() };
     await bal_save_questionnaire(bal_next);
     heda_state.update((bal_s) =>
       bal_s.questionnaire && bal_s.questionnaire.id === bal_next.id
-        ? { ...bal_s, questionnaire: bal_next, saveStatus: 'saved' }
-        : bal_s
+        ? { ...bal_s, questionnaire: bal_next, saveStatus: 'saved', saveError: null }
+        : { ...bal_s, saveStatus: 'saved', saveError: null }
     );
-  } catch {
-    heda_state.update((bal_s) => ({ ...bal_s, saveStatus: 'error' }));
+  } catch (bal_e) {
+    const bal_text = bal_save_error_text(
+      bal_e,
+      bal_pending_scales.length > 0 ? 'scale persistence' : 'questionnaire persistence',
+      bal_snapshot.questionnaire.id,
+      bal_snapshot.questionnaire.projectId
+    );
+    heda_state.update((bal_s) => ({ ...bal_s, saveStatus: 'error', saveError: bal_text }));
   }
 }
 
@@ -213,6 +243,7 @@ async function bal_load(bal_project_id: string): Promise<void> {
       selectedSectionId: bal_q.sections[0]?.id ?? null,
       selectedItemId: null,
       saveStatus: 'saved',
+      saveError: null,
       canUndo: false,
       canRedo: false
     });
@@ -457,6 +488,11 @@ export const builder_state = {
   load: bal_load,
   reload: bal_reload,
   flush: bal_flush_save,
+  reset_for_tests: (): void => {
+    bal_loaded_project_id = null;
+    bal_pending_scales = [];
+    bal_reset('empty');
+  },
   refresh_scales: bal_refresh_scales,
   undo: bal_undo,
   redo: bal_redo,
@@ -585,19 +621,27 @@ export const builder_state = {
     return bal_taken_variable_names(bal_s.questionnaire);
   },
   apply_source: (bal_questionnaire: QuestionnaireRecord, bal_scales: ResponseScaleRecord[]): void => {
+    const bal_plain_questionnaire = bal_plain_clone(bal_questionnaire);
+    const bal_plain_scales = bal_plain_clone(bal_scales);
+    const bal_known = new Set(get(heda_state).scales.map((bal_s) => bal_s.id));
     heda_state.update((bal_s) => {
       if (bal_s.status !== 'ready' || !bal_s.questionnaire) return bal_s;
       bal_mark_history(bal_s, null);
-      const bal_next = { ...bal_questionnaire, updatedAt: Date.now() };
-      return { ...bal_s, questionnaire: bal_next, scales: bal_scales, saveStatus: 'dirty', canUndo: true, canRedo: false };
+      const bal_next = { ...bal_plain_questionnaire, updatedAt: Date.now() };
+      return { ...bal_s, questionnaire: bal_next, scales: bal_plain_scales, saveStatus: 'dirty', canUndo: true, canRedo: false };
     });
-    const bal_known = new Set(get(heda_state).scales.map((bal_s) => bal_s.id));
-    for (const bal_scale of bal_scales) {
-      if (!bal_known.has(bal_scale.id)) void bal_save_scale(bal_scale);
+    for (const bal_scale of bal_plain_scales) {
+      if (!bal_known.has(bal_scale.id) && !bal_pending_scales.some((bal_p) => bal_p.id === bal_scale.id)) {
+        bal_pending_scales.push(bal_scale);
+      }
     }
-    void ken_pori_scales().then((bal_rows) => {
-      heda_state.update((bal_s) => ({ ...bal_s, scales: bal_rows }));
-    });
+    void ken_pori_scales()
+      .then((bal_rows) => {
+        heda_state.update((bal_s) => ({ ...bal_s, scales: bal_rows }));
+      })
+      .catch(() => {
+        heda_state.update((bal_s) => ({ ...bal_s, scales: bal_plain_scales }));
+      });
     bal_schedule_save();
   }
 };
