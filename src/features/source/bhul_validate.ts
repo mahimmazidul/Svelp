@@ -174,7 +174,10 @@ export function bal_svalidate(bal_doc: bal_AstDocument): bal_SemanticIssue[] {
 
   const bal_taken_names = new Set<string>();
   const bal_check_item = (bal_item: bal_AstItem): void => {
-    const bal_label_optional = bal_item.head === 'participant_signature' || bal_item.head === 'researcher_signature';
+    const bal_label_optional =
+      bal_item.head === 'participant_signature' ||
+      bal_item.head === 'researcher_signature' ||
+      bal_item.bulkItems.length > 0;
     if (!bal_label_optional && bal_item.label.trim().length === 0) {
       bal_issues.push({
         line: bal_item.line,
@@ -183,7 +186,9 @@ export function bal_svalidate(bal_doc: bal_AstDocument): bal_SemanticIssue[] {
         message: `"${bal_item.head}" is missing its label text.`
       });
     }
-    const bal_is_data = !['instruction', 'consent', 'participant_signature', 'researcher_signature'].includes(bal_item.head);
+    const bal_is_data =
+      !['instruction', 'consent', 'participant_signature', 'researcher_signature'].includes(bal_item.head) &&
+      bal_item.bulkItems.length === 0;
     if (bal_is_data && bal_item.key === null) {
       bal_issues.push({
         line: bal_item.line,

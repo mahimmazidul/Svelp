@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { bal_slex } from './shobdo_lexer';
 import { bal_sparse, bal_consent_default_title } from './naksha_parser';
+import { bal_svalidate } from './bhul_validate';
 
 function bal_parse(bal_source: string) {
   const bal_lexed = bal_slex(bal_source);
@@ -214,5 +215,33 @@ callout
     const bal_result = bal_parse('svelp 1\ntitle "T"\nsingle water_source\n');
     expect(bal_result.errors[0]).toMatchObject({ line: 3 });
     expect(bal_result.errors[0].message).toContain('question label after "single"');
+  });
+});
+
+describe('bulk question block validation', () => {
+  it('accepts a questions-using block without a carrier label', () => {
+    const bal_source = [
+      'svelp 1',
+      '',
+      'title "Bulk"',
+      '',
+      'scale frequency',
+      '  option never "Never" code 0',
+      '  option often "Often" code 1',
+      '',
+      'section diet "Diet"',
+      '',
+      'questions using frequency {',
+      '  breakfast "How often is breakfast wasted?"',
+      '  dinner "How often is dinner wasted?"',
+      '}'
+    ].join('\n');
+    const bal_lexed = bal_slex(bal_source);
+    const bal_parsed = bal_sparse(bal_lexed.tokens, bal_lexed.errors);
+    const bal_issues = bal_svalidate(bal_parsed.doc);
+    const bal_errors = bal_issues.filter((bal_i) => bal_i.severity === 'error');
+    expect(bal_errors).toEqual([]);
+    const bal_bulk_item = bal_parsed.doc.sections[0].items[0];
+    expect(bal_bulk_item.bulkItems.length).toBe(2);
   });
 });

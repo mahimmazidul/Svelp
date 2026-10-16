@@ -31,7 +31,8 @@ network dependency after the first load.
     with a variable-name preview before creation
   - Deterministic variable-name suggestions, manual editing, and uniqueness validation
   - Questionnaire search, validation panel with issue navigation, and undo/redo
-  - An editable questionnaire source view (`svelp` language, `.svelp.txt` files) with
+  - An editable questionnaire source view (`svelp` language, `.svelp.txt` files; the
+    complete syntax reference is [docs/source-language.md](docs/source-language.md)) with
     syntax highlighting, live validation, a click-through problems panel, format and
     round-trip to the visual builder, safe previewed applies, and import/export
 - **A participant-facing preview** that renders every supported item type, runs the
