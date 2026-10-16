@@ -9,7 +9,7 @@
   import ScanPage from './features/scan/ScanPage.svelte';
   import ResponsesPage from './features/reading/ResponsesPage.svelte';
   import ExportPage from './features/export/ExportPage.svelte';
-  import PlaceholderPage from './features/placeholders/PlaceholderPage.svelte';
+  import SettingsPage from './features/settings/SettingsPage.svelte';
   import NotFoundPage from './features/placeholders/NotFoundPage.svelte';
   import { BAL_DEFAULT_META, bal_apply_route_meta, bal_is_raw_app_entry, bal_meta_for_route } from './app/route_meta';
 
@@ -50,8 +50,8 @@
       <ResponsesPage projectId={bal_route.projectId} />
     {:else if bal_route.area === 'export'}
       <ExportPage projectId={bal_route.projectId} />
-    {:else}
-      <PlaceholderPage area={bal_route.area} />
+    {:else if bal_route.area === 'settings'}
+      <SettingsPage />
     {/if}
   {:else}
     <NotFoundPage />
