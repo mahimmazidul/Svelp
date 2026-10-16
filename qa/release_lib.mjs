@@ -219,6 +219,10 @@ export async function bal_start_run(bal_browser, { name, base, width, height = 8
     await bal_page.waitForTimeout(900);
   }
 
+  async function bal_cancel_first(bal_locator) {
+    await bal_locator.first().tap();
+  }
+
   async function bal_visual_text() {
     return (await bal_page.locator('main').first().textContent().catch(() => '')) ?? '';
   }
@@ -272,6 +276,7 @@ export async function bal_start_run(bal_browser, { name, base, width, height = 8
     uiCreateProject: bal_ui_create_project,
     uiApplySource: bal_ui_apply_source,
     gotoArea: bal_goto_area,
+    cancelFirst: bal_cancel_first,
     visualText: bal_visual_text,
     copySource: bal_copy_source,
     reload: bal_ui_reload,
