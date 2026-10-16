@@ -69,8 +69,8 @@ function bal_render_docs_page(bal_markdown) {
       <div class="wrap header-row">
         <a class="brand" href="../../">Svelp</a>
         <nav aria-label="Public site">
-          <a href="../">Docs</a>
-          <a href="../features/">Features</a>
+          <a href="../../docs/">Docs</a>
+          <a href="../../features/">Features</a>
         </nav>
         <a class="cta small" href="../../">Open Svelp</a>
       </div>
@@ -84,7 +84,7 @@ ${bal_markdown_to_html(bal_markdown)}
       <div class="wrap footer-row">
         <span>Svelp — offline-first research questionnaires.</span>
         <a href="../../">Open the app</a>
-        <a href="../">Docs</a>
+        <a href="../../docs/">Docs</a>
       </div>
     </footer>
   </body>
