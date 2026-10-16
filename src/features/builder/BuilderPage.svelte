@@ -189,7 +189,7 @@
             {bal_save_label}
           </span>
           {#if bal_state.saveStatus === 'error' && bal_state.saveError}
-            <Button size="sm" icon="copy" onclick={() => void bal_copy_save_error()}>
+            <Button size="sm" class="save-error-copy" icon="copy" onclick={() => void bal_copy_save_error()}>
               {bal_error_copied ? 'Copied' : 'Copy error'}
             </Button>
           {/if}
@@ -494,7 +494,7 @@
   }
 
   @media (max-width: 767px) {
-    .canvas-tools :global(.btn) {
+    .canvas-tools :global(.btn:not(.save-error-copy)) {
       display: none;
     }
   }
