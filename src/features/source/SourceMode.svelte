@@ -30,6 +30,118 @@
   let bal_goto_open = $state(false);
   let bal_goto_value = $state('');
   let bal_copied = $state(false);
+  let bal_help_open = $state(false);
+
+  const BAL_HELP_SECTIONS: { title: string; code: string }[] = [
+    {
+      title: 'File',
+      code: [
+        'svelp 1',
+        '',
+        'title "Survey title"',
+        'description "Optional study description"',
+        'language "bn"',
+        'paper a4',
+        'orientation portrait'
+      ].join('\n')
+    },
+    {
+      title: 'Sections and questions',
+      code: [
+        'section background "Background"',
+        'description "Who is answering"',
+        'new_page',
+        '',
+        'instruction intro "Please answer honestly."',
+        '',
+        'single sex "Sex"',
+        '  option male "Male" code 1',
+        '  option female "Female" code 2',
+        '  required',
+        '',
+        'multiple crops "Which crops?"',
+        '  min 1',
+        '  max 3',
+        '  option rice "Rice"',
+        '  option wheat "Wheat"',
+        '',
+        'yesno owns_land "Do you own land?"',
+        '  required',
+        '',
+        'shorttext village "Village name"',
+        '  maxlen 60',
+        '',
+        'longtext notes "Any notes?"',
+        '  maxlen 500',
+        '',
+        'number age "Age in years"',
+        '  min 0',
+        '  max 120',
+        '  step 1',
+        '  unit "years"',
+        '  required',
+        '',
+        'date visited "Last visit"',
+        'time wake_up "Wake up time"',
+        '',
+        'likert trust "I trust the process"',
+        '  1 "Strongly disagree"',
+        '  2 "Disagree"',
+        '  3 "Neutral"',
+        '  4 "Agree"',
+        '  5 "Strongly agree"'
+      ].join('\n')
+    },
+    {
+      title: 'Scales, matrices, bulk questions',
+      code: [
+        'scale frequency',
+        '  option never "Never" code 0',
+        '  option often "Often" code 1',
+        '',
+        'matrix diet "How often do you eat:"',
+        '  scale frequency',
+        '  single_per_row',
+        '  rows {',
+        '    rice "Rice"',
+        '    wheat "Wheat"',
+        '  }',
+        '',
+        'questions using frequency {',
+        '  breakfast "Breakfast"',
+        '  dinner "Dinner"',
+        '}'
+      ].join('\n')
+    },
+    {
+      title: 'Consent and signatures',
+      code: [
+        'consent agree "Participation"',
+        '  introduction """',
+        '  You may leave the study at any time.',
+        '  """',
+        '  purpose "Why this study runs"',
+        '  acknowledgement "I agree"',
+        '  required',
+        '',
+        'participant_signature sign1 "Participant"',
+        '  printed_name',
+        '  date',
+        '',
+        'researcher_signature sign2 "Researcher"',
+        '  role "Enumerator"'
+      ].join('\n')
+    }
+  ];
+
+  const BAL_HELP_RULES: string[] = [
+    'The file must start with svelp 1.',
+    'Names are lowercase with underscores, like rice_price.',
+    'Reserved words cannot be names; hyphens and capitals are not allowed.',
+    'Variable names must be unique across the questionnaire.',
+    'Codes must not repeat inside one question or scale.',
+    'There are no comments, expressions, ranking, or code execution in v1.'
+  ];
   let bal_import_input: HTMLInputElement | null = $state(null);
 
   let bal_dirty = $derived(bal_text !== bal_canonical);
@@ -202,18 +314,16 @@
       {bal_dirty ? (bal_outcome.ok ? 'Unapplied changes · valid' : 'Unapplied changes · invalid') : bal_outcome.ok ? 'Valid' : 'Invalid'}
     </span>
     <span class="spacer"></span>
-    <Button
-      size="sm"
-      class="problems-toggle"
-      onclick={() => (bal_problems_open = true)}
-    >
+    <Button size="sm" onclick={() => (bal_problems_open = true)}>
       Problems{bal_all_problems.length > 0 ? ` · ${bal_all_problems.length}` : ''}
     </Button>
     <Button size="sm" onclick={() => (bal_goto_open = !bal_goto_open)}>Go to line</Button>
+    <Button size="sm" onclick={() => bal_editor?.select_all()}>Select all</Button>
     <Button size="sm" onclick={() => void bal_copy()}>{bal_copied ? 'Copied' : 'Copy'}</Button>
     <Button size="sm" onclick={() => void bal_paste()}>Paste</Button>
     <Button size="sm" onclick={() => bal_import_input?.click()}>Import</Button>
     <Button size="sm" onclick={bal_export}>Export</Button>
+    <Button size="sm" onclick={() => (bal_help_open = true)}>Help</Button>
     <input
       type="file"
       accept=".txt,.svelp.txt,text/plain"
@@ -284,6 +394,25 @@
   <Sheet bind:open={bal_problems_open} side="bottom" title="Problems">
     <div class="problems sheet-body" class:empty={bal_all_problems.length === 0}>
       {@render bal_problem_rows()}
+    </div>
+  </Sheet>
+
+  <Sheet bind:open={bal_help_open} side="bottom" title="Svelp source syntax">
+    <div class="help-body">
+      <p class="help-lede">
+        The full language reference lives in <code>docs/source-language.md</code>. This sheet covers
+        the everyday syntax.
+      </p>
+      {#each BAL_HELP_SECTIONS as bal_section (bal_section.title)}
+        <h4>{bal_section.title}</h4>
+        <pre>{bal_section.code}</pre>
+      {/each}
+      <h4>Rules</h4>
+      <ul class="help-rules">
+        {#each BAL_HELP_RULES as bal_rule (bal_rule)}
+          <li>{bal_rule}</li>
+        {/each}
+      </ul>
     </div>
   </Sheet>
 
@@ -393,20 +522,45 @@
   .problems.empty {
     opacity: 0.85;
   }
-  .problems-toggle {
-    display: none;
-  }
   @media (max-width: 768px) {
     .problems:not(.sheet-body) {
       display: none;
-    }
-    .problems-toggle {
-      display: inline-flex;
     }
     .sheet-body {
       border: none;
       max-height: 50vh;
     }
+  }
+  .help-body {
+    display: grid;
+    gap: 10px;
+  }
+  .help-body h4 {
+    margin: 4px 0 0;
+    font-size: 13px;
+  }
+  .help-body pre {
+    margin: 0;
+    padding: 8px 10px;
+    background: var(--color-surface-2);
+    border: var(--border-width) solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    line-height: 1.5;
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .help-lede {
+    margin: 0;
+    font-size: 13px;
+    color: var(--color-ink-2);
+  }
+  .help-rules {
+    margin: 0;
+    padding-left: 18px;
+    font-size: 13px;
+    display: grid;
+    gap: 4px;
   }
   .problems h3 {
     margin: 0 0 6px;

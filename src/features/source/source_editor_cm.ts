@@ -1,5 +1,5 @@
 import { EditorView, keymap, lineNumbers, drawSelection, highlightActiveLine } from '@codemirror/view';
-import { EditorState, type Extension } from '@codemirror/state';
+import { EditorSelection, EditorState, type Extension } from '@codemirror/state';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { search, searchKeymap, highlightSelectionMatches } from '@codemirror/search';
 import { linter, forceLinting, type Diagnostic } from '@codemirror/lint';
@@ -10,6 +10,7 @@ export interface bal_EditorHost {
   view: EditorView;
   set_problems: (bal_problems: bal_SemanticIssue[]) => void;
   focus_line: (bal_line: number, bal_column: number) => void;
+  select_all: () => void;
   get_text: () => string;
   destroy: () => void;
 }
@@ -67,6 +68,14 @@ export function bal_mount_source_editor(
       bal_view.dispatch({
         selection: { anchor: bal_pos },
         effects: EditorView.scrollIntoView(bal_pos, { y: 'center' })
+      });
+      bal_view.focus();
+    },
+    select_all: (): void => {
+      const bal_end = bal_view.state.doc.length;
+      bal_view.dispatch({
+        selection: EditorSelection.single(0, bal_end),
+        effects: EditorView.scrollIntoView(bal_end, { y: 'end' })
       });
       bal_view.focus();
     },
