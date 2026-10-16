@@ -32,6 +32,10 @@
   let bal_copied = $state(false);
   let bal_help_open = $state(false);
 
+  const bal_docs_base = import.meta.env.BASE_URL.endsWith('/')
+    ? import.meta.env.BASE_URL
+    : import.meta.env.BASE_URL + '/';
+
   const BAL_HELP_SECTIONS: { title: string; code: string }[] = [
     {
       title: 'File',
@@ -400,8 +404,8 @@
   <Sheet bind:open={bal_help_open} side="bottom" title="Svelp source syntax">
     <div class="help-body">
       <p class="help-lede">
-        The full language reference lives in <code>docs/source-language.md</code>. This sheet covers
-        the everyday syntax.
+        This sheet covers the everyday syntax. The complete language reference is also published on
+        the web and ships with the app.
       </p>
       {#each BAL_HELP_SECTIONS as bal_section (bal_section.title)}
         <h4>{bal_section.title}</h4>
@@ -413,6 +417,9 @@
           <li>{bal_rule}</li>
         {/each}
       </ul>
+      <p class="help-doc-link">
+        <a href="{bal_docs_base}docs/source-language/" target="_blank" rel="noopener">Open the full language reference</a>
+      </p>
     </div>
   </Sheet>
 
@@ -549,6 +556,13 @@
     line-height: 1.5;
     overflow-x: auto;
     white-space: pre;
+  }
+  .help-doc-link {
+    margin: 0.75rem 0 0;
+  }
+  .help-doc-link a {
+    color: var(--accent);
+    font-weight: 600;
   }
   .help-lede {
     margin: 0;
