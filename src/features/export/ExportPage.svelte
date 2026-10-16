@@ -669,6 +669,7 @@
   @media (max-width: 768px) {
     .page {
       padding: 12px;
+      padding-bottom: calc(var(--bottomnav-height) + env(safe-area-inset-bottom) + 24px);
     }
     .actions :global(button) {
       flex: 1 1 100%;

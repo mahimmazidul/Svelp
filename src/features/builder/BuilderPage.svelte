@@ -380,7 +380,11 @@
     display: flex;
     align-items: center;
     gap: var(--space-2);
+    row-gap: var(--space-1);
     flex: none;
+    flex-wrap: wrap;
+    min-width: 0;
+    max-width: 100%;
   }
 
   .canvas-tools :global(.ibtn) {
@@ -433,6 +437,8 @@
     justify-content: space-between;
     flex-wrap: wrap;
     gap: var(--space-2);
+    min-width: 0;
+    max-width: 100%;
     padding: var(--space-2) var(--space-3);
     background: var(--color-surface);
     border-top: var(--border-width) solid var(--color-border);
@@ -440,8 +446,11 @@
 
   .mobile-tools {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--space-1);
+    min-width: 0;
+    max-width: 100%;
   }
 
   .builder[data-mode='mobile'] .canvas-panel {
