@@ -1,0 +1,34 @@
+svelp 1
+
+title "Matrix Release Survey"
+
+scale frequency
+  option never "Never" code 0
+  option sometimes "Sometimes" code 1
+  option often "Often" code 2
+  option daily "Daily" code 3
+
+scale checks
+  option monday "Monday" code 1
+  option wednesday "Wednesday" code 2
+  option friday "Friday" code 3
+
+section diet "Diet"
+
+matrix staples "How often does your household eat:"
+  scale frequency
+  single_per_row
+  rows {
+    rice "Cooked rice"
+    bread "Bread"
+    fish "Fish"
+  }
+
+matrix multiple_checks "Select all that apply each week:"
+  scale checks
+  multiple_per_row
+  rows {
+    leftovers "Leftovers reused"
+    compost "Composted"
+  }
+

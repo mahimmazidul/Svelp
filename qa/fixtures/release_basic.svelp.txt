@@ -1,0 +1,50 @@
+svelp 1
+
+title "Release Test Survey"
+
+description "End-to-end release validation questionnaire."
+
+section demographics "Demographics"
+
+number age "Age"
+  min 18
+  max 100
+  unit "years"
+  required
+
+single sex "Sex"
+  option male "Male" code 1
+  option female "Female" code 2
+  option other "Other" code 3
+  required
+
+yesno consented "Consent obtained?"
+  yes 1
+  no 0
+  required
+
+scale agreement
+  option strongly_disagree "Strongly disagree" code 1
+  option disagree "Disagree" code 2
+  option neutral "Neutral" code 3
+  option agree "Agree" code 4
+  option strongly_agree "Strongly agree" code 5
+
+section attitudes "Attitudes"
+
+likert food_attitude_1 "Reducing food waste is important."
+  use agreement
+  required
+
+likert food_attitude_2 "Planning meals helps reduce waste."
+  use agreement
+
+matrix food_frequency "Food frequency"
+  scale agreement
+  single_per_row
+  rows {
+    rice "Rice"
+    fish "Fish"
+    egg "Egg"
+    vegetables "Vegetables"
+  }

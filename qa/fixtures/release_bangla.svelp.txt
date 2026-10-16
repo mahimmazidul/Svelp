@@ -1,0 +1,35 @@
+svelp 1
+
+title "খাদ্য অপচয় সম্পর্কিত জরিপ"
+
+section background "সাধারণ তথ্য"
+
+number age "আপনার বয়স কত?"
+  min 0
+  max 120
+  unit "বছর"
+  required
+
+yesno food_waste "আপনার পরিবারে খাবার অপচয় হয় কি?"
+  yes 1
+  no 0
+  required
+
+single main_meal "প্রধান খাবার কোনটি?"
+  option rice "ভাত" code 1
+  option bread "রুটি" code 2
+  option both "উভয়" code 3
+  required
+
+matrix weekly "সপ্তাহে কত বার:"
+  scale weekly_scale
+  single_per_row
+  rows {
+    rice "ভাত"
+    fish "মাছ"
+  }
+
+scale weekly_scale
+  option never "কখনো না" code 0
+  option sometimes "মাঝে মাঝে" code 1
+  option daily "প্রতিদিন" code 2

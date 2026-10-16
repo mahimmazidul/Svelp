@@ -1,0 +1,504 @@
+svelp 1
+
+title "Large Release Survey"
+
+scale freq5
+  option never "Never" code 0
+  option rarely "Rarely" code 1
+  option sometimes "Sometimes" code 2
+  option often "Often" code 3
+  option daily "Daily" code 4
+
+scale agree5
+  option strongly_disagree "Strongly disagree" code 1
+  option disagree "Disagree" code 2
+  option neutral "Neutral" code 3
+  option agree "Agree" code 4
+  option strongly_agree "Strongly agree" code 5
+section sec1 "Section 1"
+
+likert att_1 "Statement number 1 of the attitude battery."
+  use agree5
+  required
+
+likert att_2 "Statement number 2 of the attitude battery."
+  use agree5
+  required
+
+likert att_3 "Statement number 3 of the attitude battery."
+  use agree5
+  required
+
+likert att_4 "Statement number 4 of the attitude battery."
+  use agree5
+  required
+
+likert att_5 "Statement number 5 of the attitude battery."
+  use agree5
+  required
+
+likert att_6 "Statement number 6 of the attitude battery."
+  use agree5
+  required
+
+likert att_7 "Statement number 7 of the attitude battery."
+  use agree5
+  required
+
+likert att_8 "Statement number 8 of the attitude battery."
+  use agree5
+  required
+
+likert att_9 "Statement number 9 of the attitude battery."
+  use agree5
+  required
+
+likert att_10 "Statement number 10 of the attitude battery."
+  use agree5
+  required
+
+likert att_11 "Statement number 11 of the attitude battery."
+  use agree5
+  required
+
+likert att_12 "Statement number 12 of the attitude battery."
+  use agree5
+  required
+
+likert att_13 "Statement number 13 of the attitude battery."
+  use agree5
+  required
+
+likert att_14 "Statement number 14 of the attitude battery."
+  use agree5
+  required
+
+likert att_15 "Statement number 15 of the attitude battery."
+  use agree5
+  required
+
+likert att_16 "Statement number 16 of the attitude battery."
+  use agree5
+  required
+
+likert att_17 "Statement number 17 of the attitude battery."
+  use agree5
+  required
+
+likert att_18 "Statement number 18 of the attitude battery."
+  use agree5
+  required
+
+number meas_1_1 "Measurement 1 of section 1"
+  min 0
+  max 999
+  required
+
+number meas_1_2 "Measurement 2 of section 1"
+  min 0
+  max 999
+  required
+
+section sec2 "Section 2"
+
+likert att_19 "Statement number 19 of the attitude battery."
+  use agree5
+  required
+
+likert att_20 "Statement number 20 of the attitude battery."
+  use agree5
+  required
+
+likert att_21 "Statement number 21 of the attitude battery."
+  use agree5
+  required
+
+likert att_22 "Statement number 22 of the attitude battery."
+  use agree5
+  required
+
+likert att_23 "Statement number 23 of the attitude battery."
+  use agree5
+  required
+
+likert att_24 "Statement number 24 of the attitude battery."
+  use agree5
+  required
+
+likert att_25 "Statement number 25 of the attitude battery."
+  use agree5
+  required
+
+likert att_26 "Statement number 26 of the attitude battery."
+  use agree5
+  required
+
+likert att_27 "Statement number 27 of the attitude battery."
+  use agree5
+  required
+
+likert att_28 "Statement number 28 of the attitude battery."
+  use agree5
+  required
+
+likert att_29 "Statement number 29 of the attitude battery."
+  use agree5
+  required
+
+likert att_30 "Statement number 30 of the attitude battery."
+  use agree5
+  required
+
+likert att_31 "Statement number 31 of the attitude battery."
+  use agree5
+  required
+
+likert att_32 "Statement number 32 of the attitude battery."
+  use agree5
+  required
+
+likert att_33 "Statement number 33 of the attitude battery."
+  use agree5
+  required
+
+likert att_34 "Statement number 34 of the attitude battery."
+  use agree5
+  required
+
+likert att_35 "Statement number 35 of the attitude battery."
+  use agree5
+  required
+
+likert att_36 "Statement number 36 of the attitude battery."
+  use agree5
+  required
+
+number meas_2_1 "Measurement 1 of section 2"
+  min 0
+  max 999
+  required
+
+number meas_2_2 "Measurement 2 of section 2"
+  min 0
+  max 999
+  required
+
+section sec3 "Section 3"
+
+likert att_37 "Statement number 37 of the attitude battery."
+  use agree5
+  required
+
+likert att_38 "Statement number 38 of the attitude battery."
+  use agree5
+  required
+
+likert att_39 "Statement number 39 of the attitude battery."
+  use agree5
+  required
+
+likert att_40 "Statement number 40 of the attitude battery."
+  use agree5
+  required
+
+likert att_41 "Statement number 41 of the attitude battery."
+  use agree5
+  required
+
+likert att_42 "Statement number 42 of the attitude battery."
+  use agree5
+  required
+
+likert att_43 "Statement number 43 of the attitude battery."
+  use agree5
+  required
+
+likert att_44 "Statement number 44 of the attitude battery."
+  use agree5
+  required
+
+likert att_45 "Statement number 45 of the attitude battery."
+  use agree5
+  required
+
+likert att_46 "Statement number 46 of the attitude battery."
+  use agree5
+  required
+
+likert att_47 "Statement number 47 of the attitude battery."
+  use agree5
+  required
+
+likert att_48 "Statement number 48 of the attitude battery."
+  use agree5
+  required
+
+likert att_49 "Statement number 49 of the attitude battery."
+  use agree5
+  required
+
+likert att_50 "Statement number 50 of the attitude battery."
+  use agree5
+  required
+
+likert att_51 "Statement number 51 of the attitude battery."
+  use agree5
+  required
+
+likert att_52 "Statement number 52 of the attitude battery."
+  use agree5
+  required
+
+likert att_53 "Statement number 53 of the attitude battery."
+  use agree5
+  required
+
+likert att_54 "Statement number 54 of the attitude battery."
+  use agree5
+  required
+
+number meas_3_1 "Measurement 1 of section 3"
+  min 0
+  max 999
+  required
+
+number meas_3_2 "Measurement 2 of section 3"
+  min 0
+  max 999
+  required
+
+section sec4 "Section 4"
+
+likert att_55 "Statement number 55 of the attitude battery."
+  use agree5
+  required
+
+likert att_56 "Statement number 56 of the attitude battery."
+  use agree5
+  required
+
+likert att_57 "Statement number 57 of the attitude battery."
+  use agree5
+  required
+
+likert att_58 "Statement number 58 of the attitude battery."
+  use agree5
+  required
+
+likert att_59 "Statement number 59 of the attitude battery."
+  use agree5
+  required
+
+likert att_60 "Statement number 60 of the attitude battery."
+  use agree5
+  required
+
+likert att_61 "Statement number 61 of the attitude battery."
+  use agree5
+  required
+
+likert att_62 "Statement number 62 of the attitude battery."
+  use agree5
+  required
+
+likert att_63 "Statement number 63 of the attitude battery."
+  use agree5
+  required
+
+likert att_64 "Statement number 64 of the attitude battery."
+  use agree5
+  required
+
+likert att_65 "Statement number 65 of the attitude battery."
+  use agree5
+  required
+
+likert att_66 "Statement number 66 of the attitude battery."
+  use agree5
+  required
+
+likert att_67 "Statement number 67 of the attitude battery."
+  use agree5
+  required
+
+likert att_68 "Statement number 68 of the attitude battery."
+  use agree5
+  required
+
+likert att_69 "Statement number 69 of the attitude battery."
+  use agree5
+  required
+
+likert att_70 "Statement number 70 of the attitude battery."
+  use agree5
+  required
+
+likert att_71 "Statement number 71 of the attitude battery."
+  use agree5
+  required
+
+likert att_72 "Statement number 72 of the attitude battery."
+  use agree5
+  required
+
+number meas_4_1 "Measurement 1 of section 4"
+  min 0
+  max 999
+  required
+
+number meas_4_2 "Measurement 2 of section 4"
+  min 0
+  max 999
+  required
+
+section sec5 "Section 5"
+
+likert att_73 "Statement number 73 of the attitude battery."
+  use agree5
+  required
+
+likert att_74 "Statement number 74 of the attitude battery."
+  use agree5
+  required
+
+likert att_75 "Statement number 75 of the attitude battery."
+  use agree5
+  required
+
+likert att_76 "Statement number 76 of the attitude battery."
+  use agree5
+  required
+
+likert att_77 "Statement number 77 of the attitude battery."
+  use agree5
+  required
+
+likert att_78 "Statement number 78 of the attitude battery."
+  use agree5
+  required
+
+likert att_79 "Statement number 79 of the attitude battery."
+  use agree5
+  required
+
+likert att_80 "Statement number 80 of the attitude battery."
+  use agree5
+  required
+
+likert att_81 "Statement number 81 of the attitude battery."
+  use agree5
+  required
+
+likert att_82 "Statement number 82 of the attitude battery."
+  use agree5
+  required
+
+likert att_83 "Statement number 83 of the attitude battery."
+  use agree5
+  required
+
+likert att_84 "Statement number 84 of the attitude battery."
+  use agree5
+  required
+
+likert att_85 "Statement number 85 of the attitude battery."
+  use agree5
+  required
+
+likert att_86 "Statement number 86 of the attitude battery."
+  use agree5
+  required
+
+likert att_87 "Statement number 87 of the attitude battery."
+  use agree5
+  required
+
+likert att_88 "Statement number 88 of the attitude battery."
+  use agree5
+  required
+
+likert att_89 "Statement number 89 of the attitude battery."
+  use agree5
+  required
+
+likert att_90 "Statement number 90 of the attitude battery."
+  use agree5
+  required
+
+number meas_5_1 "Measurement 1 of section 5"
+  min 0
+  max 999
+  required
+
+number meas_5_2 "Measurement 2 of section 5"
+  min 0
+  max 999
+  required
+
+section foods "Food frequency"
+
+matrix foods60 "How often did you eat:"
+  scale freq5
+  single_per_row
+  rows {
+  rice "Rice"
+  bread "Bread"
+  fish "Fish"
+  egg "Egg"
+  milk "Milk"
+  lentils "Lentils"
+  chicken "Chicken"
+  beef "Beef"
+  potato "Potato"
+  vegetables "Vegetables"
+  fruit "Fruit"
+  sweets "Sweets"
+  tea "Tea"
+  coffee "Coffee"
+  juice "Juice"
+  water "Water"
+  yogurt "Yogurt"
+  cheese "Cheese"
+  pasta "Pasta"
+  noodles "Noodles"
+  soup "Soup"
+  salad "Salad"
+  snacks "Snacks"
+  butter "Butter"
+  oil "Oil"
+  sugar "Sugar"
+  salt "Salt"
+  spices "Spices"
+  herbs "Herbs"
+  nuts "Nuts"
+  seeds "Seeds"
+  beans "Beans"
+  peas "Peas"
+  corn "Corn"
+  oats "Oats"
+  cereal "Cereal"
+  honey "Honey"
+  jam "Jam"
+  sausage "Sausage"
+  ham "Ham"
+  bacon "Bacon"
+  shrimp "Shrimp"
+  crab "Crab"
+  squid "Squid"
+  tofu "Tofu"
+  sprouts "Sprouts"
+  mushroom "Mushroom"
+  onion "Onion"
+  garlic "Garlic"
+  tomato "Tomato"
+  cucumber "Cucumber"
+  spinach "Spinach"
+  cabbage "Cabbage"
+  carrot "Carrot"
+  radish "Radish"
+  pepper "Pepper"
+  melon "Melon"
+  banana "Banana"
+  mango "Mango"
+  papaya "Papaya"
+  }
