@@ -205,3 +205,41 @@ A scanned page identifying an absent template is preserved with its decoded iden
 a specific review banner. Importing the transfer file from the banner restores geometry
 and resumes the same pages from stored originals, which is what makes a two-device
 paper workflow survivable without any central service.
+
+## Phase 9 decisions
+
+### Release acceptance is browser-driven user workflow, not unit tests
+
+Phase 9 gates the release on Playwright suites against the production build (and the
+deployed Pages build): every project is created through the real UI and Source Mode,
+IndexedDB is touched directly only for verification and failure diagnostics, and every
+run fails on unexpected console errors, page errors, unhandled rejections, and failed
+asset or worker requests. Old seeded smokes remain regression tools only.
+
+### Simulation fidelity is declared, never hidden
+
+Scan suites print through the app's own clinical batch PDF, render captures with pdf.js,
+and add only what a clean phone capture would plausibly have (sensor noise, exposure
+falloff, slight defocus for the review path). Clean captures auto-accept; lossy captures
+must route to review. The quality gate was never loosened for the suites - the previous
+full-page JPEG artifacts were a render-scale product bug, fixed as such.
+
+### Cancellation must be persistence-free
+
+Batch generation writes the batch record only after every respondent document exists,
+so cancellation between generation chunks cannot leave partial state. The stop control
+lives in the batch sheet, and the release suite proves a cancelled batch leaves no
+record while a completed one holds all respondents.
+
+### Lazy-load failures speak
+
+The source editor loads behind a lazy chunk. When that chunk cannot load, the Source
+tab now reports the failure, states that the questionnaire is safe, and offers a reload
+instead of throwing. This was found by deliberately removing the chunk in the PWA suite.
+
+### Release identity is visible
+
+The settings diagnostics page reports the app version, database schema version,
+recognition profile, and MAHIM compatibility version, and the integrity suite asserts
+it leaks no secrets. The 1.0.0 version is set only after every gate ran green, and the
+recognition engine stays labeled physical-validation-pending.
