@@ -20,6 +20,7 @@
   let bal_host_el: HTMLDivElement | null = $state(null);
   let bal_editor: bal_EditorHost | null = null;
   let bal_editor_ready = $state(false);
+  let bal_load_error = $state(false);
   let bal_text = $state('');
   let bal_canonical = $state('');
   let bal_parse_timer: ReturnType<typeof setTimeout> | null = null;
@@ -275,7 +276,11 @@
         bal_canonical = bal_result.text;
         bal_text = bal_result.text;
       }
-      const bal_cm = await import('./source_editor_cm');
+      const bal_cm = await import('./source_editor_cm').catch(() => null);
+      if (!bal_cm) {
+        bal_load_error = true;
+        return;
+      }
       await tick();
       if (bal_host_el) {
         bal_editor = bal_cm.bal_mount_source_editor(bal_host_el, bal_text, (bal_next) => {
@@ -349,7 +354,13 @@
     </form>
   {/if}
 
-  {#if !bal_editor_ready}
+  {#if bal_load_error}
+    <div class="placeholder" role="alert">
+      <p>The source editor could not be loaded. Your questionnaire is safe.</p>
+      <p>Reload the app, then open the Source tab again.</p>
+      <Button variant="primary" onclick={() => window.location.reload()}>Reload</Button>
+    </div>
+  {:else if !bal_editor_ready}
     <div class="placeholder"><p class="muted">Loading editor…</p></div>
   {/if}
   <div class="editor-host" bind:this={bal_host_el} class:hidden={!bal_editor_ready}></div>

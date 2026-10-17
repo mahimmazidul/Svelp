@@ -23,7 +23,7 @@ function bal_stamp() {
   return new Date().toISOString();
 }
 
-export async function bal_start_run(bal_browser, { name, base, width, height = 820, touch = false }) {
+export async function bal_start_run(bal_browser, { name, base, width, height = 820, touch = false, ignore_console = [], ignore_bad_urls = [], ignore_net = [] }) {
   const bal_context = await bal_browser.newContext({
     viewport: { width, height },
     hasTouch: touch
@@ -55,7 +55,7 @@ export async function bal_start_run(bal_browser, { name, base, width, height = 8
     const bal_entry = { type: bal_msg.type(), text: bal_msg.text().slice(0, 400) };
     bal_state.consoleMessages.push(bal_entry);
     if (bal_msg.type() === 'error') {
-      if (!BAL_IGNORE_CONSOLE.some((bal_re) => bal_re.test(bal_entry.text))) {
+      if (!BAL_IGNORE_CONSOLE.some((bal_re) => bal_re.test(bal_entry.text)) && !ignore_console.some((bal_re) => bal_re.test(bal_entry.text))) {
         bal_state.consoleErrors.push(bal_entry);
       }
     } else if (bal_msg.type() === 'warning') {
@@ -69,7 +69,7 @@ export async function bal_start_run(bal_browser, { name, base, width, height = 8
 
   bal_page.on('requestfailed', (bal_req) => {
     const bal_entry = { url: bal_req.url().slice(0, 300), method: bal_req.method(), failure: bal_req.failure()?.errorText ?? 'unknown' };
-    if (!BAL_IGNORE_NET.some((bal_re) => bal_re.test(bal_entry.url))) {
+    if (!BAL_IGNORE_NET.some((bal_re) => bal_re.test(bal_entry.url)) && !ignore_net.some((bal_re) => bal_re.test(bal_entry.url))) {
       bal_state.requestFailures.push(bal_entry);
     }
   });
@@ -78,7 +78,7 @@ export async function bal_start_run(bal_browser, { name, base, width, height = 8
     if (bal_res.status() >= 400) {
       const bal_url = bal_res.url();
       if (/\.(js|mjs|css|svg|png|woff2?|json|txt|xml|webmanifest|webp|jpg)(\?|$)|\/(sw\.js|workbox-)/.test(bal_url)) {
-        if (!BAL_IGNORE_NET.some((bal_re) => bal_re.test(bal_url))) {
+        if (!BAL_IGNORE_NET.some((bal_re) => bal_re.test(bal_url)) && !ignore_bad_urls.some((bal_re) => bal_re.test(bal_url))) {
           bal_state.badResponses.push({ url: bal_url.slice(0, 300), status: bal_res.status() });
         }
       }
