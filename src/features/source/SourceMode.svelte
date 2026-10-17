@@ -367,7 +367,7 @@
 
   {#snippet bal_problem_rows()}
     <ul>
-      {#each bal_all_problems.slice(0, 50) as bal_problem (bal_problem.line + bal_problem.message)}
+      {#each bal_all_problems.slice(0, 50) as bal_problem, bal_problem_index (bal_problem_index)}
         <li class={bal_problem.severity}>
           <button
             type="button"
