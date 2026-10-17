@@ -59,8 +59,8 @@ function bal_suite(bal_name, bal_devices, bal_notes) {
 const bal_report = {
   generatedAt: new Date().toISOString(),
   product: 'Svelp',
-  releaseCandidate: '1.0.0-rc (version bump withheld until all gates and docs land)',
-  commitUnderTest: 'b2f9065',
+  releaseCandidate: '1.0.0',
+  commitUnderTest: '1e08280',
   buildType: 'production build (vite build) served by vite preview, plus the deployed GitHub Pages build',
   recognitionLabel: 'physical-validation-pending',
   gates: {
@@ -115,6 +115,9 @@ const bal_e2e = [
     bal_device('release-large-mvc3aq89-a-large.json', 'A large form @390 touch'),
     bal_device('release-large-mvc3aq89-b-batch.json', 'B batch scale @390 touch')
   ], '100-plus-question fixture with 60-row matrix: apply, round-trip, responsive editor, bounded Compact/Clinical pagination; 1000-respondent batch completes and saves; a second large batch shows live progress with eta and stops mid-generation writing no partial record.'),
+  bal_suite('release_core (1.0.0 release-candidate build)', [
+    bal_device('release-core-mvc49drv.json', 'local @1440 desktop')
+  ], 'Core suite re-run on the final 1.0.0 build after the version bump; the 390 run of the same pass is green (42 checks) and the deployed Pages build serves version 1.0.0.'),
   bal_suite('release_pages_smoke (local production build)', [
     bal_device('release-pages-mvc3xa4k-360.json', '360 touch'),
     bal_device('release-pages-mvc3xa4k-390.json', '390 touch'),

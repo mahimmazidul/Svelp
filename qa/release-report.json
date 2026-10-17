@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-10-17T08:07:40.449Z",
+  "generatedAt": "2026-10-17T08:15:57.916Z",
   "product": "Svelp",
-  "releaseCandidate": "1.0.0-rc (version bump withheld until all gates and docs land)",
-  "commitUnderTest": "b2f9065",
+  "releaseCandidate": "1.0.0",
+  "commitUnderTest": "1e08280",
   "buildType": "production build (vite build) served by vite preview, plus the deployed GitHub Pages build",
   "recognitionLabel": "physical-validation-pending",
   "gates": {
@@ -330,6 +330,35 @@
         "consoleErrorCount": 0,
         "requestFailureCount": 0,
         "notes": "100-plus-question fixture with 60-row matrix: apply, round-trip, responsive editor, bounded Compact/Clinical pagination; 1000-respondent batch completes and saves; a second large batch shows live progress with eta and stops mid-generation writing no partial record."
+      },
+      {
+        "suite": "release_core (1.0.0 release-candidate build)",
+        "status": "pass",
+        "devices": [
+          {
+            "label": "local @1440 desktop",
+            "run": "release-core-mvc49drv",
+            "base": "http://localhost:4173",
+            "viewport": 1440,
+            "startedAt": "2026-10-17T08:11:03.617Z",
+            "finishedAt": "2026-10-17T08:11:52.938Z",
+            "checks": 41,
+            "failures": 0,
+            "passed": true,
+            "runtimeClean": true,
+            "consoleMessages": 0,
+            "consoleErrors": 0,
+            "consoleWarnings": 0,
+            "pageErrors": 0,
+            "unhandledRejections": 0,
+            "requestFailures": 0,
+            "badResponses": 0
+          }
+        ],
+        "totalChecks": 41,
+        "consoleErrorCount": 0,
+        "requestFailureCount": 0,
+        "notes": "Core suite re-run on the final 1.0.0 build after the version bump; the 390 run of the same pass is green (42 checks) and the deployed Pages build serves version 1.0.0."
       },
       {
         "suite": "release_pages_smoke (local production build)",

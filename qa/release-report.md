@@ -1,6 +1,6 @@
 # Svelp release report
 
-Generated 2026-10-17T08:07:40.449Z · commit under test `b2f9065` · physical-validation-pending.
+Generated 2026-10-17T08:15:57.916Z · commit under test `1e08280` · physical-validation-pending.
 
 ## Summary
 
@@ -14,11 +14,12 @@ Generated 2026-10-17T08:07:40.449Z · commit under test `b2f9065` · physical-va
 | release_pwa_offline | PASS · 26 checks · console errors 0 · request failures 0 |
 | release_integrity | PASS · 24 checks · console errors 0 · request failures 0 |
 | release_large | PASS · 28 checks · console errors 0 · request failures 0 |
+| release_core (1.0.0 release-candidate build) | PASS · 41 checks · console errors 0 · request failures 0 |
 | release_pages_smoke (local production build) | PASS · 45 checks · console errors 0 · request failures 0 |
 | release_pages_smoke (deployed Pages) | PASS · 45 checks · console errors 0 · request failures 0 |
 | Public site smoke (deployed) | PASS |
 
-E2E total: 347 checks across 11 device runs; unexpected console errors 0; failed asset/API requests 0. Every run captures its console and network log in qa/artifacts/.
+E2E total: 388 checks across 11 device runs; unexpected console errors 0; failed asset/API requests 0. Every run captures its console and network log in qa/artifacts/.
 
 ## Environment
 
