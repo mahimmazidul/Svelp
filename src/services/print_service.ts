@@ -31,6 +31,7 @@ function bal_yield_frame(): Promise<void> {
 export async function bal_generate_batch(
   bal_input: bal_GenerateBatchInput & {
     onProgress?: (bal_done: number, bal_total: number) => void;
+    should_cancel?: () => boolean;
   }
 ): Promise<bal_GeneratedBatch> {
   const bal_plan = bal_plan_respondent_ids(bal_input.plan);
@@ -97,6 +98,11 @@ export async function bal_generate_batch(
     }
     bal_input.onProgress?.(Math.min(bal_i + bal_chunk_size, bal_plan.respondentIds.length), bal_plan.respondentIds.length);
     await bal_yield_frame();
+    if (bal_input.should_cancel?.()) {
+      const bal_cancel_error = new Error('Batch cancelled. Nothing was saved.');
+      bal_cancel_error.name = 'BatchCancelled';
+      throw bal_cancel_error;
+    }
   }
 
   await bal_save_batch_with_layout(bal_batch, bal_layout);

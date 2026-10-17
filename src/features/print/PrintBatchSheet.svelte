@@ -40,6 +40,7 @@
   let bal_result = $state<{ batch: PrintBatchRecord; pages: number; bytes: Uint8Array } | null>(null);
   let bal_error = $state<string | null>(null);
   let bal_duplex = $state(false);
+  let bal_cancel_requested = $state(false);
 
   const bal_plan = $derived(
     bal_plan_respondent_ids({
@@ -71,6 +72,7 @@
   async function bal_run(): Promise<void> {
     bal_working = true;
     bal_error = null;
+    bal_cancel_requested = false;
     bal_progress = { done: 0, total: bal_plan.respondentIds.length };
     bal_progress_started = Date.now();
     try {
@@ -88,7 +90,8 @@
         },
         onProgress: (bal_done, bal_total) => {
           bal_progress = { done: bal_done, total: bal_total };
-        }
+        },
+        should_cancel: () => bal_cancel_requested
       });
       const bal_bytes = await hati_pdf_bytes_many(bal_generated.documents as never);
       bal_result = {
@@ -193,6 +196,9 @@ DFD-B07"
           <div class="fill" style="width:{Math.round((bal_progress.done / Math.max(1, bal_progress.total)) * 100)}%"></div>
         </div>
         <p>Generated {bal_progress.done} of {bal_progress.total}{bal_progress_eta !== null ? ` · about ${bal_progress_eta}s left` : ''}</p>
+        {#if !bal_cancel_requested}
+          <Button size="sm" onclick={() => (bal_cancel_requested = true)}>Stop</Button>
+        {/if}
       </div>
     {/if}
 

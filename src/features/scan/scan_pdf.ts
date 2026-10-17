@@ -15,7 +15,9 @@ export interface bal_PdfPageRendered {
 
 export async function bal_load_pdf_document(bal_bytes: ArrayBuffer) {
   const bal_pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
-  bal_pdfjs.GlobalWorkerOptions.workerSrc = bal_pdf_worker_url;
+  if (!bal_pdfjs.GlobalWorkerOptions.workerSrc) {
+    bal_pdfjs.GlobalWorkerOptions.workerSrc = bal_pdf_worker_url;
+  }
   const bal_doc = await bal_pdfjs.getDocument({ data: new Uint8Array(bal_bytes) }).promise;
   return bal_doc;
 }
