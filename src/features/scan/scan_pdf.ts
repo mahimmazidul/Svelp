@@ -1,3 +1,5 @@
+import bal_pdf_worker_url from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url';
+
 export interface bal_PdfPageSource {
   name: string;
   bytes: Blob;
@@ -13,6 +15,7 @@ export interface bal_PdfPageRendered {
 
 export async function bal_load_pdf_document(bal_bytes: ArrayBuffer) {
   const bal_pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  bal_pdfjs.GlobalWorkerOptions.workerSrc = bal_pdf_worker_url;
   const bal_doc = await bal_pdfjs.getDocument({ data: new Uint8Array(bal_bytes) }).promise;
   return bal_doc;
 }
@@ -40,7 +43,7 @@ export async function bal_render_pdf_pages(
     for (let bal_number = 1; bal_number <= bal_doc.numPages; bal_number++) {
       const bal_page = await bal_doc.getPage(bal_number);
       const bal_viewport = bal_page.getViewport({ scale: 1 });
-      const bal_scale = (bal_target_px_per_mm * 72) / 25.4;
+      const bal_scale = (bal_target_px_per_mm * 25.4) / 72;
       const bal_scaled = bal_page.getViewport({ scale: bal_scale });
       const bal_result = await bal_render_page(
         { page: bal_page, viewport: bal_scaled, unscaled: bal_viewport },

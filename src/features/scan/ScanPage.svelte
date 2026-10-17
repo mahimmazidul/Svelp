@@ -307,6 +307,7 @@
       const bal_thumb = await bal_make_thumb(bal_asset.bytes);
       await bal_set_page_thumbs(bal_page.id, bal_thumb, null);
     }
+    bal_pdf_failures = [];
     for (const bal_pdf of bal_pdfs) {
       await bal_ingest_pdf(bal_pdf.name, bal_pdf.bytes);
     }
@@ -356,7 +357,9 @@
     }
     bal_processing = false;
     bal_progress = null;
-    if (bal_result.cancelled) bal_flash('Processing cancelled. Completed pages are kept.');
+    if (bal_pdf_failures.length > 0) {
+      bal_note = `${bal_pdf_failures.length} PDF file${bal_pdf_failures.length === 1 ? '' : 's'} could not be read: ${bal_pdf_failures.join('; ')}`;
+    } else if (bal_result.cancelled) bal_flash('Processing cancelled. Completed pages are kept.');
     else if (!bal_global) bal_flash(`Processed ${bal_result.processed} page${bal_result.processed === 1 ? '' : 's'}.`);
   }
 
@@ -424,6 +427,8 @@
     await bal_set_page_thumbs(bal_page_id, null, bal_thumb);
   }
 
+  let bal_pdf_failures: string[] = [];
+
   async function bal_ingest_pdf(bal_name: string, bal_bytes: Blob): Promise<void> {
     try {
       const bal_rendered = await bal_render_pdf_pages(
@@ -434,8 +439,8 @@
         bal_batch as ScanBatchRecord,
         bal_rendered.map((bal_page) => ({ name: bal_page.name, type: 'image/jpeg', bytes: bal_page.bytes }))
       );
-    } catch {
-      bal_flash(`Could not read ${bal_name} as a PDF.`);
+    } catch (bal_err) {
+      bal_pdf_failures.push(`${bal_name}: ${bal_err instanceof Error ? bal_err.message : 'the file could not be read as a PDF.'}`);
     }
   }
 
